@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A vexo application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/vexo.exe %u
+Terminal=false
+Type=Application
+Icon=vexo.exe
+Categories=Utility;
+StartupWMClass=vexo.exe
+
+ 

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=vexo
+Exec=vexo
+Icon=vexo
+Categories=Development;
+Terminal=false
+Keywords=wails
+Version=1.0
+StartupNotify=false
