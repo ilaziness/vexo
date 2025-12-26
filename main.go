@@ -68,12 +68,7 @@ func main() {
 		MinHeight: 400,
 	})
 
-	sshService := services.NewSSHService(app)
-	app.RegisterService(application.NewService(sshService))
-	app.OnShutdown(func() {
-		services.Logger.Sugar().Debugln("run app OnShutdown...")
-		sshService.Close()
-	})
+	services.RegisterServices(app)
 
 	// Run the application. This blocks until the application has been exited.
 	err := app.Run()

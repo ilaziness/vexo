@@ -8,7 +8,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/pkg/sftp"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -29,6 +28,9 @@ func init() {
 // sshClient 客户端连接列表，key是host:port字符串
 var sshClient = new(sync.Map)
 
+// sshSession 终端会话列表，key是SSHConnect.ID
+var sshSession = new(sync.Map)
+
 type SSHEventData struct {
 	ID   string `json:"id"`
 	Data []byte `json:"data"`
@@ -36,7 +38,7 @@ type SSHEventData struct {
 
 type SSHConnect struct {
 	ID         string
-	sshServie  *SSHService
+	sshService *SSHService
 	clientKey  string
 	client     *ssh.Client
 	session    *ssh.Session
@@ -106,6 +108,8 @@ func (s *SSHService) Connect(host string, port int, user string, password string
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.SSHConnects[connect.ID] = connect
+	// Add to sshSession sync.Map
+	sshSession.Store(connect.ID, connect)
 	return connect.ID, nil
 }
 
@@ -196,7 +200,7 @@ func safeTruncateUTF8(buf []byte) int {
 
 func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client) *SSHConnect {
 	return &SSHConnect{
-		sshServie:  sshService,
+		sshService: sshService,
 		clientKey:  clientKey,
 		client:     client,
 		ID:         generateConnectID(),
@@ -212,11 +216,14 @@ func (sc *SSHConnect) Start() error {
 	if err != nil {
 		return err
 	}
-	sc.session.RequestPty("xterm-256color", 80, 40, ssh.TerminalModes{
+	err = sc.session.RequestPty("xterm-256color", 80, 40, ssh.TerminalModes{
 		ssh.ECHO:          1,
 		ssh.TTY_OP_ISPEED: 14400, // 输入速度
 		ssh.TTY_OP_OSPEED: 14400, // 输出速度
 	})
+	if err != nil {
+		return err
+	}
 	err = sc.startOutput()
 	if err != nil {
 		return err
@@ -238,7 +245,7 @@ func (sc *SSHConnect) Start() error {
 		}
 		sc.closeSig <- struct{}{}
 		close(sc.closeSig)
-		sc.Close(true)
+		_ = sc.Close(true)
 	}()
 	return nil
 }
@@ -246,7 +253,7 @@ func (sc *SSHConnect) Start() error {
 func (sc *SSHConnect) sendOutput() {
 	go func() {
 		for data := range sc.outputChan {
-			sc.sshServie.app.Event.Emit(SSHEventOutput, SSHEventData{
+			sc.sshService.app.Event.Emit(SSHEventOutput, SSHEventData{
 				ID:   sc.ID,
 				Data: data,
 			})
@@ -332,7 +339,7 @@ func (sc *SSHConnect) startInput() error {
 	if err != nil {
 		return err
 	}
-	sc.sshServie.app.Event.On(SSHEventInput, func(event *application.CustomEvent) {
+	sc.sshService.app.Event.On(SSHEventInput, func(event *application.CustomEvent) {
 		indata := event.Data.(SSHEventData)
 		if indata.ID != sc.ID {
 			return
@@ -347,26 +354,28 @@ func (sc *SSHConnect) startInput() error {
 // hasExit 会话是否已经结束，true已经结束，不再发送退出信号
 func (sc *SSHConnect) Close(hasExit bool) error {
 	if !hasExit {
-		sc.sshServie.app.Event.Emit(SSHEventInput, SSHEventData{
+		sc.sshService.app.Event.Emit(SSHEventInput, SSHEventData{
 			ID:   sc.ID,
 			Data: []byte("exit\r"),
 		})
 		<-sc.closeSig
 	}
 	if sc.session != nil {
-		sc.session.Close()
+		_ = sc.session.Close()
 	}
 	sc.outputChan <- []byte("connect closed")
 	close(sc.outputChan)
 	sc.sendColseEvent()
-	sc.sshServie.closeClient(sc.clientKey)
+	sc.sshService.closeClient(sc.clientKey)
+	// Remove from sshSession sync.Map
+	sshSession.Delete(sc.ID)
 	Logger.Info("SSH connection closed", zap.String("ID", sc.ID))
 	return nil
 }
 
 // sendColseEvent 发送会话关闭消息
 func (sc *SSHConnect) sendColseEvent() {
-	sc.sshServie.app.Event.Emit(SSHEventClose, SSHEventData{ID: sc.ID})
+	sc.sshService.app.Event.Emit(SSHEventClose, SSHEventData{ID: sc.ID})
 }
 
 // Resize sets the remote pty size. cols/rows come from frontend terminal.
@@ -378,23 +387,11 @@ func (sc *SSHConnect) Resize(cols int, rows int) error {
 	return sc.session.WindowChange(rows, cols)
 }
 
-// ListSFTP lists files under the given path using SFTP over the existing SSH connection.
-func (sc *SSHConnect) ListSFTP(path string) ([]string, error) {
-	if sc.client == nil {
-		return nil, fmt.Errorf("no active SSH client")
+// GetSSHSession retrieves an SSH session by its ID from the sshSession sync.Map
+func GetSSHSession(id string) (*SSHConnect, bool) {
+	session, ok := sshSession.Load(id)
+	if !ok {
+		return nil, false
 	}
-	c, err := sftp.NewClient(sc.client)
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-	entries, err := c.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-	names := make([]string, 0, len(entries))
-	for _, e := range entries {
-		names = append(names, e.Name())
-	}
-	return names, nil
+	return session.(*SSHConnect), true
 }

@@ -5,6 +5,8 @@ import {
   TextField,
   Button,
   Typography,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   LogService,
@@ -12,6 +14,7 @@ import {
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { SSHLinkInfo } from "../types/ssh";
 import Terminal from "./Terminal";
+import Sftp from "./Sftp";
 import { useMessageStore } from "../stores/common";
 import { parseCallServiceError } from "../func/service";
 
@@ -144,6 +147,7 @@ export default function SSHContainer() {
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
+  const [activeTab, setActiveTab] = React.useState(0); // 0 for terminal, 1 for sftp
 
   const connect = async (li: SSHLinkInfo) => {
     setConnectionError("");
@@ -167,6 +171,10 @@ export default function SSHContainer() {
     }
   };
 
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
   if (linkID === "") {
     return (
       <NewConnection
@@ -176,5 +184,15 @@ export default function SSHContainer() {
       />
     );
   }
-  return <Terminal linkID={linkID} />;
+
+  return (
+    <Paper sx={{ height: "100%", display: "flex", flexDirection: "column", flex: 1 }}>
+      <Tabs value={activeTab} onChange={handleTabChange} aria-label="ssh tabs">
+        <Tab label="Terminal" />
+        <Tab label="SFTP" />
+      </Tabs>
+      {activeTab === 0 && <Terminal linkID={linkID} />}
+      {activeTab === 1 && <Sftp linkID={linkID} />}
+    </Paper>
+  );
 }
