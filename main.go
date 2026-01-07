@@ -28,7 +28,6 @@ func init() {
 // and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
 // logs any error that might occur.
 func main() {
-
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
@@ -60,12 +59,12 @@ func main() {
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
-		//BackgroundColour: application.NewRGB(27, 38, 54),
-		URL:       "/",
-		Width:     1600,
-		Height:    900,
-		MinWidth:  800,
-		MinHeight: 400,
+		BackgroundColour: application.NewRGB(27, 38, 54),
+		URL:              "/",
+		Width:            1600,
+		Height:           900,
+		MinWidth:         800,
+		MinHeight:        400,
 	})
 
 	services.RegisterServices(app)

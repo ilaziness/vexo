@@ -34,7 +34,6 @@ export const decodeBase64 = (base64: string): Uint8Array => {
 
 export const encodeBase64 = (data: string | Uint8Array): string => {
   let uint8Array: Uint8Array;
-
   if (typeof data === "string") {
     // xterm.js 的 onData 回调传入的是 string，但它代表原始字节序列（如 "\x1b[D"）
     // 必须按 Latin1（即每个字符 charCode = byte）方式转为 Uint8Array
@@ -49,4 +48,13 @@ export const encodeBase64 = (data: string | Uint8Array): string => {
   }
   // Base64 编码
   return btoa(binary);
+};
+
+export const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return "0 B";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+  if (bytes < 1024 * 1024 * 1024)
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
 };

@@ -5,6 +5,184 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+/**
+ * BookmarkGroup 书签分组结构
+ */
+export class BookmarkGroup {
+    "name": string;
+    "bookmarks": SSHBookmark[];
+
+    /** Creates a new BookmarkGroup instance. */
+    constructor($$source: Partial<BookmarkGroup> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("bookmarks" in $$source)) {
+            this["bookmarks"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new BookmarkGroup instance from a string or object.
+     */
+    static createFrom($$source: any = {}): BookmarkGroup {
+        const $$createField1_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("bookmarks" in $$parsedSource) {
+            $$parsedSource["bookmarks"] = $$createField1_0($$parsedSource["bookmarks"]);
+        }
+        return new BookmarkGroup($$parsedSource as Partial<BookmarkGroup>);
+    }
+}
+
+export class Config {
+    "General": GeneralConfig;
+    "Terminal": TerminalConfig;
+
+    /** Creates a new Config instance. */
+    constructor($$source: Partial<Config> = {}) {
+        if (!("General" in $$source)) {
+            this["General"] = (new GeneralConfig());
+        }
+        if (!("Terminal" in $$source)) {
+            this["Terminal"] = (new TerminalConfig());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Config instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Config {
+        const $$createField0_0 = $$createType2;
+        const $$createField1_0 = $$createType3;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("General" in $$parsedSource) {
+            $$parsedSource["General"] = $$createField0_0($$parsedSource["General"]);
+        }
+        if ("Terminal" in $$parsedSource) {
+            $$parsedSource["Terminal"] = $$createField1_0($$parsedSource["Terminal"]);
+        }
+        return new Config($$parsedSource as Partial<Config>);
+    }
+}
+
+/**
+ * FileInfo represents file information for SFTP operations
+ */
+export class FileInfo {
+    "name": string;
+    "size": number;
+    "mode": string;
+    "modTime": string;
+    "isDir": boolean;
+
+    /** Creates a new FileInfo instance. */
+    constructor($$source: Partial<FileInfo> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("mode" in $$source)) {
+            this["mode"] = "";
+        }
+        if (!("modTime" in $$source)) {
+            this["modTime"] = "";
+        }
+        if (!("isDir" in $$source)) {
+            this["isDir"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FileInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FileInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FileInfo($$parsedSource as Partial<FileInfo>);
+    }
+}
+
+export class GeneralConfig {
+    "UserDataDir": string;
+
+    /** Creates a new GeneralConfig instance. */
+    constructor($$source: Partial<GeneralConfig> = {}) {
+        if (!("UserDataDir" in $$source)) {
+            this["UserDataDir"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GeneralConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GeneralConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GeneralConfig($$parsedSource as Partial<GeneralConfig>);
+    }
+}
+
+/**
+ * SSHBookmark 书签连接信息结构
+ */
+export class SSHBookmark {
+    "group_name": string;
+    "id": string;
+    "title": string;
+    "host": string;
+    "port": number;
+    "private_key": string;
+    "user": string;
+    "password": string;
+
+    /** Creates a new SSHBookmark instance. */
+    constructor($$source: Partial<SSHBookmark> = {}) {
+        if (!("group_name" in $$source)) {
+            this["group_name"] = "";
+        }
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("host" in $$source)) {
+            this["host"] = "";
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+        if (!("private_key" in $$source)) {
+            this["private_key"] = "";
+        }
+        if (!("user" in $$source)) {
+            this["user"] = "";
+        }
+        if (!("password" in $$source)) {
+            this["password"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SSHBookmark instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SSHBookmark {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SSHBookmark($$parsedSource as Partial<SSHBookmark>);
+    }
+}
+
 export class SSHEventData {
     "id": string;
     "data": string;
@@ -33,3 +211,55 @@ export class SSHEventData {
         return new SSHEventData($$parsedSource as Partial<SSHEventData>);
     }
 }
+
+export class SftpService {
+
+    /** Creates a new SftpService instance. */
+    constructor($$source: Partial<SftpService> = {}) {
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SftpService instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SftpService {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SftpService($$parsedSource as Partial<SftpService>);
+    }
+}
+
+export class TerminalConfig {
+    "Font": string;
+    "FontSize": number;
+    "LineHeight": number;
+
+    /** Creates a new TerminalConfig instance. */
+    constructor($$source: Partial<TerminalConfig> = {}) {
+        if (!("Font" in $$source)) {
+            this["Font"] = "";
+        }
+        if (!("FontSize" in $$source)) {
+            this["FontSize"] = 0;
+        }
+        if (!("LineHeight" in $$source)) {
+            this["LineHeight"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TerminalConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TerminalConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TerminalConfig($$parsedSource as Partial<TerminalConfig>);
+    }
+}
+
+// Private type creation functions
+const $$createType0 = SSHBookmark.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = GeneralConfig.createFrom;
+const $$createType3 = TerminalConfig.createFrom;

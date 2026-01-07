@@ -13,7 +13,7 @@ import (
 // LogLevel 可由外部修改以调整运行时日志级别
 var LogLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
 
-// 包级别 logger 供全局使用
+// Logger 包级别 logger 供全局使用
 var Logger *zap.Logger
 
 type LogService struct {
