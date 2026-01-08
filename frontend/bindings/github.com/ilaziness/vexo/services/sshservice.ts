@@ -37,8 +37,8 @@ export function Resize(ID: string, cols: number, rows: number): $CancellableProm
 /**
  * Restart restarts the SSH connection with the given ID.
  */
-export function Restart(ID: string): $CancellablePromise<void> {
-    return $Call.ByID(161586184, ID);
+export function Restart(ID: string, cols: number, rows: number): $CancellablePromise<void> {
+    return $Call.ByID(161586184, ID, cols, rows);
 }
 
 /**
@@ -51,8 +51,8 @@ export function SelectKeyFile(): $CancellablePromise<string> {
 /**
  * Start starts the SSH connection with the given ID.
  */
-export function Start(ID: string): $CancellablePromise<void> {
-    return $Call.ByID(3362565939, ID);
+export function Start(ID: string, cols: number, rows: number): $CancellablePromise<void> {
+    return $Call.ByID(3362565939, ID, cols, rows);
 }
 
 /**

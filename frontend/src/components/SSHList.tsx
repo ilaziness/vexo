@@ -1,22 +1,13 @@
-import {
-  Box,
-  IconButton,
-  Menu,
-  MenuItem,
-  Tab,
-  Tabs,
-  Tooltip,
-} from "@mui/material";
+import { Box, Menu, MenuItem, Tab, Tabs } from "@mui/material";
 import { tabsClasses } from "@mui/material/Tabs";
 import React from "react";
 import SSHContainer from "./SSHContainer";
-import AddIcon from "@mui/icons-material/Add";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import { useSSHTabsStore } from "../stores/ssh";
-import { getTabIndex } from "../func/service";
+import OpBar from "./OpBar.tsx";
 
 export default function SSHList() {
-  const { sshTabs, pushTab, delTab } = useSSHTabsStore();
+  const { sshTabs, delTab } = useSSHTabsStore();
   const [tabValue, setTabValue] = React.useState(sshTabs[0].index); // 当前标签
   const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
     null,
@@ -53,15 +44,15 @@ export default function SSHList() {
     closeContextMenu();
   };
 
-  const addTab = () => {
-    const number = sshTabs.length + 1;
-    const newIndex = `${getTabIndex()}`;
-    pushTab({
-      index: newIndex,
-      name: `新建连接 ${number}`,
-    });
-    setTabValue(newIndex);
-  };
+  // const addTab = () => {
+  //   const number = sshTabs.length + 1;
+  //   const newIndex = `${getTabIndex()}`;
+  //   pushTab({
+  //     index: newIndex,
+  //     name: `新建连接 ${number}`,
+  //   });
+  //   setTabValue(newIndex);
+  // };
 
   const tabOnchange = (event: React.SyntheticEvent, newValue: string) => {
     setTabValue(newValue);
@@ -86,6 +77,8 @@ export default function SSHList() {
           alignItems: "center",
           direction: "row",
           width: "100%",
+          pr: 1,
+          "--wails-draggable": "drag",
         }}
       >
         <Tabs
@@ -135,11 +128,12 @@ export default function SSHList() {
             />
           ))}
         </Tabs>
-        <Tooltip title="新建连接">
-          <IconButton size="small" onClick={addTab}>
-            <AddIcon />
-          </IconButton>
-        </Tooltip>
+        {/*<Tooltip title="新建连接">*/}
+        {/*  <IconButton size="small" onClick={addTab}>*/}
+        {/*    <AddIcon />*/}
+        {/*  </IconButton>*/}
+        {/*</Tooltip>*/}
+        <OpBar />
         <Menu
           open={Boolean(menuAnchorEl)}
           anchorEl={menuAnchorEl}

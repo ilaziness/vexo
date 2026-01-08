@@ -1,16 +1,34 @@
-import { Box, IconButton, Stack, Tooltip } from "@mui/material";
+import {
+  Box,
+  IconButton,
+  Stack,
+  Tooltip,
+  useColorScheme,
+  Menu,
+  MenuItem,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+} from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import BookmarksIcon from "@mui/icons-material/Bookmarks";
+import ToggleOnIcon from "@mui/icons-material/ToggleOn";
 import {
   BookmarkService,
   ConfigService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../stores/ssh";
 import { getTabIndex } from "../func/service";
+import React, { useState } from "react";
 
 export default function Header() {
   const { pushTab } = useSSHTabsStore();
+  const { mode, setMode } = useColorScheme();
+
+  // 颜色模式选择菜单相关状态
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
 
   const showSettingWindow = () => {
     ConfigService.ShowWindow().then(() => {});
@@ -25,14 +43,38 @@ export default function Header() {
     });
   };
 
+  const changeColorMode = (mode: "system" | "light" | "dark") => {
+    console.log("changeColorMode", mode);
+    setMode(mode);
+  };
+
+  const handleColorModeMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleColorModeMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleColorModeSelect = (mode: "system" | "light" | "dark") => {
+    changeColorMode(mode);
+    handleColorModeMenuClose();
+  };
+
   return (
     <Box
       component={"header"}
-      sx={{
-        width: "42px",
-        background:
-          "linear-gradient(to bottom, rgba(16, 18, 34, 1), rgba(27, 35, 63, 1))",
-      }}
+      sx={[
+        {
+          width: "42px",
+          backgroundColor: "#f2f2f2",
+        },
+        (theme) =>
+          theme.applyStyles("dark", {
+            background:
+              "linear-gradient(to bottom, rgba(16, 18, 34, 1), rgba(27, 35, 63, 1))",
+          }),
+      ]}
     >
       <Stack direction="column" spacing={1} alignItems="center" padding={0.5}>
         <Tooltip title="新建连接">
@@ -55,6 +97,60 @@ export default function Header() {
             <SettingsIcon />
           </IconButton>
         </Tooltip>
+        <Tooltip title="修改颜色模式">
+          <IconButton size="small" onClick={handleColorModeMenuOpen}>
+            <ToggleOnIcon />
+          </IconButton>
+        </Tooltip>
+
+        {/* 颜色模式选择菜单 */}
+        <Menu
+          anchorEl={anchorEl}
+          open={open}
+          onClose={handleColorModeMenuClose}
+          onClick={(e) => e.stopPropagation()}
+          PaperProps={{
+            elevation: 8,
+            sx: {
+              overflow: "visible",
+              mt: 1,
+            },
+          }}
+        >
+          <RadioGroup
+            value={mode}
+            onChange={(e) =>
+              handleColorModeSelect(
+                e.target.value as "system" | "light" | "dark",
+              )
+            }
+          >
+            <MenuItem>
+              <FormControlLabel
+                value="system"
+                control={<Radio checked={mode === "system"} size="small" />}
+                label="系统"
+                sx={{ width: "100%" }}
+              />
+            </MenuItem>
+            <MenuItem>
+              <FormControlLabel
+                value="light"
+                control={<Radio checked={mode === "light"} size="small" />}
+                label="明亮"
+                sx={{ width: "100%" }}
+              />
+            </MenuItem>
+            <MenuItem>
+              <FormControlLabel
+                value="dark"
+                control={<Radio checked={mode === "dark"} size="small" />}
+                label="暗黑"
+                sx={{ width: "100%" }}
+              />
+            </MenuItem>
+          </RadioGroup>
+        </Menu>
       </Stack>
     </Box>
   );

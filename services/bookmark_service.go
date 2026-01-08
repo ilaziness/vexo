@@ -64,6 +64,10 @@ func (bs *BookmarkService) initializeDefaultBookmarks() error {
 
 // ShowWindow show bookmark manage window
 func (bs *BookmarkService) ShowWindow() {
+	if bs.window != nil {
+		bs.window.Focus()
+		return
+	}
 	bs.window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "书签",
 		URL:              "/bookmark",

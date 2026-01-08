@@ -128,25 +128,25 @@ func (s *SSHService) clientNumSub(clientKey string) {
 }
 
 // Start starts the SSH connection with the given ID.
-func (s *SSHService) Start(ID string) error {
+func (s *SSHService) Start(ID string, cols, rows int) error {
 	Logger.Debug("Starting SSH connection", zap.String("id", ID))
 
 	conn, ok := s.SSHConnects.Load(ID)
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
-	return conn.(*SSHConnect).Start()
+	return conn.(*SSHConnect).Start(cols, rows)
 }
 
 // Restart restarts the SSH connection with the given ID.
-func (s *SSHService) Restart(ID string) error {
+func (s *SSHService) Restart(ID string, cols, rows int) error {
 	Logger.Debug("Restarting SSH connection", zap.String("id", ID))
 	conn, ok := s.SSHConnects.Load(ID)
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
 	_ = s.CloseByID(ID)
-	return conn.(*SSHConnect).Start()
+	return conn.(*SSHConnect).Start(cols, rows)
 }
 
 // StartSftp create sftp service for the SSH connection
@@ -253,14 +253,14 @@ func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client)
 }
 
 // Start 开启交互式终端会话
-func (sc *SSHConnect) Start() error {
-	Logger.Debug("Starting SSH session", zap.String("id", sc.ID))
+func (sc *SSHConnect) Start(cols, rows int) error {
+	Logger.Debug("Starting SSH session", zap.String("id", sc.ID), zap.String("size", fmt.Sprintf("%dx%d", cols, rows)))
 	var err error
 	sc.session, err = sc.client.NewSession()
 	if err != nil {
 		return err
 	}
-	err = sc.session.RequestPty("xterm-256color", 80, 40, ssh.TerminalModes{
+	err = sc.session.RequestPty("xterm-256color", cols, rows, ssh.TerminalModes{
 		ssh.ECHO:          1,
 		ssh.TTY_OP_ISPEED: 14400, // 输入速度
 		ssh.TTY_OP_OSPEED: 14400, // 输出速度

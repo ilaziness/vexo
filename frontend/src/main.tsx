@@ -5,15 +5,15 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { RouterProvider } from "react-router/dom";
 import routes from "./routes.ts";
 
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
+const Theme = createTheme({
+  colorSchemes: {
+    dark: true,
   },
 });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   //<React.StrictMode>
-  <ThemeProvider theme={darkTheme}>
+  <ThemeProvider theme={Theme} defaultMode="dark">
     <CssBaseline />
     <RouterProvider router={routes} />
   </ThemeProvider>,

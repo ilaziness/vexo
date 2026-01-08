@@ -10,7 +10,7 @@ import {
   SSHService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import useTerminalStore from "../stores/terminal";
-import {decodeBase64, encodeBase64} from "../func/decode";
+import { decodeBase64, encodeBase64 } from "../func/decode";
 
 // Terminal 组件，封装 xterm.js
 export default function Terminal(props: { linkID: string }) {
@@ -18,7 +18,7 @@ export default function Terminal(props: { linkID: string }) {
   const term = React.useRef<TerminalLib>(null);
   const fit = React.useRef<FitAddon>(null);
   const resizeTimeout = React.useRef<number | null>(null);
-  const sshOutputHandler = React.useRef<(event: any) => void>(null)
+  const sshOutputHandler = React.useRef<(event: any) => void>(null);
 
   // 使用 useCallback 确保 onData 回调函数的引用保持稳定
   const handleInputData = React.useCallback(
@@ -43,8 +43,6 @@ export default function Terminal(props: { linkID: string }) {
       cursorStyle: "block",
       fontFamily: settings.fontFamily,
       fontSize: settings.fontSize,
-      lineHeight: settings.lineHeight,
-      letterSpacing: 0.1,
     });
     fit.current = new FitAddon();
     term.current.loadAddon(fit.current);
@@ -54,12 +52,15 @@ export default function Terminal(props: { linkID: string }) {
       fit.current.fit();
       // Handle user input
       term.current?.onData(handleInputData);
-      SSHService.Start(props.linkID)
+      SSHService.Start(
+        props.linkID,
+        term.current?.cols || 80,
+        term.current?.rows || 24,
+      )
         .then(() => {
           LogService.Info(
             `SSH connection started for link ID: ${props.linkID}`,
           );
-          SSHService.Resize(props.linkID, term.current?.cols || 80, term.current?.rows || 24)
         })
         .catch((err) => {
           LogService.Error(
@@ -101,10 +102,12 @@ export default function Terminal(props: { linkID: string }) {
       LogService.Info(
         `Terminal component unmounting, closing SSH connection ${props.linkID}`,
       );
-      unsubscribe()
-      SSHService.CloseByID(props.linkID).then(() => {}).catch((err) => {
-        LogService.Error(err.message)
-      });
+      unsubscribe();
+      SSHService.CloseByID(props.linkID)
+        .then(() => {})
+        .catch((err) => {
+          LogService.Error(err.message);
+        });
       term.current?.dispose();
       window.removeEventListener("resize", () => {
         fit.current?.fit();
@@ -121,7 +124,10 @@ export default function Terminal(props: { linkID: string }) {
         overflow: "hidden",
       }}
     >
-      <Box ref={termRef} sx={{width: "100%", height: "100%", border: "1px solid red"}} />
+      <Box
+        ref={termRef}
+        sx={{ width: "100%", height: "100%", border: "1px solid red" }}
+      />
     </Box>
   );
 }

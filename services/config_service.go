@@ -94,6 +94,10 @@ func NewConfigService() *ConfigService {
 }
 
 func (cs *ConfigService) ShowWindow() {
+	if cs.window != nil {
+		cs.window.Focus()
+		return
+	}
 	cs.window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "设置",
 		URL:              "/setting",
