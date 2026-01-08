@@ -183,6 +183,9 @@ export class SSHBookmark {
     }
 }
 
+/**
+ * SSHEventData exchange data struct
+ */
 export class SSHEventData {
     "id": string;
     "data": string;
@@ -209,23 +212,6 @@ export class SSHEventData {
             $$parsedSource["data"] = $$createField1_0($$parsedSource["data"]);
         }
         return new SSHEventData($$parsedSource as Partial<SSHEventData>);
-    }
-}
-
-export class SftpService {
-
-    /** Creates a new SftpService instance. */
-    constructor($$source: Partial<SftpService> = {}) {
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SftpService instance from a string or object.
-     */
-    static createFrom($$source: any = {}): SftpService {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SftpService($$parsedSource as Partial<SftpService>);
     }
 }
 

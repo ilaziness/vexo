@@ -18,51 +18,45 @@ const (
 	SSHEventInput  = "sshInput"
 	SSHEventOutput = "sshOutput"
 	SSHEventClose  = "sshClose"
+	SFTPEventClose = "sftpClose"
 )
 
 func init() {
 	application.RegisterEvent[SSHEventData](SSHEventInput)
 	application.RegisterEvent[SSHEventData](SSHEventOutput)
 	application.RegisterEvent[SSHEventData](SSHEventClose)
+	application.RegisterEvent[SSHEventData](SFTPEventClose)
 }
 
-// sshClient 客户端连接列表，key是host:port字符串
-var sshClient = new(sync.Map)
-
-// sshSession 终端会话列表，key是SSHConnect.ID
-var sshSession = new(sync.Map)
-
+// SSHEventData exchange data struct
 type SSHEventData struct {
 	ID   string `json:"id"`
 	Data []byte `json:"data"`
 }
 
 type SSHConnect struct {
-	ID          string
-	sshService  *SSHService
-	clientKey   string
-	client      *ssh.Client
-	session     *ssh.Session
-	sftpService *SftpService
-	outputChan  chan []byte
-	closeSig    chan struct{}
-	isClosed    bool
+	ID             string
+	clientKey      string
+	client         *ssh.Client
+	sshService     *SSHService
+	session        *ssh.Session
+	sftpService    *SftpService
+	outputChan     chan []byte
+	outputBuffSize int
 }
 
 type SSHService struct {
-	SSHConnects map[string]*SSHConnect // key是SSHConnect.ID
-	mutex       sync.Mutex
+	clients     *sync.Map // 客户端连接列表，key是host:port字符串, value是*ssh.Client
+	clientNum   *sync.Map // 客户端session列表，key是host:port字符串，value打开的会话数
+	SSHConnects *sync.Map // 终端会话列表，key是SSHConnect.ID，value是*sshConnect
 }
 
 func NewSSHService() *SSHService {
 	return &SSHService{
-		SSHConnects: make(map[string]*SSHConnect),
+		clients:     new(sync.Map),
+		clientNum:   new(sync.Map),
+		SSHConnects: new(sync.Map),
 	}
-}
-
-// generateID generates a unique ID based on the current timestamp.
-func generateConnectID() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
 // Connect establishes an SSH connection to the specified host using the provided credentials.
@@ -71,7 +65,7 @@ func (s *SSHService) Connect(host string, port int, user string, password string
 	Logger.Debug("Connecting to SSH server", zap.String("host", host), zap.Int("port", port))
 	var client *ssh.Client
 	clientKey := fmt.Sprintf("%s:%d", host, port)
-	clientVal, ok := sshClient.Load(clientKey)
+	clientVal, ok := s.clients.Load(clientKey)
 	if ok {
 		Logger.Debug("Using existing SSH client", zap.String("clientKey", clientKey))
 		client = clientVal.(*ssh.Client)
@@ -104,40 +98,65 @@ func (s *SSHService) Connect(host string, port int, user string, password string
 			return "", err
 		}
 		// Store the new client for reuse
-		sshClient.Store(clientKey, client)
+		s.clients.Store(clientKey, client)
 		Logger.Debug("ssh connect ok and stored in cache", zap.String("clientKey", clientKey))
 	}
 	connect := NewSSHConnect(s, clientKey, client)
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.SSHConnects[connect.ID] = connect
-	// Add to sshSession sync.Map
-	sshSession.Store(connect.ID, connect)
+	s.SSHConnects.Store(connect.ID, connect)
+	s.clientNumAdd(clientKey)
 	Logger.Debug("set connect done")
 	return connect.ID, nil
+}
+
+func (s *SSHService) clientNumAdd(clientKey string) {
+	oldNum, ok := s.clientNum.Load(clientKey)
+	if ok {
+		s.clientNum.Store(clientKey, oldNum.(int)+1)
+	} else {
+		s.clientNum.Store(clientKey, 1)
+	}
+}
+
+func (s *SSHService) clientNumSub(clientKey string) {
+	oldNum, ok := s.clientNum.Load(clientKey)
+	if ok {
+		s.clientNum.Store(clientKey, oldNum.(int)-1)
+		if oldNum.(int) <= 0 {
+			s.closeClient(clientKey)
+		}
+	}
 }
 
 // Start starts the SSH connection with the given ID.
 func (s *SSHService) Start(ID string) error {
 	Logger.Debug("Starting SSH connection", zap.String("id", ID))
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	conn, ok := s.SSHConnects[ID]
+
+	conn, ok := s.SSHConnects.Load(ID)
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
-	return conn.Start()
+	return conn.(*SSHConnect).Start()
+}
+
+// Restart restarts the SSH connection with the given ID.
+func (s *SSHService) Restart(ID string) error {
+	Logger.Debug("Restarting SSH connection", zap.String("id", ID))
+	conn, ok := s.SSHConnects.Load(ID)
+	if !ok {
+		return fmt.Errorf("SSH connection with ID %s not found", ID)
+	}
+	_ = s.CloseByID(ID)
+	return conn.(*SSHConnect).Start()
 }
 
 // StartSftp create sftp service for the SSH connection
 func (s *SSHService) StartSftp(ID string) error {
 	Logger.Debug("Starting SFTP service", zap.String("id", ID))
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	conn, ok := s.SSHConnects[ID]
+	connAny, ok := s.SSHConnects.Load(ID)
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
+	conn := connAny.(*SSHConnect)
 	// If SFTP service already exists, return without error
 	if conn.sftpService != nil {
 		Logger.Debug("SFTP service already exists for this connection", zap.String("id", ID))
@@ -149,69 +168,61 @@ func (s *SSHService) StartSftp(ID string) error {
 		return err
 	}
 	conn.sftpService = sftpService
+	sftpClient.Store(ID, sftpService)
 	Logger.Debug("SFTP service started successfully", zap.String("id", ID))
 	return nil
 }
 
 // Resize resizes the terminal for the SSH connection with the given ID.
 func (s *SSHService) Resize(ID string, cols int, rows int) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	conn, ok := s.SSHConnects[ID]
+	conn, ok := s.SSHConnects.Load(ID)
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
-	return conn.Resize(cols, rows)
+	return conn.(*SSHConnect).Resize(cols, rows)
 }
 
 // Close closes all SSH connections managed by the service.
 func (s *SSHService) Close() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	for _, conn := range s.SSHConnects {
-		conn.Close(false)
-	}
-	s.SSHConnects = make(map[string]*SSHConnect)
+	s.SSHConnects.Range(func(_, connAny any) bool {
+		conn := connAny.(*SSHConnect)
+		_ = conn.Close()
+		return true
+	})
+	s.clients = new(sync.Map)
+	s.clientNum = new(sync.Map)
+	s.SSHConnects = new(sync.Map)
 }
 
 // CloseByID closes the SSH connection with the specified ID.
 func (s *SSHService) CloseByID(ID string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	conn, ok := s.SSHConnects[ID]
+	connAny, ok := s.SSHConnects.Load(ID)
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
-	conn.Close(false)
-	delete(s.SSHConnects, ID)
+	conn := connAny.(*SSHConnect)
+	_ = conn.Close()
+	s.SSHConnects.Delete(ID)
+	s.clientNumSub(conn.clientKey)
 	return nil
 }
 
-// GetSftpService returns the SFTP service for the specified SSH connection ID
-func (s *SSHService) GetSftpService(ID string) (*SftpService, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	conn, ok := s.SSHConnects[ID]
-	if !ok {
-		return nil, fmt.Errorf("SSH connection with ID %s not found", ID)
-	}
-	if conn.sftpService == nil {
-		return nil, fmt.Errorf("SFTP service not started for connection %s", ID)
-	}
-	return conn.sftpService, nil
-}
-
+// closeClient close ssh client
 func (s *SSHService) closeClient(clientKey string) {
-	for _, conn := range s.SSHConnects {
+	s.SSHConnects.Range(func(_, value any) bool {
+		conn := value.(*SSHConnect)
 		if conn.clientKey == clientKey {
-			return
+			client, ok := s.clients.LoadAndDelete(clientKey)
+			if ok {
+				err := client.(*ssh.Client).Close()
+				if err != nil {
+					Logger.Warn("Failed to close SSH client", zap.Error(err))
+				}
+			}
+			return false
 		}
-	}
-	client, ok := sshClient.LoadAndDelete(clientKey)
-	if !ok {
-		return
-	}
-	client.(*ssh.Client).Close()
+		return true
+	})
 }
 
 // SelectKeyFile 选择私钥文件
@@ -225,14 +236,19 @@ func (s *SSHService) SelectKeyFile() (string, error) {
 
 // -----------------------------------------------------------------------------
 
+// generateID generates a unique ID based on the current timestamp.
+func generateConnectID() string {
+	return fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
 func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client) *SSHConnect {
 	return &SSHConnect{
-		sshService: sshService,
-		clientKey:  clientKey,
-		client:     client,
-		ID:         generateConnectID(),
-		outputChan: make(chan []byte, 1024),
-		closeSig:   make(chan struct{}, 1),
+		sshService:     sshService,
+		clientKey:      clientKey,
+		client:         client,
+		ID:             generateConnectID(),
+		outputChan:     make(chan []byte, 10240),
+		outputBuffSize: 10240,
 	}
 }
 
@@ -267,13 +283,11 @@ func (sc *SSHConnect) Start() error {
 	go func() {
 		err = sc.session.Wait()
 		if err != nil {
-			Logger.Warn("SSH session ended with error:", zap.String("msg", err.Error()), zap.String("id", sc.ID))
+			Logger.Debug("SSH session ended with error:", zap.String("msg", err.Error()), zap.String("id", sc.ID))
 		} else {
 			Logger.Info("SSH session ended", zap.String("ID", sc.ID))
 		}
-		sc.closeSig <- struct{}{}
-		close(sc.closeSig)
-		_ = sc.Close(true)
+		_ = sc.Close()
 	}()
 	return nil
 }
@@ -301,47 +315,39 @@ func (sc *SSHConnect) startOutput() error {
 	}
 	sc.sendOutput()
 	go func() {
-		buf := make([]byte, 10240)
+		buf := make([]byte, sc.outputBuffSize)
 		for {
-			select {
-			case <-sc.closeSig:
-				Logger.Debug("SSH stdout reading goroutine received close signal")
-				return
-			default:
-				n, err := stdout.Read(buf)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						return
-					}
-					Logger.Error("Error reading from stdout:", zap.Error(err))
+			n, err := stdout.Read(buf)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
 					return
 				}
-				data := make([]byte, n)
-				copy(data, buf[:n])
-				sc.outputChan <- data
+				Logger.Error("Error reading from stdout:", zap.Error(err))
+				sc.outputChan <- []byte(err.Error())
+				return
 			}
+			data := make([]byte, n)
+			copy(data, buf[:n])
+			sc.outputChan <- data
 		}
 	}()
 	go func() {
-		buf := make([]byte, 10240)
+		buf := make([]byte, sc.outputBuffSize)
 		for {
-			select {
-			case <-sc.closeSig:
-				Logger.Debug("SSH stderr reading goroutine received close signal")
-				return
-			default:
-				n, err := stderr.Read(buf)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						return
-					}
-					Logger.Error("Error reading from stderr:", zap.Error(err))
+
+			n, err := stderr.Read(buf)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
 					return
 				}
-				data := make([]byte, n)
-				copy(data, buf[:n])
-				sc.outputChan <- data
+				Logger.Error("Error reading from stderr:", zap.Error(err))
+				sc.outputChan <- []byte(err.Error())
+				return
 			}
+			data := make([]byte, n)
+			copy(data, buf[:n])
+			sc.outputChan <- data
+
 		}
 	}()
 	return nil
@@ -354,19 +360,22 @@ func (sc *SSHConnect) startInput() error {
 		return err
 	}
 	app.Event.On(SSHEventInput, func(event *application.CustomEvent) {
-		indata := event.Data.(SSHEventData)
-		if indata.ID != sc.ID {
+		inData := event.Data.(SSHEventData)
+		if inData.ID != sc.ID {
 			return
 		}
 		Logger.Debug("Received sshInput event", zap.Any("data", event.Data))
-		stdin.Write(indata.Data)
+		_, err = stdin.Write(inData.Data)
+		if err != nil {
+			Logger.Warn("Error writing to stdin:", zap.Error(err))
+			return
+		}
 	})
 	return nil
 }
 
 // Close terminates the SSH connection and session.
-// hasExit 会话是否已经结束，true已经结束，不再发送退出信号
-func (sc *SSHConnect) Close(hasExit bool) error {
+func (sc *SSHConnect) Close() error {
 	Logger.Debug("Closing SSH connection", zap.String("ID", sc.ID))
 	// Close SFTP service if exists
 	if sc.sftpService != nil {
@@ -374,25 +383,15 @@ func (sc *SSHConnect) Close(hasExit bool) error {
 		sc.sftpService = nil
 		Logger.Debug("SFTP service closed", zap.String("ID", sc.ID))
 	}
-	if !hasExit {
-		app.Event.Emit(SSHEventInput, SSHEventData{
-			ID:   sc.ID,
-			Data: []byte("exit\r"),
-		})
-		<-sc.closeSig
-	}
+
 	if sc.session != nil {
+		_ = sc.session.Signal(ssh.SIGTERM)
 		_ = sc.session.Close()
 	}
-	_, ok := <-sc.outputChan
-	if ok {
-		sc.outputChan <- []byte("connect closed")
-	}
-	close(sc.outputChan)
+
 	sc.sendCloseEvent()
-	sc.sshService.closeClient(sc.clientKey)
-	// Remove from sshSession sync.Map
-	sshSession.Delete(sc.ID)
+	sc.sshService.clientNumSub(sc.clientKey)
+	sc.sshService.SSHConnects.Delete(sc.ID)
 	Logger.Info("SSH connection closed", zap.String("ID", sc.ID))
 	return nil
 }
@@ -404,6 +403,7 @@ func (sc *SSHConnect) sendCloseEvent() {
 
 // Resize sets the remote pty size. cols/rows come from frontend terminal.
 func (sc *SSHConnect) Resize(cols int, rows int) error {
+	Logger.Debug("Resizing SSH session", zap.String("id", sc.ID), zap.Int("cols", cols), zap.Int("rows", rows))
 	if sc.session == nil {
 		return fmt.Errorf("no active session")
 	}

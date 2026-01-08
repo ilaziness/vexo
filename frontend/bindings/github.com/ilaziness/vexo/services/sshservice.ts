@@ -5,10 +5,6 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as $models from "./models.js";
-
 /**
  * Close closes all SSH connections managed by the service.
  */
@@ -32,19 +28,17 @@ export function Connect(host: string, port: number, user: string, password: stri
 }
 
 /**
- * GetSftpService returns the SFTP service for the specified SSH connection ID
- */
-export function GetSftpService(ID: string): $CancellablePromise<$models.SftpService | null> {
-    return $Call.ByID(833393533, ID).then(($result: any) => {
-        return $$createType1($result);
-    });
-}
-
-/**
  * Resize resizes the terminal for the SSH connection with the given ID.
  */
 export function Resize(ID: string, cols: number, rows: number): $CancellablePromise<void> {
     return $Call.ByID(4201974589, ID, cols, rows);
+}
+
+/**
+ * Restart restarts the SSH connection with the given ID.
+ */
+export function Restart(ID: string): $CancellablePromise<void> {
+    return $Call.ByID(161586184, ID);
 }
 
 /**
@@ -67,7 +61,3 @@ export function Start(ID: string): $CancellablePromise<void> {
 export function StartSftp(ID: string): $CancellablePromise<void> {
     return $Call.ByID(2437975014, ID);
 }
-
-// Private type creation functions
-const $$createType0 = $models.SftpService.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);

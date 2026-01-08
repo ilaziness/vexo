@@ -34,8 +34,8 @@ export default function SSHContainer() {
     try {
       const ID = await SSHService.Connect(
         li.host,
-        li.port || 22,
-        li.user || "",
+        li.port,
+        li.user,
         li.password || "",
         li.key || "",
       );

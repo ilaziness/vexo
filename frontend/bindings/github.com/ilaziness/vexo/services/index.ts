@@ -21,6 +21,5 @@ export {
     GeneralConfig,
     SSHBookmark,
     SSHEventData,
-    SftpService,
     TerminalConfig
 } from "./models.js";

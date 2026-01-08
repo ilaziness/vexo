@@ -12,6 +12,7 @@ import type * as services$0 from "../../../../ilaziness/vexo/services/models.js"
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "sftpClose": services$0.SSHEventData;
             "sshClose": services$0.SSHEventData;
             "sshInput": services$0.SSHEventData;
             "sshOutput": services$0.SSHEventData;

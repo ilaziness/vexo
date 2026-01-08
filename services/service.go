@@ -10,6 +10,7 @@ func RegisterServices(a *application.App) {
 	sftpService := NewSftpService()
 	configService := NewConfigService()
 	bookmarkService := NewBookmarkService(configService)
+
 	app.RegisterService(application.NewService(sshService))
 	app.RegisterService(application.NewService(sftpService))
 	app.RegisterService(application.NewService(configService))
@@ -18,6 +19,5 @@ func RegisterServices(a *application.App) {
 	app.OnShutdown(func() {
 		Logger.Sugar().Debugln("run app OnShutdown...")
 		sshService.Close()
-		sftpService.Close()
 	})
 }

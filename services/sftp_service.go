@@ -5,12 +5,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/pkg/sftp"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )
+
+var sftpClient = new(sync.Map)
 
 // FileInfo represents file information for SFTP operations
 type FileInfo struct {
@@ -42,8 +45,7 @@ func convertFileInfos(osInfos []os.FileInfo) []FileInfo {
 }
 
 type SftpService struct {
-	ftpClient  *sftp.Client
-	sshService *SSHService
+	ftpClient *sftp.Client
 }
 
 func NewSftpService() *SftpService {
@@ -53,15 +55,12 @@ func NewSftpService() *SftpService {
 // getSftpClient 通过 sessionID 获取对应的 SFTP 客户端
 func (sft *SftpService) getSftpClient(sessionID string) (*sftp.Client, error) {
 	// 从全局 sshSession 获取对应的连接
-	connVal, ok := sshSession.Load(sessionID)
+	connVal, ok := sftpClient.Load(sessionID)
 	if !ok {
 		return nil, fmt.Errorf("SSH session with ID %s not found", sessionID)
 	}
-	conn := connVal.(*SSHConnect)
-	if conn.sftpService == nil || conn.sftpService.ftpClient == nil {
-		return nil, fmt.Errorf("SFTP client not connected for session %s", sessionID)
-	}
-	return conn.sftpService.ftpClient, nil
+	conn := connVal.(*SftpService)
+	return conn.ftpClient, nil
 }
 
 // Connect connects to SFTP using an SSH session ID

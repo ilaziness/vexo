@@ -39,6 +39,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import {
   LogService,
   SftpService,
+  SSHService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { formatFileSize, parseCallServiceError } from "../func/service";
 import { sortFileList } from "../func/ftp";
@@ -51,6 +52,7 @@ interface SftpProps {
 }
 
 const Sftp: React.FC<SftpProps> = ({ linkID }) => {
+  const [sftpLoaded, setSftpLoaded] = useState(false);
   const [currentPath, setCurrentPath] = useState<string>("/tmp"); // 临时默认值，将在useEffect中更新为实际home目录
   const [fileList, setFileList] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -78,22 +80,39 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   // 初始化SFTP连接
   useEffect(() => {
     const initSftp = async () => {
+      if (sftpLoaded) return;
       try {
-        //await SftpService.Connect(linkID);
+        await SSHService.StartSftp(linkID);
+        LogService.Debug("SFTP connection established");
         // 获取默认的home目录
-        const homePath = await SftpService.GetWd();
+        const homePath = await SftpService.GetWd(linkID);
         setCurrentPath(homePath);
         await refreshFileList(homePath);
+        setSftpLoaded(true);
       } catch (err: any) {
         showMessageError(parseCallServiceError(err));
         LogService.Error(`Failed to initialize SFTP: ${err.message || err}`);
       }
     };
 
-    initSftp().then(() => {});
+    const handleFocus = () => {
+      initSftp().then(() => {});
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        initSftp().then(() => {});
+      }
+    };
+
+    // 添加事件监听
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // 组件卸载时关闭SFTP连接
     return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       SftpService.Close();
     };
   }, [linkID]);
@@ -102,7 +121,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     const targetPath = path || currentPath;
     setLoading(true);
     try {
-      const files = await SftpService.ListFiles(targetPath, showHiddenFiles);
+      const files = await SftpService.ListFiles(linkID, targetPath, showHiddenFiles);
       setFileList(sortFileList(files));
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
@@ -160,10 +179,10 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
 
       if (contextMenu.file.isDir) {
         // 下载目录
-        await SftpService.DownloadDirectory("", remotePath);
+        await SftpService.DownloadDirectory(linkID, "", remotePath);
       } else {
         // 下载文件
-        await SftpService.DownloadFileDialog(remotePath);
+        await SftpService.DownloadFileDialog(linkID, remotePath);
       }
 
       LogService.Info(`Downloaded: ${contextMenu.file.name}`);
@@ -184,9 +203,9 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       const remotePath = currentPath;
 
       if (type === "file") {
-        await SftpService.UploadFileDialog(remotePath);
+        await SftpService.UploadFileDialog(linkID, remotePath);
       } else {
-        await SftpService.UploadDirectory("", remotePath);
+        await SftpService.UploadDirectory(linkID, "", remotePath);
       }
 
       await refreshFileList();
@@ -209,7 +228,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         currentPath === "/"
           ? `/${itemToDelete.name}`
           : `${currentPath}/${itemToDelete.name}`;
-      await SftpService.DeleteFile(path);
+      await SftpService.DeleteFile(linkID, path);
       await refreshFileList();
       LogService.Info(`Deleted: ${itemToDelete.name}`);
     } catch (err: any) {
@@ -241,7 +260,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         currentPath === "/"
           ? `/${renamingName.trim()}`
           : `${currentPath}/${renamingName.trim()}`;
-      await SftpService.RenameFile(oldPath, newPath);
+      await SftpService.RenameFile(linkID, oldPath, newPath);
       await refreshFileList();
       LogService.Info(
         `Renamed: ${renamingItem.name} to ${renamingName.trim()}`,
@@ -269,7 +288,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         currentPath === "/"
           ? `/${newFileName}`
           : `${currentPath}/${newFileName}`;
-      await SftpService.CreateFile(filePath);
+      await SftpService.CreateFile(linkID, filePath);
       await refreshFileList();
       LogService.Info(`Created file: ${newFileName}`);
     } catch (err: any) {
@@ -292,7 +311,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
 
       const dirPath =
         currentPath === "/" ? `/${newDirName}` : `${currentPath}/${newDirName}`;
-      await SftpService.CreateDirectory(dirPath);
+      await SftpService.CreateDirectory(linkID, dirPath);
       await refreshFileList();
       LogService.Info(`Created directory: ${newDirName}`);
     } catch (err: any) {

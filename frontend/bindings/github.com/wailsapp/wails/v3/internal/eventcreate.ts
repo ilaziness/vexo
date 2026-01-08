@@ -12,6 +12,7 @@ import * as services$0 from "../../../../ilaziness/vexo/services/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
+        "sftpClose": $$createType0,
         "sshClose": $$createType0,
         "sshInput": $$createType0,
         "sshOutput": $$createType0,

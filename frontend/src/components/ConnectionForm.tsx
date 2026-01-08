@@ -36,15 +36,15 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   error,
   connecting,
 }) => {
-  const [host, setHost] = useState("");
-  const [port, setPort] = useState<string>("22");
-  const [user, setUser] = useState("");
-  const [password, setPassword] = useState("");
+  const [host, setHost] = useState("192.168.82.151");
+  const [port, setPort] = useState<string>("60122");
+  const [user, setUser] = useState("ubuntu");
+  const [password, setPassword] = useState("dever@123");
   const [key, setKey] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState("default");
   const [groups, setGroups] = useState<string[]>([]);
-  
+
   const { errorMessage } = useMessageStore();
 
   const onSelectKeyFile = async () => {
