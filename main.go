@@ -63,8 +63,8 @@ func main() {
 		URL:            "/",
 		Width:          1600,
 		Height:         900,
-		MinWidth:       800,
-		MinHeight:      400,
+		MinWidth:       1600,
+		MinHeight:      900,
 		Frameless:      true,
 		BackgroundType: application.BackgroundTypeTransparent,
 	})

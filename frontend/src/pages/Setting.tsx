@@ -19,9 +19,7 @@ import {
   Typography,
   Container,
   Paper,
-  Grid,
-  Card,
-  CardContent,
+  Stack,
 } from "@mui/material";
 import Message from "../components/Message.tsx";
 
@@ -84,6 +82,33 @@ const Setting: React.FC = () => {
     }
   };
 
+  // 横向表单项组件
+  const FormRow: React.FC<{
+    label: string;
+    children: React.ReactNode;
+  }> = ({ label, children }) => (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        mb: 2,
+        "&:last-child": { mb: 0 },
+      }}
+    >
+      <Typography
+        sx={{
+          width: 140,
+          flexShrink: 0,
+          fontWeight: 500,
+          fontSize: "0.95rem",
+        }}
+      >
+        {label}
+      </Typography>
+      <Box sx={{ flex: 1 }}>{children}</Box>
+    </Box>
+  );
+
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -94,157 +119,249 @@ const Setting: React.FC = () => {
 
   return (
     <>
-      <Container
-        maxWidth={false}
-        sx={{ height: "100vh", p: 0, display: "flex", flexDirection: "column" }}
-      >
-        <Grid container sx={{ height: "100%", flexGrow: 1 }}>
+      <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
           {/* 左侧导航 */}
-          <Grid size={3}>
-            <Paper sx={{ height: "100%", borderRight: "1px solid #e0e0e0" }}>
-              <Box sx={{ p: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
-                  设置
-                </Typography>
-              </Box>
-              <Divider />
-              <List>
-                <ListItem disablePadding>
-                  <ListItemButton
-                    selected={activeTab === "general"}
-                    onClick={() => setActiveTab("general")}
-                  >
-                    <ListItemText primary="通用" />
-                  </ListItemButton>
-                </ListItem>
-                <ListItem disablePadding>
-                  <ListItemButton
-                    selected={activeTab === "terminal"}
-                    onClick={() => setActiveTab("terminal")}
-                  >
-                    <ListItemText primary="终端" />
-                  </ListItemButton>
-                </ListItem>
-                <ListItem disablePadding>
-                  <ListItemButton
-                    selected={activeTab === "about"}
-                    onClick={() => setActiveTab("about")}
-                  >
-                    <ListItemText primary="关于" />
-                  </ListItemButton>
-                </ListItem>
-              </List>
-            </Paper>
-          </Grid>
+          <Paper
+            sx={{
+              width: 200,
+              flexShrink: 0,
+              borderRight: 1,
+              borderColor: "divider",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            elevation={0}
+            square
+          >
+            <Box sx={{ p: 2, pb: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1.1rem" }}>
+                设置
+              </Typography>
+            </Box>
+            <Divider />
+            <List sx={{ py: 1 }}>
+              <ListItem disablePadding>
+                <ListItemButton
+                  selected={activeTab === "general"}
+                  onClick={() => setActiveTab("general")}
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    "&.Mui-selected": {
+                      backgroundColor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": {
+                        backgroundColor: "primary.dark",
+                      },
+                    },
+                  }}
+                >
+                  <ListItemText 
+                    primary="通用" 
+                    primaryTypographyProps={{ fontSize: "0.95rem" }}
+                  />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton
+                  selected={activeTab === "terminal"}
+                  onClick={() => setActiveTab("terminal")}
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    "&.Mui-selected": {
+                      backgroundColor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": {
+                        backgroundColor: "primary.dark",
+                      },
+                    },
+                  }}
+                >
+                  <ListItemText 
+                    primary="终端" 
+                    primaryTypographyProps={{ fontSize: "0.95rem" }}
+                  />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton
+                  selected={activeTab === "about"}
+                  onClick={() => setActiveTab("about")}
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    "&.Mui-selected": {
+                      backgroundColor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": {
+                        backgroundColor: "primary.dark",
+                      },
+                    },
+                  }}
+                >
+                  <ListItemText 
+                    primary="关于" 
+                    primaryTypographyProps={{ fontSize: "0.95rem" }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </List>
+          </Paper>
 
-          {/* 右侧面板 */}
-          <Grid size={9} direction="column">
-            <Grid sx={{ p: 3, overflowY: "auto", flexGrow: 1 }}>
+          {/* 右侧内容区 */}
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <Box
+              sx={{
+                flex: 1,
+                overflowY: "auto",
+                p: 3,
+              }}
+            >
               {activeTab === "general" && config && (
-                <Card>
-                  <CardContent>
-                    <Typography variant="h5" gutterBottom>
-                      通用设置
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      label="用户数据目录"
-                      value={config.General.UserDataDir || ""}
-                      onChange={(e) =>
-                        handleGeneralChange("UserDataDir", e.target.value)
-                      }
-                      margin="normal"
-                    />
-                  </CardContent>
-                </Card>
+                <Box>
+                  <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+                    通用设置
+                  </Typography>
+                  <Paper sx={{ p: 3 }} elevation={1}>
+                    <FormRow label="用户数据目录">
+                      <TextField
+                        fullWidth
+                        size="small"
+                        value={config.General.UserDataDir || ""}
+                        onChange={(e) =>
+                          handleGeneralChange("UserDataDir", e.target.value)
+                        }
+                        placeholder="请输入用户数据目录路径"
+                      />
+                    </FormRow>
+                  </Paper>
+                </Box>
               )}
 
               {activeTab === "terminal" && config && (
-                <Card>
-                  <CardContent>
-                    <Typography variant="h5" gutterBottom>
-                      终端设置
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      label="字体"
-                      value={config.Terminal.Font || ""}
-                      onChange={(e) =>
-                        handleTerminalChange("Font", e.target.value)
-                      }
-                      margin="normal"
-                    />
-                    <TextField
-                      fullWidth
-                      label="字体大小"
-                      type="number"
-                      value={config.Terminal.FontSize || 0}
-                      onChange={(e) =>
-                        handleTerminalChange(
-                          "FontSize",
-                          parseInt(e.target.value),
-                        )
-                      }
-                      margin="normal"
-                    />
-                    <TextField
-                      fullWidth
-                      label="行高"
-                      type="number"
-                      inputProps={{ step: 0.1 }} // 使用 inputProps 而不是直接使用 step
-                      value={config.Terminal.LineHeight || 0}
-                      onChange={(e) =>
-                        handleTerminalChange(
-                          "LineHeight",
-                          parseFloat(e.target.value),
-                        )
-                      }
-                      margin="normal"
-                    />
-                  </CardContent>
-                </Card>
+                <Box>
+                  <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+                    终端设置
+                  </Typography>
+                  <Paper sx={{ p: 3 }} elevation={1}>
+                    <Stack spacing={2}>
+                      <FormRow label="字体">
+                        <TextField
+                          fullWidth
+                          size="small"
+                          value={config.Terminal.Font || ""}
+                          onChange={(e) =>
+                            handleTerminalChange("Font", e.target.value)
+                          }
+                          placeholder="例如: Consolas, Monaco"
+                        />
+                      </FormRow>
+                      <FormRow label="字体大小">
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type="number"
+                          value={config.Terminal.FontSize || 0}
+                          onChange={(e) =>
+                            handleTerminalChange(
+                              "FontSize",
+                              parseInt(e.target.value),
+                            )
+                          }
+                          placeholder="例如: 14"
+                        />
+                      </FormRow>
+                      <FormRow label="行高">
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type="number"
+                          inputProps={{ step: 0.1 }}
+                          value={config.Terminal.LineHeight || 0}
+                          onChange={(e) =>
+                            handleTerminalChange(
+                              "LineHeight",
+                              parseFloat(e.target.value),
+                            )
+                          }
+                          placeholder="例如: 1.2"
+                        />
+                      </FormRow>
+                    </Stack>
+                  </Paper>
+                </Box>
               )}
 
               {activeTab === "about" && (
-                <Card>
-                  <CardContent>
-                    <Typography variant="h5" gutterBottom>
-                      关于
-                    </Typography>
-                    <Typography>
-                      <strong>应用名称:</strong> Vexo
-                    </Typography>
-                    <Typography>
-                      <strong>版本:</strong> v1.0.0
-                    </Typography>
-                    <Typography>
-                      <strong>描述:</strong> 一个现代化的SSH和SFTP客户端工具
-                    </Typography>
-                  </CardContent>
-                </Card>
+                <Box>
+                  <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+                    关于
+                  </Typography>
+                  <Paper sx={{ p: 3 }} elevation={1}>
+                    <Stack spacing={2}>
+                      <Box>
+                        <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: "0.9rem" }}>
+                          应用名称
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          Vexo
+                        </Typography>
+                      </Box>
+                      <Divider />
+                      <Box>
+                        <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: "0.9rem" }}>
+                          版本
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          v1.0.0
+                        </Typography>
+                      </Box>
+                      <Divider />
+                      <Box>
+                        <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: "0.9rem" }}>
+                          描述
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          一个现代化的SSH和SFTP客户端工具
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Paper>
+                </Box>
               )}
-            </Grid>
-          </Grid>
-        </Grid>
+            </Box>
+          </Box>
+        </Box>
 
-        {/* 底部按钮 - 位于整个布局的最底部 */}
-        <Grid
+        {/* 底部按钮 */}
+        <Box
           sx={{
-            borderTop: "1px solid #e0e0e0",
+            borderTop: 1,
+            borderColor: "divider",
             p: 2,
             display: "flex",
             justifyContent: "flex-end",
-            mt: "auto",
+            gap: 1,
+            backgroundColor: "background.paper",
           }}
         >
-          <Button variant="outlined" onClick={handleCancel} sx={{ mr: 1 }}>
+          <Button variant="outlined" onClick={handleCancel}>
             取消
           </Button>
           <Button variant="contained" onClick={handleSave}>
             保存
           </Button>
-        </Grid>
-      </Container>
+        </Box>
+      </Box>
       <Message />
     </>
   );

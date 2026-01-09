@@ -8,14 +8,18 @@ import {
   Collapse,
   IconButton,
   TextField,
-  InputAdornment,
+  Typography,
+  alpha,
+  Tooltip,
 } from "@mui/material";
 import {
   ExpandMore,
-  ExpandLess,
+  ChevronRight,
   Edit as EditIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  FolderOutlined,
+  BookmarkBorderOutlined,
 } from "@mui/icons-material";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 
@@ -49,6 +53,8 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
   const [newGroupName, setNewGroupName] = useState<string>("");
   const [newGroupInput, setNewGroupInput] = useState<boolean>(false);
   const [newGroupNameInput, setNewGroupNameInput] = useState<string>("");
+  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const [hoveredBookmark, setHoveredBookmark] = useState<string | null>(null);
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => ({
@@ -98,121 +104,242 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
   };
 
   return (
-    <Box>
-      <List>
-        {Object.entries(bookmarks).map(([groupName, bookmarkList]) => (
-          <React.Fragment key={groupName}>
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => toggleGroup(groupName)}>
-                {expandedGroups[groupName] ? <ExpandLess /> : <ExpandMore />}
-                <ListItemText
-                  primary={
-                    editingGroup === groupName ? (
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      {/* 标题栏 */}
+      <Box
+        sx={{
+          p: 2,
+          pb: 1.5,
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1.1rem" }}>
+          书签
+        </Typography>
+      </Box>
+
+      {/* 树形列表 */}
+      <Box sx={{ flex: 1, overflowY: "auto" }}>
+        <List sx={{ py: 1 }}>
+          {Object.entries(bookmarks).map(([groupName, bookmarkList]) => (
+            <React.Fragment key={groupName}>
+              {/* 分组 */}
+              <ListItem
+                disablePadding
+                onMouseEnter={() => setHoveredGroup(groupName)}
+                onMouseLeave={() => setHoveredGroup(null)}
+                sx={{
+                  "&:hover": {
+                    backgroundColor: (theme) =>
+                      alpha(theme.palette.primary.main, 0.04),
+                  },
+                }}
+              >
+                <ListItemButton
+                  onClick={() => toggleGroup(groupName)}
+                  sx={{
+                    py: 0.75,
+                    px: 1.5,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      width: "100%",
+                      gap: 1,
+                    }}
+                  >
+                    {expandedGroups[groupName] ? (
+                      <ExpandMore sx={{ fontSize: 20, color: "text.secondary" }} />
+                    ) : (
+                      <ChevronRight sx={{ fontSize: 20, color: "text.secondary" }} />
+                    )}
+                    <FolderOutlined sx={{ fontSize: 18, color: "warning.main" }} />
+                    {editingGroup === groupName ? (
                       <TextField
                         value={newGroupName}
                         onChange={(e) => setNewGroupName(e.target.value)}
-                        onKeyDown={(e) =>
-                          handleGroupRenameKeyDown(e, groupName)
-                        }
-                        onBlur={() => setEditingGroup(null)}
+                        onKeyDown={(e) => handleGroupRenameKeyDown(e, groupName)}
+                        onBlur={() => finishEditingGroup(groupName)}
                         autoFocus
                         size="small"
                         variant="standard"
-                        inputProps={{ style: { fontSize: "1rem" } }}
+                        sx={{ flex: 1, minWidth: 0 }}
+                        inputProps={{
+                          style: { fontSize: "0.95rem", padding: "2px 0" },
+                        }}
                       />
                     ) : (
-                      groupName
-                    )
-                  }
-                  sx={{ ml: 1 }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startEditingGroup(groupName, groupName);
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGroupDelete(groupName);
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </ListItemButton>
-            </ListItem>
-            <Collapse
-              in={expandedGroups[groupName]}
-              timeout="auto"
-              unmountOnExit
-            >
-              <List component="div" disablePadding>
-                {bookmarkList.map((bookmark) => (
-                  <ListItemButton
-                    key={bookmark.id}
-                    sx={{ pl: 4 }}
-                    selected={selectedBookmark?.id === bookmark.id}
-                    onClick={() => onBookmarkSelect(bookmark)}
-                  >
-                    <ListItemText primary={bookmark.title} />
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onBookmarkDelete(bookmark.id);
+                      <ListItemText
+                        primary={groupName}
+                        primaryTypographyProps={{
+                          fontSize: "0.95rem",
+                          fontWeight: 500,
+                        }}
+                        sx={{ my: 0, flex: 1, minWidth: 0 }}
+                      />
+                    )}
+                    <Box 
+                      sx={{ 
+                        display: "flex", 
+                        gap: 0.5, 
+                        ml: "auto",
+                        visibility: hoveredGroup === groupName && editingGroup !== groupName ? "visible" : "hidden"
                       }}
                     >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </ListItemButton>
-                ))}
-                <ListItemButton
-                  sx={{ pl: 4 }}
-                  onClick={() => onBookmarkAdd(groupName)}
-                >
-                  <ListItemText
-                    primary="+ 添加书签"
-                    sx={{ color: "primary.main" }}
-                  />
+                      <Tooltip title="编辑分组">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditingGroup(groupName, groupName);
+                          }}
+                          sx={{ padding: "4px" }}
+                        >
+                          <EditIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="删除分组">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onGroupDelete(groupName);
+                          }}
+                          sx={{ padding: "4px" }}
+                        >
+                          <DeleteIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
                 </ListItemButton>
-              </List>
-            </Collapse>
-          </React.Fragment>
-        ))}
-        {newGroupInput ? (
-          <ListItem>
-            <TextField
-              value={newGroupNameInput}
-              onChange={(e) => setNewGroupNameInput(e.target.value)}
-              onKeyDown={handleNewGroupKeyDown}
-              onBlur={() => setNewGroupInput(false)}
-              autoFocus
-              size="small"
-              variant="standard"
-              placeholder="分组名称"
-              fullWidth
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleAddNewGroup} size="small">
-                      <AddIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              </ListItem>
+
+              {/* 书签列表 */}
+              <Collapse in={expandedGroups[groupName]} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {bookmarkList.map((bookmark) => (
+                    <ListItem
+                      key={bookmark.id}
+                      disablePadding
+                      onMouseEnter={() => setHoveredBookmark(bookmark.id)}
+                      onMouseLeave={() => setHoveredBookmark(null)}
+                    >
+                      <ListItemButton
+                        selected={selectedBookmark?.id === bookmark.id}
+                        onClick={() => onBookmarkSelect(bookmark)}
+                        sx={{
+                          pl: 5,
+                          py: 0.5,
+                          "&.Mui-selected": {
+                            backgroundColor: (theme) =>
+                              alpha(theme.palette.primary.main, 0.12),
+                            "&:hover": {
+                              backgroundColor: (theme) =>
+                                alpha(theme.palette.primary.main, 0.2),
+                            },
+                          },
+                        }}
+                      >
+                        <BookmarkBorderOutlined
+                          sx={{ fontSize: 16, mr: 1.5, color: "primary.main", flexShrink: 0 }}
+                        />
+                        <ListItemText
+                          primary={bookmark.title}
+                          secondary={`${bookmark.user}@${bookmark.host}`}
+                          primaryTypographyProps={{
+                            fontSize: "0.9rem",
+                            noWrap: true,
+                          }}
+                          secondaryTypographyProps={{
+                            fontSize: "0.75rem",
+                            noWrap: true,
+                          }}
+                          sx={{ flex: 1, minWidth: 0 }}
+                        />
+                        <Tooltip title="删除书签">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onBookmarkDelete(bookmark.id);
+                            }}
+                            sx={{ 
+                              padding: "4px",
+                              visibility: hoveredBookmark === bookmark.id ? "visible" : "hidden"
+                            }}
+                          >
+                            <DeleteIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                  {/* 添加书签按钮 */}
+                  <ListItemButton
+                    sx={{
+                      pl: 5,
+                      py: 0.5,
+                      color: "primary.main",
+                    }}
+                    onClick={() => onBookmarkAdd(groupName)}
+                  >
+                    <AddIcon sx={{ fontSize: 16, mr: 1.5 }} />
+                    <ListItemText
+                      primary="添加书签"
+                      primaryTypographyProps={{
+                        fontSize: "0.9rem",
+                      }}
+                    />
+                  </ListItemButton>
+                </List>
+              </Collapse>
+            </React.Fragment>
+          ))}
+
+          {/* 添加分组 */}
+          {newGroupInput ? (
+            <ListItem sx={{ px: 1.5, py: 0.5 }}>
+              <TextField
+                value={newGroupNameInput}
+                onChange={(e) => setNewGroupNameInput(e.target.value)}
+                onKeyDown={handleNewGroupKeyDown}
+                onBlur={handleAddNewGroup}
+                autoFocus
+                size="small"
+                placeholder="分组名称"
+                fullWidth
+                sx={{
+                  "& .MuiInputBase-root": {
+                    fontSize: "0.9rem",
+                  },
+                }}
+              />
+            </ListItem>
+          ) : (
+            <ListItemButton
+              onClick={() => setNewGroupInput(true)}
+              sx={{
+                py: 0.75,
+                px: 1.5,
+                color: "primary.main",
               }}
-            />
-          </ListItem>
-        ) : (
-          <ListItemButton onClick={() => setNewGroupInput(true)}>
-            <ListItemText primary="+ 添加分组" sx={{ color: "primary.main" }} />
-          </ListItemButton>
-        )}
-      </List>
+            >
+              <AddIcon sx={{ fontSize: 20, mr: 1 }} />
+              <ListItemText
+                primary="添加分组"
+                primaryTypographyProps={{
+                  fontSize: "0.95rem",
+                  fontWeight: 500,
+                }}
+              />
+            </ListItemButton>
+          )}
+        </List>
+      </Box>
     </Box>
   );
 };

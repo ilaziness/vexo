@@ -247,8 +247,8 @@ func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client)
 		clientKey:      clientKey,
 		client:         client,
 		ID:             generateConnectID(),
-		outputChan:     make(chan []byte, 10240),
-		outputBuffSize: 10240,
+		outputChan:     make(chan []byte, 1024),
+		outputBuffSize: 32768, // 32KB - 业界标准缓冲区大小
 	}
 }
 
@@ -260,7 +260,7 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 	if err != nil {
 		return err
 	}
-	err = sc.session.RequestPty("xterm-256color", cols, rows, ssh.TerminalModes{
+	err = sc.session.RequestPty("xterm-256color", rows, cols, ssh.TerminalModes{
 		ssh.ECHO:          1,
 		ssh.TTY_OP_ISPEED: 14400, // 输入速度
 		ssh.TTY_OP_OSPEED: 14400, // 输出速度

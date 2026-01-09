@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 // SSHBookmark 书签连接信息结构
@@ -65,15 +66,19 @@ func (bs *BookmarkService) initializeDefaultBookmarks() error {
 // ShowWindow show bookmark manage window
 func (bs *BookmarkService) ShowWindow() {
 	if bs.window != nil {
-		bs.window.Focus()
 		return
 	}
 	bs.window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "书签",
 		URL:              "/bookmark",
+		Width:            1200,
+		Height:           700,
 		MinWidth:         1200,
 		MinHeight:        700,
 		BackgroundColour: application.NewRGB(27, 38, 54),
+	})
+	bs.window.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
+		bs.window = nil
 	})
 	bs.window.Show()
 }
@@ -82,6 +87,7 @@ func (bs *BookmarkService) ShowWindow() {
 func (bs *BookmarkService) CloseWindow() {
 	if bs.window != nil {
 		bs.window.Close()
+		bs.window = nil
 	}
 }
 

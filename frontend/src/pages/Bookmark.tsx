@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Paper, Divider } from "@mui/material";
+import { Box, Paper } from "@mui/material";
 import { BookmarkService } from "../../bindings/github.com/ilaziness/vexo/services";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import BookmarkTree from "../components/BookmarkTree";
@@ -162,42 +162,47 @@ const Bookmark: React.FC = () => {
 
   return (
     <>
-      <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-        <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <Paper
-            sx={{
-              width: "30%",
-              minWidth: 300,
-              height: "100%",
-              overflow: "auto",
-            }}
-          >
-            <BookmarkTree
-              bookmarks={bookmarks}
-              selectedBookmark={selectedBookmark}
-              onBookmarkSelect={handleBookmarkSelect}
-              onGroupRename={handleGroupRename}
-              onGroupAdd={handleGroupAdd}
-              onGroupDelete={handleGroupDelete}
-              onBookmarkAdd={handleBookmarkAdd}
-              onBookmarkDelete={handleBookmarkDelete}
-            />
-          </Paper>
-          <Divider orientation="vertical" flexItem />
-          <Paper
-            sx={{
-              flex: 1,
-              height: "100%",
-              overflow: "auto",
-            }}
-          >
-            <BookmarkForm
-              bookmark={selectedBookmark}
-              onSave={handleSaveBookmark}
-              onTestConnection={handleTestConnection}
-              onSaveAndConnect={handleSaveAndConnect}
-            />
-          </Paper>
+      <Box sx={{ height: "100%", display: "flex", overflow: "hidden" }}>
+        {/* 左侧树形列表 */}
+        <Paper
+          sx={{
+            width: 280,
+            flexShrink: 0,
+            borderRight: 1,
+            borderColor: "divider",
+            display: "flex",
+            flexDirection: "column",
+          }}
+          elevation={0}
+          square
+        >
+          <BookmarkTree
+            bookmarks={bookmarks}
+            selectedBookmark={selectedBookmark}
+            onBookmarkSelect={handleBookmarkSelect}
+            onGroupRename={handleGroupRename}
+            onGroupAdd={handleGroupAdd}
+            onGroupDelete={handleGroupDelete}
+            onBookmarkAdd={handleBookmarkAdd}
+            onBookmarkDelete={handleBookmarkDelete}
+          />
+        </Paper>
+
+        {/* 右侧表单区域 */}
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <BookmarkForm
+            bookmark={selectedBookmark}
+            onSave={handleSaveBookmark}
+            onTestConnection={handleTestConnection}
+            onSaveAndConnect={handleSaveAndConnect}
+          />
         </Box>
       </Box>
       <Message />

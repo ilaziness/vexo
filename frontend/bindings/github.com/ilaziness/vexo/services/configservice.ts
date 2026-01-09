@@ -23,7 +23,7 @@ export function ReadConfig(): $CancellablePromise<$models.Config | null> {
 }
 
 /**
- * SaveConfig 保存配置方法，需要传入配置对象，保存到文件持久化
+ * SaveConfig 保存配置方法，需要传入配置对象，保存到 UserDataDir 指定的目录
  */
 export function SaveConfig(config: $models.Config): $CancellablePromise<void> {
     return $Call.ByID(3626712470, config);

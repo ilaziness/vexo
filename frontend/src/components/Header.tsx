@@ -64,17 +64,12 @@ export default function Header() {
   return (
     <Box
       component={"header"}
-      sx={[
-        {
-          width: "42px",
-          backgroundColor: "#f2f2f2",
-        },
-        (theme) =>
-          theme.applyStyles("dark", {
-            background:
-              "linear-gradient(to bottom, rgba(16, 18, 34, 1), rgba(27, 35, 63, 1))",
-          }),
-      ]}
+      sx={(theme) => ({
+        width: "42px",
+        backgroundColor: theme.palette.background.paper,
+        borderRight: `1px solid ${theme.palette.divider}`,
+        transition: "background-color 0.3s ease",
+      })}
     >
       <Stack direction="column" spacing={1} alignItems="center" padding={0.5}>
         <Tooltip title="新建连接">
