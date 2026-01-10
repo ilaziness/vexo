@@ -35,14 +35,15 @@ type SSHEventData struct {
 }
 
 type SSHConnect struct {
-	ID             string
-	clientKey      string
-	client         *ssh.Client
-	sshService     *SSHService
-	session        *ssh.Session
-	sftpService    *SftpService
-	outputChan     chan []byte
-	outputBuffSize int
+	ID              string
+	clientKey       string
+	client          *ssh.Client
+	sshService      *SSHService
+	session         *ssh.Session
+	sftpService     *SftpService
+	outputChan      chan []byte
+	outputBuffSize  int
+	inputUnregister func() // 用于取消输入事件监听器的函数
 }
 
 type SSHService struct {
@@ -121,7 +122,7 @@ func (s *SSHService) clientNumSub(clientKey string) {
 	oldNum, ok := s.clientNum.Load(clientKey)
 	if ok {
 		s.clientNum.Store(clientKey, oldNum.(int)-1)
-		if oldNum.(int) <= 0 {
+		if oldNum.(int)-1 <= 0 {
 			s.closeClient(clientKey)
 		}
 	}
@@ -295,6 +296,7 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 func (sc *SSHConnect) sendOutput() {
 	go func() {
 		for data := range sc.outputChan {
+			Logger.Debug("SSH session output:", zap.ByteString("msg", data), zap.String("id", sc.ID))
 			app.Event.Emit(SSHEventOutput, SSHEventData{
 				ID:   sc.ID,
 				Data: data,
@@ -359,7 +361,8 @@ func (sc *SSHConnect) startInput() error {
 	if err != nil {
 		return err
 	}
-	app.Event.On(SSHEventInput, func(event *application.CustomEvent) {
+	// 保存取消注册函数，以便在连接关闭时取消监听器
+	sc.inputUnregister = app.Event.On(SSHEventInput, func(event *application.CustomEvent) {
 		inData := event.Data.(SSHEventData)
 		if inData.ID != sc.ID {
 			return
@@ -377,6 +380,14 @@ func (sc *SSHConnect) startInput() error {
 // Close terminates the SSH connection and session.
 func (sc *SSHConnect) Close() error {
 	Logger.Debug("Closing SSH connection", zap.String("ID", sc.ID))
+
+	// 取消输入事件监听器，防止重复注册导致的输入重复问题
+	if sc.inputUnregister != nil {
+		sc.inputUnregister()
+		sc.inputUnregister = nil
+		Logger.Debug("Input event listener unregistered", zap.String("ID", sc.ID))
+	}
+
 	// Close SFTP service if exists
 	if sc.sftpService != nil {
 		sc.sftpService.Close()

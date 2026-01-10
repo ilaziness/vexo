@@ -48,33 +48,46 @@ export default function Terminal(props: { linkID: string }) {
     term.current.loadAddon(fit.current);
     if (termRef.current) {
       term.current.open(termRef.current);
-      term.current.focus();
-      fit.current.fit();
+      
+      // 使用 requestAnimationFrame 确保 DOM 完全渲染后再执行 fit
+      // 这样可以避免字符间距计算错误的问题
+      requestAnimationFrame(() => {
+        // 双重 RAF 确保布局计算完成
+        requestAnimationFrame(() => {
+          fit.current?.fit();
+          term.current?.focus();
+          
+          // 在 fit 之后立即刷新终端渲染
+          term.current?.refresh(0, term.current.rows - 1);
+          
+          // 启动 SSH 连接
+          SSHService.Start(
+            props.linkID,
+            term.current?.cols || 80,
+            term.current?.rows || 24,
+          )
+            .then(() => {
+              LogService.Info(
+                `SSH connection started for link ID: ${props.linkID}`,
+              );
+            })
+            .catch((err) => {
+              LogService.Error(
+                `Failed to start SSH connection for link ID: ${props.linkID}, error: ${err}`,
+              );
+              term.current?.write(`\r\nConnection error: ${err}\r\n`);
+            });
+        });
+      });
+      
       // Handle user input
       term.current?.onData(handleInputData);
-      SSHService.Start(
-        props.linkID,
-        term.current?.cols || 80,
-        term.current?.rows || 24,
-      )
-        .then(() => {
-          LogService.Info(
-            `SSH connection started for link ID: ${props.linkID}`,
-          );
-        })
-        .catch((err) => {
-          LogService.Error(
-            `Failed to start SSH connection for link ID: ${props.linkID}, error: ${err}`,
-          );
-          term.current?.write(`\r\nConnection error: ${err}\r\n`);
-        });
+      // Handle terminal resize
+      term.current?.onResize(onResize);
+      window.addEventListener("resize", () => {
+        fit.current?.fit();
+      });
     }
-    term.current.refresh(0, 0);
-    // Handle terminal resize
-    term.current?.onResize(onResize);
-    window.addEventListener("resize", () => {
-      fit.current?.fit();
-    });
   };
 
   const onResize = ({ cols, rows }) => {
@@ -106,7 +119,7 @@ export default function Terminal(props: { linkID: string }) {
       SSHService.CloseByID(props.linkID)
         .then(() => {})
         .catch((err) => {
-          LogService.Error(err.message);
+          //LogService.Error(err.message);
         });
       term.current?.dispose();
       window.removeEventListener("resize", () => {
