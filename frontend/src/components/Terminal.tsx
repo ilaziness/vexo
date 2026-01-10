@@ -48,7 +48,7 @@ export default function Terminal(props: { linkID: string }) {
     term.current.loadAddon(fit.current);
     if (termRef.current) {
       term.current.open(termRef.current);
-      
+
       // 使用 requestAnimationFrame 确保 DOM 完全渲染后再执行 fit
       // 这样可以避免字符间距计算错误的问题
       requestAnimationFrame(() => {
@@ -56,10 +56,10 @@ export default function Terminal(props: { linkID: string }) {
         requestAnimationFrame(() => {
           fit.current?.fit();
           term.current?.focus();
-          
+
           // 在 fit 之后立即刷新终端渲染
           term.current?.refresh(0, term.current.rows - 1);
-          
+
           // 启动 SSH 连接
           SSHService.Start(
             props.linkID,
@@ -79,7 +79,7 @@ export default function Terminal(props: { linkID: string }) {
             });
         });
       });
-      
+
       // Handle user input
       term.current?.onData(handleInputData);
       // Handle terminal resize
@@ -131,16 +131,29 @@ export default function Terminal(props: { linkID: string }) {
   return (
     <Box
       sx={{
-        height: "100%",
         width: "100%",
+        height: "100%",
         display: "flex",
+        flexDirection: "column",
         overflow: "hidden",
+        border: "1px solid red",
       }}
     >
+      <Box sx={{ width: "100%", height: "calc(100% - 20px)" }}>
+        <Box ref={termRef} sx={{ width: "100%", height: "100%" }} />
+      </Box>
       <Box
-        ref={termRef}
-        sx={{ width: "100%", height: "100%", border: "1px solid red" }}
-      />
+        sx={{
+          height: 20,
+          px: 0.5,
+          py: 0.1,
+          fontSize: 8,
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        status bar
+      </Box>
     </Box>
   );
 }

@@ -60,13 +60,11 @@ func main() {
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
-		URL:            "/",
-		Width:          1600,
-		Height:         900,
-		MinWidth:       1600,
-		MinHeight:      900,
-		Frameless:      true,
-		BackgroundType: application.BackgroundTypeTransparent,
+		URL:       "/",
+		Width:     1600,
+		Height:    900,
+		Frameless: true,
+		//BackgroundType: application.BackgroundTypeTransparent,
 	})
 	mainWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		for _, window := range app.Window.GetAll() {
@@ -74,7 +72,7 @@ func main() {
 		}
 	})
 
-	services.RegisterServices(app)
+	services.RegisterServices(app, mainWindow)
 
 	// Run the application. This blocks until the application has been exited.
 	err := app.Run()

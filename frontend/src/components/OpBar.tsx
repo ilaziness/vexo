@@ -1,23 +1,25 @@
-"use client";
-
 import { Window } from "@wailsio/runtime";
 import { Box, IconButton, Stack } from "@mui/material";
 import { Close, CropSquare, FilterNone, Remove } from "@mui/icons-material";
 import { useState } from "react";
+import { CommonService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 const OpBar = () => {
   const [isMaximised, setIsMaximised] = useState(false);
   const handleMinimize = () => {
-    Window.Minimise().then(() => {});
+    CommonService.MainWindowMin().then(() => {});
   };
 
   const handleMaximize = () => {
-    Window.ToggleMaximise().then(() => {});
-    setIsMaximised(!isMaximised);
+    CommonService.MainWindowMax().then(() => {
+      Window.IsMaximised().then((val: boolean) => {
+        setIsMaximised(val);
+      });
+    });
   };
 
   const handleClose = () => {
-    Window.Close().then(() => {});
+    CommonService.MainWindowClose().then(() => {});
   };
 
   return (

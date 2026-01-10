@@ -5,6 +5,7 @@ import SSHContainer from "./SSHContainer";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import { useSSHTabsStore } from "../stores/ssh";
 import OpBar from "./OpBar.tsx";
+import SSHTabText from "./SSHTabText.tsx";
 
 export default function SSHList() {
   const { sshTabs, delTab } = useSSHTabsStore();
@@ -66,7 +67,6 @@ export default function SSHList() {
         display: "flex",
         flexDirection: "column",
         flex: 1,
-        minHeight: 0,
       }}
     >
       <Box
@@ -75,8 +75,8 @@ export default function SSHList() {
           borderColor: "divider",
           display: "flex",
           alignItems: "center",
-          direction: "row",
           width: "100%",
+          height: 45,
           pr: 1,
           "--wails-draggable": "drag",
         }}
@@ -108,7 +108,7 @@ export default function SSHList() {
             <Tab
               key={item.index}
               value={item.index}
-              label={item.name}
+              label={<SSHTabText text={item.name} />}
               icon={<TerminalIcon sx={{ fontSize: 14 }} />}
               iconPosition="start"
               onContextMenu={(e) => handleContextMenu(e, item.index)}
@@ -146,20 +146,21 @@ export default function SSHList() {
           <MenuItem onClick={handleRefreshTab}>刷新</MenuItem>
         </Menu>
       </Box>
-      {sshTabs.map((item) => (
-        <Box
-          role="tabpanel"
-          key={item.index}
-          sx={{
-            flex: 1,
-            padding: 0,
-            display: tabValue === item.index ? "flex" : "none",
-            minHeight: 0,
-          }}
-        >
-          <SSHContainer />
-        </Box>
-      ))}
+      <Box sx={{ width: "100%", height: "calc(100% - 45px)" }}>
+        {sshTabs.map((item) => (
+          <Box
+            role="tabpanel"
+            key={item.index}
+            sx={{
+              display: tabValue === item.index ? "flex" : "none",
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            <SSHContainer tabIndex={item.index} />
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 }

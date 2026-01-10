@@ -1,5 +1,5 @@
 import React from "react";
-import { Paper, Tab, Tabs } from "@mui/material";
+import { Box, Tab, Tabs } from "@mui/material";
 import {
   LogService,
   SSHService,
@@ -9,24 +9,31 @@ import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
 import { parseCallServiceError } from "../func/service";
+import { useSSHTabsStore } from "../stores/ssh";
+
+interface SSHContainerProps {
+  tabIndex: string;
+}
 
 // SSH 连接容器组件，管理连接状态和错误处理
-export default function SSHContainer() {
+const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
+  const { setName } = useSSHTabsStore();
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
   const [activeTab, setActiveTab] = React.useState(0); // 0 for terminal, 1 for sftp
-
-  const tabItems = [
+  const [sftpLoaded, setSftpLoaded] = React.useState(false);
+  let tabItems = [
     {
-      label: "ssh",
+      label: "SSH",
       component: <Terminal linkID={linkID} />,
     },
     {
-      label: "sftp",
+      label: "SFTP",
       component: <Sftp linkID={linkID} />,
     },
   ];
+  const sftpIndex = 1;
 
   const connect = async (li: SSHLinkInfo) => {
     setConnectionError("");
@@ -41,6 +48,7 @@ export default function SSHContainer() {
       );
       LogService.Debug(`SSH connection established with ID: ${ID}`);
       setLinkID(ID);
+      setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
     } catch (err: any) {
       const msg = "Connection failed";
       LogService.Error(`${msg}: ${err.message || err}`).then(() => {});
@@ -52,6 +60,9 @@ export default function SSHContainer() {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+    if (newValue === sftpIndex && !sftpLoaded) {
+      setSftpLoaded(true);
+    }
   };
 
   if (linkID === "") {
@@ -65,15 +76,13 @@ export default function SSHContainer() {
   }
 
   return (
-    <Paper
+    <Box
       sx={{
+        width: "100%",
         height: "100%",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        flex: 1,
-        p: 1,
-        pt: 0,
       }}
     >
       <Tabs
@@ -84,6 +93,8 @@ export default function SSHContainer() {
           "&.MuiTabs-root": {
             minHeight: 30,
             height: 30,
+            borderBottom: 1,
+            borderColor: "divider",
           },
         }}
       >
@@ -95,29 +106,34 @@ export default function SSHContainer() {
               "&.MuiTab-root": {
                 height: 30,
                 minHeight: 30,
-                fontSize: 10,
+                fontSize: 12,
                 minWidth: 80,
                 width: 80,
                 p: 0.5,
-                borderBottom: 1,
-                borderColor: "divider",
               },
             }}
           />
         ))}
       </Tabs>
 
-      {tabItems.map((item, index) => (
-        <div
-          key={index}
-          style={{
-            height: "100%",
-            display: activeTab === index ? "block" : "none",
-          }}
-        >
-          {item.component}
-        </div>
-      ))}
-    </Paper>
+      <Box sx={{ height: "calc(100% - 30px)" }}>
+        {tabItems.map(
+          (item, index) =>
+            (index != sftpIndex || sftpLoaded) && (
+              <Box
+                key={index}
+                sx={{
+                  height: "100%",
+                  display: activeTab === index ? "block" : "none",
+                }}
+              >
+                {item.component}
+              </Box>
+            ),
+        )}
+      </Box>
+    </Box>
   );
-}
+};
+
+export default SSHContainer;

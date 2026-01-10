@@ -14,6 +14,7 @@ export interface SSHTabs {
   sshTabs: SSHTab[];
   pushTab: (tab: SSHTab) => void;
   delTab: (delTab: string, currentTab: string) => string; // 返回需要激活的标签
+  setName: (index: string, name: string) => void;
 }
 
 export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
@@ -54,4 +55,10 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
     set({ sshTabs: newSshTabs });
     return newTabValue;
   },
+  setName: (index: string, name: string) =>
+    set((state) => ({
+      sshTabs: state.sshTabs.map((tab) =>
+        tab.index === index ? { ...tab, name } : tab
+      ),
+    })),
 }));

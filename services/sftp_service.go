@@ -1,9 +1,11 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 	"time"
@@ -52,6 +54,12 @@ func NewSftpService() *SftpService {
 	return &SftpService{}
 }
 
+// joinRemotePath joins remote path elements with forward slash
+// SFTP servers (typically Unix/Linux) always use forward slash as path separator
+func joinRemotePath(elem ...string) string {
+	return path.Join(elem...)
+}
+
 // getSftpClient 通过 sessionID 获取对应的 SFTP 客户端
 func (sft *SftpService) getSftpClient(sessionID string) (*sftp.Client, error) {
 	// 从全局 sshSession 获取对应的连接
@@ -81,7 +89,9 @@ func (sft *SftpService) ListFiles(sessionID string, path string, showHidden bool
 		return nil, err
 	}
 
-	entries, err := ftpClient.ReadDir(path)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	defer cancel()
+	entries, err := ftpClient.ReadDirContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +147,9 @@ func (sft *SftpService) UploadFile(sessionID string, localPathFile, remoteDir st
 	defer localFile.Close()
 
 	// Create the remote file for writing
-	remoteFile, err := ftpClient.Create(filepath.Join(remoteDir, filepath.Base(localPathFile)))
+	remoteFilePath := joinRemotePath(remoteDir, filepath.Base(localPathFile))
+	Logger.Debug("UploadFile Create File", zap.String("file", remoteFilePath))
+	remoteFile, err := ftpClient.Create(remoteFilePath)
 	if err != nil {
 		return err
 	}
@@ -201,6 +213,7 @@ func (sft *SftpService) DownloadFileDialog(sessionID string, remotePath string) 
 	localPath, err := app.Dialog.SaveFile().
 		SetMessage("保存文件").
 		SetFilename(filepath.Base(remotePath)).
+		CanCreateDirectories(true).
 		PromptForSingleSelection()
 	if err != nil {
 		return err
@@ -224,7 +237,10 @@ func (sft *SftpService) UploadDirectory(sessionID string, localPath, remotePath 
 
 	// if localPath is empty string
 	if localPath == "" {
-		localPath, err = app.Dialog.OpenFile().SetTitle("选择目录").PromptForSingleSelection()
+		localPath, err = app.Dialog.OpenFile().SetTitle("选择目录").
+			CanChooseDirectories(true).
+			CanChooseFiles(false).
+			PromptForSingleSelection()
 		if err != nil {
 			return err
 		}
@@ -263,7 +279,7 @@ func (sft *SftpService) UploadDirectory(sessionID string, localPath, remotePath 
 
 	for _, entry := range entries {
 		localEntryPath := filepath.Join(localPath, entry.Name())
-		remoteEntryPath := remotePath
+		remoteEntryPath := joinRemotePath(remotePath, entry.Name())
 
 		if entry.IsDir() {
 			// Recursively upload subdirectory
@@ -305,6 +321,7 @@ func (sft *SftpService) DownloadDirectory(sessionID string, localPath, remotePat
 	if localPath == "" {
 		localPath, err = app.Dialog.SaveFile().
 			SetMessage("保存目录").
+			CanCreateDirectories(true).
 			PromptForSingleSelection()
 		if err != nil {
 			return err
@@ -322,7 +339,7 @@ func (sft *SftpService) DownloadDirectory(sessionID string, localPath, remotePat
 	}
 
 	for _, entry := range entries {
-		remoteEntryPath := filepath.Join(remotePath, entry.Name())
+		remoteEntryPath := joinRemotePath(remotePath, entry.Name())
 		localEntryPath := filepath.Join(localPath, entry.Name())
 
 		if entry.IsDir() {
@@ -372,6 +389,9 @@ func (sft *SftpService) RenameFile(sessionID string, oldPath, newPath string) er
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
+	}
+	if _, err := ftpClient.Stat(newPath); err == nil {
+		return fmt.Errorf("%s exists", newPath)
 	}
 
 	return ftpClient.Rename(oldPath, newPath)

@@ -64,6 +64,9 @@ func NewSSHService() *SSHService {
 // return session ID if success
 func (s *SSHService) Connect(host string, port int, user string, password string, key string) (ID string, err error) {
 	Logger.Debug("Connecting to SSH server", zap.String("host", host), zap.Int("port", port))
+	if password == "" && key == "" {
+		return "", fmt.Errorf("empty password and key")
+	}
 	var client *ssh.Client
 	clientKey := fmt.Sprintf("%s:%d", host, port)
 	clientVal, ok := s.clients.Load(clientKey)
@@ -94,8 +97,10 @@ func (s *SSHService) Connect(host string, port int, user string, password string
 		if password != "" {
 			cfg.Auth = append(cfg.Auth, ssh.Password(password))
 		}
+		Logger.Debug("ssh key", zap.String("file", key))
 		client, err = ssh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), cfg)
 		if err != nil {
+			Logger.Debug("ssh connect error", zap.Error(err))
 			return "", err
 		}
 		// Store the new client for reuse

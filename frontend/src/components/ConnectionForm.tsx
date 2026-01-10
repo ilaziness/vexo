@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Button,
   FormControl,
-  Paper,
   TextField,
   Typography,
   Dialog,
@@ -22,7 +21,10 @@ import {
 import { SSHLinkInfo } from "../types/ssh";
 import { useMessageStore } from "../stores/common";
 import { parseCallServiceError } from "../func/service";
-import { SSHBookmark, BookmarkGroup } from "../../bindings/github.com/ilaziness/vexo/services/models";
+import {
+  SSHBookmark,
+  BookmarkGroup,
+} from "../../bindings/github.com/ilaziness/vexo/services/models";
 
 // 输入连接信息表单
 interface ConnectionFormProps {
@@ -133,19 +135,18 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
   return (
     <>
-      <Paper
+      <Box
         component="form"
         sx={{
           display: "flex",
           flexDirection: "column",
-          pt: 2,
+          pt: 3,
           alignItems: "center",
           flex: 1,
-          height: "100%",
         }}
         onSubmit={submit}
       >
-        <FormControl>
+        <FormControl sx={{ width: 300 }}>
           <TextField
             required
             label="Host"
@@ -186,30 +187,53 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             size="small"
             sx={{ m: 0.8 }}
           />
-          <Button onClick={onSelectKeyFile} sx={{ m: 0.8 }}>
-            选择密钥文件
-          </Button>
+          <Box sx={{ display: "flex", gap: 1, m: 0.8 }}>
+            <TextField
+              label="Key file"
+              value={key}
+              variant="outlined"
+              size="small"
+              slotProps={{
+                input: { readOnly: true },
+              }}
+              placeholder="please select key file"
+              sx={{ flex: 1 }}
+            />
+            <Button onClick={onSelectKeyFile} variant="outlined">
+              Select
+            </Button>
+          </Box>
         </FormControl>
         {error && (
           <Typography color="error" sx={{ mt: 1, mb: 1 }}>
             {error}
           </Typography>
         )}
-        <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-          <Button variant="contained" type="submit" loading={connecting}>
-            {connecting ? "Connecting..." : "Connect"}
+        <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+          <Button
+            variant="contained"
+            type="submit"
+            size="large"
+            loading={connecting}
+          >
+            连接
           </Button>
-          <Button variant="outlined" onClick={handleSaveClick}>
+          <Button
+            variant="outlined"
+            size="large"
+            loading={connecting}
+            onClick={handleSaveClick}
+          >
             保存
           </Button>
         </Box>
-      </Paper>
+      </Box>
 
       {/* 保存书签对话框 */}
       <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)}>
-        <DialogTitle>保存连接到书签</DialogTitle>
+        <DialogTitle>保存到书签</DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2, minWidth: 200 }}>
+          <Box sx={{ mt: 2, minWidth: 400 }}>
             <InputLabel id="bookmark-group-select-label">选择分组</InputLabel>
             <Select
               labelId="bookmark-group-select-label"
