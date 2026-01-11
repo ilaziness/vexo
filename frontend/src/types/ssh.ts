@@ -4,6 +4,7 @@ export interface SSHLinkInfo {
   user: string;
   password?: string;
   key?: string;
+  keyPassword?: string;
 }
 
 export interface SSHTab {

@@ -26,8 +26,8 @@ const theme = createTheme({
         },
         // 背景色：简洁的浅色系
         background: {
-          default: "#fafafa", // 主背景
-          paper: "#ffffff", // 卡片、面板背景
+          default: "#f0f0f0", // 主背景 - 更柔和的灰色，减少眩光
+          paper: "#fefefe", // 卡片、面板背景 - 略带灰调的白色
         },
         // 文本颜色
         text: {

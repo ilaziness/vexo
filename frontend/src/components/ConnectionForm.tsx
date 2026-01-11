@@ -43,6 +43,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [user, setUser] = useState("test");
   const [password, setPassword] = useState("test");
   const [key, setKey] = useState("");
+  const [keyPassword, setKeyPassword] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState("default");
   const [groups, setGroups] = useState<string[]>([]);
@@ -83,6 +84,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       user,
       password,
       key,
+      keyPassword: key ? keyPassword : undefined,
     });
   };
 
@@ -111,12 +113,13 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       host,
       port: Number(port),
       private_key: key,
+      private_key_password: keyPassword,
       user,
       password,
     };
 
     // 保存到书签
-    BookmarkService.AddBookmark(newBookmark)
+    BookmarkService.SaveBookmark(newBookmark)
       .then(() => {
         setSaveDialogOpen(false);
         // 也可以选择连接
@@ -126,6 +129,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           user,
           password,
           key,
+          keyPassword: key ? keyPassword : undefined,
         });
       })
       .catch((err) => {
@@ -203,6 +207,19 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               Select
             </Button>
           </Box>
+          {key && (
+            <TextField
+              label="Key Password"
+              value={keyPassword}
+              onChange={(e) => setKeyPassword(e.target.value)}
+              variant="outlined"
+              margin="normal"
+              type="password"
+              size="small"
+              sx={{ m: 0.8 }}
+              placeholder="private key password (optional)"
+            />
+          )}
         </FormControl>
         {error && (
           <Typography color="error" sx={{ mt: 1, mb: 1 }}>

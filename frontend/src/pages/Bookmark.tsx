@@ -8,6 +8,7 @@ import { useMessageStore } from "../stores/common";
 import Message from "../components/Message";
 import { parseCallServiceError } from "../func/service";
 import { generateRandomId } from "../func/id";
+import PasswordInputDialog from "../components/PasswordInputDialog";
 
 interface BookmarkGroup {
   name: string;
@@ -70,7 +71,7 @@ const Bookmark: React.FC = () => {
 
       // 添加更新后的书签到新分组
       for (const bookmark of updatedBookmarks) {
-        await BookmarkService.AddBookmark(bookmark);
+        await BookmarkService.SaveBookmark(bookmark);
       }
 
       // 重新加载书签
@@ -114,6 +115,7 @@ const Bookmark: React.FC = () => {
       host: "",
       port: 22,
       private_key: "",
+      private_key_password: "",
       user: "",
       password: "",
     };
@@ -135,7 +137,7 @@ const Bookmark: React.FC = () => {
 
   const handleSaveBookmark = async (bookmark: SSHBookmark) => {
     try {
-      await BookmarkService.AddBookmark(bookmark);
+      await BookmarkService.SaveBookmark(bookmark);
       await loadBookmarks();
     } catch (error) {
       console.error("Failed to save bookmark:", error);
@@ -150,7 +152,7 @@ const Bookmark: React.FC = () => {
 
   const handleSaveAndConnect = async (bookmark: SSHBookmark) => {
     try {
-      await BookmarkService.AddBookmark(bookmark);
+      await BookmarkService.SaveBookmark(bookmark);
       await loadBookmarks();
       // TODO: 实现连接功能
       console.log("Saving and connecting to:", bookmark);
@@ -207,6 +209,7 @@ const Bookmark: React.FC = () => {
         </Box>
       </Box>
       <Message />
+      <PasswordInputDialog />
     </>
   );
 };

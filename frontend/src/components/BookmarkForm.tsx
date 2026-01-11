@@ -39,6 +39,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     host: "",
     port: 22,
     private_key: "",
+    private_key_password: "",
     user: "",
     password: "",
   });
@@ -54,6 +55,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
         host: "",
         port: 22,
         private_key: "",
+        private_key_password: "",
         user: "",
         password: "",
       });
@@ -315,6 +317,17 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                         ),
                       },
                     }}
+                  />
+                </FormRow>
+                <FormRow label="密钥密码">
+                  <TextField
+                    fullWidth
+                    size="small"
+                    name="private_key_password"
+                    type="password"
+                    value={formData.private_key_password}
+                    onChange={handleChange}
+                    placeholder="私钥密码（可选）"
                   />
                 </FormRow>
               </Stack>

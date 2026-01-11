@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Browser } from "@wailsio/runtime";
 import {
   ReadConfig,
   SaveConfig,
@@ -17,7 +18,6 @@ import {
   TextField,
   Button,
   Typography,
-  Container,
   Paper,
   Stack,
   IconButton,
@@ -25,7 +25,35 @@ import {
 import { MoreHoriz } from "@mui/icons-material";
 import { SelectDirectory } from "../../bindings/github.com/ilaziness/vexo/services/commonservice";
 import Message from "../components/Message.tsx";
+import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/common";
+
+// 横向表单项组件
+const FormRow: React.FC<{
+  label: string;
+  children: React.ReactNode;
+}> = ({ label, children }) => (
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      mb: 2,
+      "&:last-child": { mb: 0 },
+    }}
+  >
+    <Typography
+      sx={{
+        width: 100,
+        flexShrink: 0,
+        fontWeight: 500,
+        fontSize: "0.95rem",
+      }}
+    >
+      {label}
+    </Typography>
+    <Box sx={{ flex: 1 }}>{children}</Box>
+  </Box>
+);
 
 const Setting: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"general" | "terminal" | "about">(
@@ -51,14 +79,44 @@ const Setting: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (config) {
-      try {
-        await SaveConfig(config);
-        ConfigService.CloseWindow();
-      } catch (error) {
-        console.error("Failed to save config:", error);
-        errorMessage("配置保存失败");
-      }
+    if (!config) return;
+
+    // 验证必填字段
+    const errors: string[] = [];
+
+    // 通用设置验证
+    if (
+      !config.General.UserDataDir ||
+      config.General.UserDataDir.trim() === ""
+    ) {
+      errors.push("用户数据目录不能为空");
+    }
+
+    // 终端设置验证
+    if (
+      !config.Terminal.fontFamily ||
+      config.Terminal.fontFamily.trim() === ""
+    ) {
+      errors.push("字体不能为空");
+    }
+    if (!config.Terminal.fontSize || config.Terminal.fontSize < 1) {
+      errors.push("字体大小必须大于等于1");
+    }
+    if (!config.Terminal.lineHeight || config.Terminal.lineHeight <= 0) {
+      errors.push("行高必须大于0");
+    }
+
+    if (errors.length > 0) {
+      errorMessage(errors.join("-"));
+      return;
+    }
+
+    try {
+      await SaveConfig(config);
+      ConfigService.CloseWindow();
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      errorMessage("配置保存失败");
     }
   };
 
@@ -99,38 +157,11 @@ const Setting: React.FC = () => {
     }
   };
 
-  // 横向表单项组件
-  const FormRow: React.FC<{
-    label: string;
-    children: React.ReactNode;
-  }> = ({ label, children }) => (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        mb: 2,
-        "&:last-child": { mb: 0 },
-      }}
-    >
-      <Typography
-        sx={{
-          width: 100,
-          flexShrink: 0,
-          fontWeight: 500,
-          fontSize: "0.95rem",
-        }}
-      >
-        {label}
-      </Typography>
-      <Box sx={{ flex: 1 }}>{children}</Box>
-    </Box>
-  );
-
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        <Typography>加载中...</Typography>
-      </Container>
+      <Box sx={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Loading />
+      </Box>
     );
   }
 
@@ -311,30 +342,14 @@ const Setting: React.FC = () => {
                             },
                           }}
                           value={config.Terminal.fontSize || ""}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            // 允许空值
-                            if (value === "" || value === "-") {
-                              handleTerminalChange("fontSize", 14);
-                              return;
-                            }
-                            const num = parseInt(value);
-                            // 允许所有数字输入，包括中间状态
-                            if (!isNaN(num)) {
-                              // 确保最小值为1，但允许用户输入过程
-                              handleTerminalChange(
-                                "fontSize",
-                                num >= 1 ? Math.floor(num) : 1,
-                              );
-                            }
-                          }}
-                          onBlur={(e) => {
-                            // 失去焦点时验证最小值
-                            const value = e.target.value;
-                            if (value === "" || parseInt(value) < 1) {
-                              handleTerminalChange("fontSize", 14);
-                            }
-                          }}
+                          onChange={(e) =>
+                            handleTerminalChange(
+                              "fontSize",
+                              e.target.value === ""
+                                ? null
+                                : parseInt(e.target.value) || null,
+                            )
+                          }
                           placeholder="例如: 14"
                         />
                       </FormRow>
@@ -350,33 +365,14 @@ const Setting: React.FC = () => {
                             },
                           }}
                           value={config.Terminal.lineHeight || ""}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            // 允许空值和小数点
-                            if (
-                              value === "" ||
-                              value === "." ||
-                              value === "-"
-                            ) {
-                              handleTerminalChange("lineHeight", 0);
-                              return;
-                            }
-                            const num = parseFloat(value);
-                            // 允许所有有效数字输入
-                            if (!isNaN(num)) {
-                              handleTerminalChange(
-                                "lineHeight",
-                                num > 0 ? num : 0.1,
-                              );
-                            }
-                          }}
-                          onBlur={(e) => {
-                            // 失去焦点时验证最小值
-                            const value = e.target.value;
-                            if (value === "" || parseFloat(value) <= 0) {
-                              handleTerminalChange("lineHeight", 1.2);
-                            }
-                          }}
+                          onChange={(e) =>
+                            handleTerminalChange(
+                              "lineHeight",
+                              e.target.value === ""
+                                ? null
+                                : parseFloat(e.target.value) || null,
+                            )
+                          }
                           placeholder="例如: 1.2"
                         />
                       </FormRow>
@@ -429,6 +425,11 @@ const Setting: React.FC = () => {
                             fontWeight: 500,
                             color: "primary.main",
                             textDecoration: "none",
+                          }}
+                          onClick={() => {
+                            Browser.OpenURL(
+                              "https://github.com/ilaziness/vexo",
+                            );
                           }}
                         >
                           https://github.com/ilaziness/vexo
