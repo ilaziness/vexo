@@ -20,8 +20,12 @@ import {
   Container,
   Paper,
   Stack,
+  IconButton,
 } from "@mui/material";
+import { MoreHoriz } from "@mui/icons-material";
+import { SelectDirectory } from "../../bindings/github.com/ilaziness/vexo/services/commonservice";
 import Message from "../components/Message.tsx";
+import { useMessageStore } from "../stores/common";
 
 const Setting: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"general" | "terminal" | "about">(
@@ -29,6 +33,7 @@ const Setting: React.FC = () => {
   );
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
+  const { errorMessage } = useMessageStore();
 
   useEffect(() => {
     loadConfig();
@@ -49,10 +54,10 @@ const Setting: React.FC = () => {
     if (config) {
       try {
         await SaveConfig(config);
-        alert("配置保存成功");
+        ConfigService.CloseWindow();
       } catch (error) {
         console.error("Failed to save config:", error);
-        alert("配置保存失败");
+        errorMessage("配置保存失败");
       }
     }
   };
@@ -82,6 +87,18 @@ const Setting: React.FC = () => {
     }
   };
 
+  const handleSelectDirectory = async () => {
+    try {
+      const selectedDir = await SelectDirectory();
+      if (selectedDir) {
+        handleGeneralChange("UserDataDir", selectedDir);
+      }
+    } catch (error) {
+      console.error("Failed to select directory:", error);
+      errorMessage("选择目录失败");
+    }
+  };
+
   // 横向表单项组件
   const FormRow: React.FC<{
     label: string;
@@ -97,7 +114,7 @@ const Setting: React.FC = () => {
     >
       <Typography
         sx={{
-          width: 140,
+          width: 100,
           flexShrink: 0,
           fontWeight: 500,
           fontSize: "0.95rem",
@@ -124,7 +141,7 @@ const Setting: React.FC = () => {
           {/* 左侧导航 */}
           <Paper
             sx={{
-              width: 200,
+              width: 150,
               flexShrink: 0,
               borderRight: 1,
               borderColor: "divider",
@@ -135,7 +152,10 @@ const Setting: React.FC = () => {
             square
           >
             <Box sx={{ p: 2, pb: 1.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1.1rem" }}>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, fontSize: "1.2rem" }}
+              >
                 设置
               </Typography>
             </Box>
@@ -157,10 +177,7 @@ const Setting: React.FC = () => {
                     },
                   }}
                 >
-                  <ListItemText 
-                    primary="通用" 
-                    primaryTypographyProps={{ fontSize: "0.95rem" }}
-                  />
+                  <ListItemText primary="通用" />
                 </ListItemButton>
               </ListItem>
               <ListItem disablePadding>
@@ -179,10 +196,7 @@ const Setting: React.FC = () => {
                     },
                   }}
                 >
-                  <ListItemText 
-                    primary="终端" 
-                    primaryTypographyProps={{ fontSize: "0.95rem" }}
-                  />
+                  <ListItemText primary="终端" />
                 </ListItemButton>
               </ListItem>
               <ListItem disablePadding>
@@ -201,10 +215,7 @@ const Setting: React.FC = () => {
                     },
                   }}
                 >
-                  <ListItemText 
-                    primary="关于" 
-                    primaryTypographyProps={{ fontSize: "0.95rem" }}
-                  />
+                  <ListItemText primary="关于" />
                 </ListItemButton>
               </ListItem>
             </List>
@@ -228,20 +239,38 @@ const Setting: React.FC = () => {
             >
               {activeTab === "general" && config && (
                 <Box>
-                  <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+                  <Typography
+                    variant="h5"
+                    gutterBottom
+                    sx={{ mb: 3, fontWeight: 600 }}
+                  >
                     通用设置
                   </Typography>
                   <Paper sx={{ p: 3 }} elevation={1}>
                     <FormRow label="用户数据目录">
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={config.General.UserDataDir || ""}
-                        onChange={(e) =>
-                          handleGeneralChange("UserDataDir", e.target.value)
-                        }
-                        placeholder="请输入用户数据目录路径"
-                      />
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          value={config.General.UserDataDir || ""}
+                          onChange={(e) =>
+                            handleGeneralChange("UserDataDir", e.target.value)
+                          }
+                          placeholder="请输入用户数据目录路径"
+                          slotProps={{
+                            input: {
+                              endAdornment: (
+                                <IconButton
+                                  size="small"
+                                  onClick={handleSelectDirectory}
+                                >
+                                  <MoreHoriz />
+                                </IconButton>
+                              ),
+                            },
+                          }}
+                        />
+                      </Box>
                     </FormRow>
                   </Paper>
                 </Box>
@@ -249,18 +278,23 @@ const Setting: React.FC = () => {
 
               {activeTab === "terminal" && config && (
                 <Box>
-                  <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+                  <Typography
+                    variant="h5"
+                    gutterBottom
+                    sx={{ mb: 3, fontWeight: 600 }}
+                  >
                     终端设置
                   </Typography>
                   <Paper sx={{ p: 3 }} elevation={1}>
                     <Stack spacing={2}>
                       <FormRow label="字体">
                         <TextField
+                          required
                           fullWidth
                           size="small"
-                          value={config.Terminal.Font || ""}
+                          value={config.Terminal.fontFamily || ""}
                           onChange={(e) =>
-                            handleTerminalChange("Font", e.target.value)
+                            handleTerminalChange("fontFamily", e.target.value)
                           }
                           placeholder="例如: Consolas, Monaco"
                         />
@@ -270,13 +304,37 @@ const Setting: React.FC = () => {
                           fullWidth
                           size="small"
                           type="number"
-                          value={config.Terminal.FontSize || 0}
-                          onChange={(e) =>
-                            handleTerminalChange(
-                              "FontSize",
-                              parseInt(e.target.value),
-                            )
-                          }
+                          slotProps={{
+                            htmlInput: {
+                              min: 1,
+                              step: 1,
+                            },
+                          }}
+                          value={config.Terminal.fontSize || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // 允许空值
+                            if (value === "" || value === "-") {
+                              handleTerminalChange("fontSize", 14);
+                              return;
+                            }
+                            const num = parseInt(value);
+                            // 允许所有数字输入，包括中间状态
+                            if (!isNaN(num)) {
+                              // 确保最小值为1，但允许用户输入过程
+                              handleTerminalChange(
+                                "fontSize",
+                                num >= 1 ? Math.floor(num) : 1,
+                              );
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // 失去焦点时验证最小值
+                            const value = e.target.value;
+                            if (value === "" || parseInt(value) < 1) {
+                              handleTerminalChange("fontSize", 14);
+                            }
+                          }}
                           placeholder="例如: 14"
                         />
                       </FormRow>
@@ -285,14 +343,40 @@ const Setting: React.FC = () => {
                           fullWidth
                           size="small"
                           type="number"
-                          inputProps={{ step: 0.1 }}
-                          value={config.Terminal.LineHeight || 0}
-                          onChange={(e) =>
-                            handleTerminalChange(
-                              "LineHeight",
-                              parseFloat(e.target.value),
-                            )
-                          }
+                          slotProps={{
+                            htmlInput: {
+                              min: 0.1,
+                              step: 0.1,
+                            },
+                          }}
+                          value={config.Terminal.lineHeight || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // 允许空值和小数点
+                            if (
+                              value === "" ||
+                              value === "." ||
+                              value === "-"
+                            ) {
+                              handleTerminalChange("lineHeight", 0);
+                              return;
+                            }
+                            const num = parseFloat(value);
+                            // 允许所有有效数字输入
+                            if (!isNaN(num)) {
+                              handleTerminalChange(
+                                "lineHeight",
+                                num > 0 ? num : 0.1,
+                              );
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // 失去焦点时验证最小值
+                            const value = e.target.value;
+                            if (value === "" || parseFloat(value) <= 0) {
+                              handleTerminalChange("lineHeight", 1.2);
+                            }
+                          }}
                           placeholder="例如: 1.2"
                         />
                       </FormRow>
@@ -303,35 +387,51 @@ const Setting: React.FC = () => {
 
               {activeTab === "about" && (
                 <Box>
-                  <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+                  <Typography
+                    variant="h5"
+                    gutterBottom
+                    sx={{ mb: 3, fontWeight: 600 }}
+                  >
                     关于
                   </Typography>
                   <Paper sx={{ p: 3 }} elevation={1}>
-                    <Stack spacing={2}>
-                      <Box>
-                        <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: "0.9rem" }}>
-                          应用名称
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          Vexo
-                        </Typography>
-                      </Box>
-                      <Divider />
-                      <Box>
-                        <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: "0.9rem" }}>
-                          版本
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          v1.0.0
-                        </Typography>
-                      </Box>
-                      <Divider />
-                      <Box>
-                        <Typography color="text.secondary" sx={{ mb: 0.5, fontSize: "0.9rem" }}>
-                          描述
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          一个现代化的SSH和SFTP客户端工具
+                    <Stack spacing={2} sx={{ textAlign: "center" }}>
+                      <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                        Vexo
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        v0.0.1
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                        </svg>
+                        <Typography
+                          variant="body1"
+                          component="a"
+                          href="https://github.com/ilaziness/vexo"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{
+                            ml: 0.8,
+                            fontWeight: 500,
+                            color: "primary.main",
+                            textDecoration: "none",
+                          }}
+                        >
+                          https://github.com/ilaziness/vexo
                         </Typography>
                       </Box>
                     </Stack>

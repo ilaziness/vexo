@@ -8,6 +8,7 @@ import { Events } from "@wailsio/runtime";
 import {
   LogService,
   SSHService,
+  ConfigService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import useTerminalStore from "../stores/terminal";
 import { decodeBase64, encodeBase64 } from "../func/decode";
@@ -32,17 +33,19 @@ export default function Terminal(props: { linkID: string }) {
     [props.linkID],
   );
 
-  const initTerminal = () => {
+  const initTerminal = async () => {
     if (term.current) {
       return;
     }
     LogService.Debug("Initializing terminal for link ID: " + props.linkID);
-    const settings = useTerminalStore.getState();
+    const config = await ConfigService.ReadConfig();
+    const settings = config?.Terminal || useTerminalStore.getState();
     term.current = new TerminalLib({
       cursorBlink: true,
-      cursorStyle: "block",
+      cursorStyle: "bar",
       fontFamily: settings.fontFamily,
       fontSize: settings.fontSize,
+      lineHeight: settings.lineHeight,
     });
     fit.current = new FitAddon();
     term.current.loadAddon(fit.current);

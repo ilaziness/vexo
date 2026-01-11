@@ -7,9 +7,15 @@ import BookmarkForm from "../components/BookmarkForm";
 import { useMessageStore } from "../stores/common";
 import Message from "../components/Message";
 import { parseCallServiceError } from "../func/service";
+import { generateRandomId } from "../func/id";
+
+interface BookmarkGroup {
+  name: string;
+  bookmarks: SSHBookmark[];
+}
 
 const Bookmark: React.FC = () => {
-  const [bookmarks, setBookmarks] = useState<Record<string, SSHBookmark[]>>({});
+  const [bookmarks, setBookmarks] = useState<BookmarkGroup[]>([]);
   const [selectedBookmark, setSelectedBookmark] = useState<SSHBookmark | null>(
     null,
   );
@@ -24,16 +30,14 @@ const Bookmark: React.FC = () => {
     try {
       const config = await BookmarkService.ListBookmarks();
       if (config && Array.isArray(config)) {
-        // 将BookmarkGroup数组转换为按组名索引的对象
-        const bookmarkMap: Record<string, SSHBookmark[]> = {};
-        for (const group of config) {
-          if (group && group.name && Array.isArray(group.bookmarks)) {
-            bookmarkMap[group.name] = group.bookmarks;
-          }
-        }
-        setBookmarks(bookmarkMap);
+        // 过滤掉 null 值，确保类型安全
+        const validBookmarks = config.filter(
+          (group): group is BookmarkGroup =>
+            group !== null && group !== undefined,
+        );
+        setBookmarks(validBookmarks);
       } else {
-        setBookmarks({});
+        setBookmarks([]);
       }
     } catch (error) {
       console.error("Failed to load bookmarks:", error);
@@ -50,8 +54,9 @@ const Bookmark: React.FC = () => {
     newGroupName: string,
   ) => {
     try {
-      // 删除旧分组的所有书签
-      const bookmarksToMove = bookmarks[oldGroupName] || [];
+      // 查找旧分组
+      const oldGroup = bookmarks.find((g) => g.name === oldGroupName);
+      const bookmarksToMove = oldGroup?.bookmarks || [];
 
       // 为这些书签创建新ID并更新分组
       const updatedBookmarks = bookmarksToMove.map((b) => ({
@@ -99,25 +104,20 @@ const Bookmark: React.FC = () => {
     }
   };
 
-  const handleBookmarkAdd = async (groupName: string) => {
-    try {
-      const newBookmark: SSHBookmark = {
-        id: `${groupName}-new-${Date.now()}`,
-        title: `新书签 ${bookmarks[groupName]?.length ? bookmarks[groupName].length + 1 : 1}`,
-        group_name: groupName,
-        host: "",
-        port: 22,
-        private_key: "",
-        user: "",
-        password: "",
-      };
-      await BookmarkService.AddBookmark(newBookmark);
-      setSelectedBookmark(newBookmark);
-      await loadBookmarks();
-    } catch (error) {
-      console.error("Failed to add bookmark:", error);
-      errorMessage("添加书签失败: " + parseCallServiceError(error));
-    }
+  const handleBookmarkAdd = (groupName: string) => {
+    const group = bookmarks.find((g) => g.name === groupName);
+    const bookmarkCount = group?.bookmarks?.length || 0;
+    const newBookmark: SSHBookmark = {
+      id: generateRandomId(),
+      title: `新书签 ${bookmarkCount + 1}`,
+      group_name: groupName,
+      host: "",
+      port: 22,
+      private_key: "",
+      user: "",
+      password: "",
+    };
+    setSelectedBookmark(newBookmark);
   };
 
   const handleBookmarkDelete = async (bookmarkId: string) => {
@@ -199,6 +199,7 @@ const Bookmark: React.FC = () => {
         >
           <BookmarkForm
             bookmark={selectedBookmark}
+            groupNames={bookmarks.map((g) => g.name)}
             onSave={handleSaveBookmark}
             onTestConnection={handleTestConnection}
             onSaveAndConnect={handleSaveAndConnect}

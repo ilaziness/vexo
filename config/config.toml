@@ -1,7 +1,0 @@
-[general]
-user_data_dir = "./data"
-
-[terminal]
-font = "monospace"
-font_size = 14
-line_height = 1.2

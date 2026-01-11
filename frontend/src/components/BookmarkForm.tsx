@@ -7,11 +7,19 @@ import {
   Paper,
   Stack,
   Divider,
+  MenuItem,
+  Select,
+  FormControl,
+  IconButton,
+  InputAdornment,
 } from "@mui/material";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
+import { CommonService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 interface BookmarkFormProps {
   bookmark: SSHBookmark | null;
+  groupNames: string[]; // 添加分组列表
   onSave: (bookmark: SSHBookmark) => void;
   onTestConnection: (bookmark: SSHBookmark) => void;
   onSaveAndConnect: (bookmark: SSHBookmark) => void;
@@ -19,6 +27,7 @@ interface BookmarkFormProps {
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
   bookmark,
+  groupNames,
   onSave,
   onTestConnection,
   onSaveAndConnect,
@@ -74,6 +83,29 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
   const handleSaveAndConnect = () => {
     if (formData) {
       onSaveAndConnect(formData);
+    }
+  };
+
+  // 处理分组选择变化
+  const handleGroupChange = (event: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      group_name: event.target.value,
+    }));
+  };
+
+  // 处理选择文件
+  const handleSelectFile = async () => {
+    try {
+      const selectedPath = await CommonService.SelectFile();
+      if (selectedPath) {
+        setFormData((prev) => ({
+          ...prev,
+          private_key: selectedPath,
+        }));
+      }
+    } catch (error) {
+      console.error("选择文件失败:", error);
     }
   };
 
@@ -172,14 +204,22 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                   />
                 </FormRow>
                 <FormRow label="分组">
-                  <TextField
-                    fullWidth
-                    size="small"
-                    name="group_name"
-                    value={formData.group_name}
-                    onChange={handleChange}
-                    placeholder="请输入分组名称"
-                  />
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={formData.group_name}
+                      onChange={handleGroupChange}
+                      displayEmpty
+                    >
+                      {groupNames.length === 0 && (
+                        <MenuItem value="default">default</MenuItem>
+                      )}
+                      {groupNames.map((groupName) => (
+                        <MenuItem key={groupName} value={groupName}>
+                          {groupName}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </FormRow>
               </Stack>
             </Box>
@@ -251,43 +291,62 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     placeholder="密码认证（可选）"
                   />
                 </FormRow>
-                <FormRow label="密钥路径">
+                <FormRow label="密钥文件">
                   <TextField
                     fullWidth
                     size="small"
                     name="private_key"
                     value={formData.private_key}
-                    onChange={handleChange}
                     placeholder="私钥文件路径（可选）"
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              edge="end"
+                              onClick={handleSelectFile}
+                              size="small"
+                              title="选择文件"
+                            >
+                              <MoreHorizIcon />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
                   />
                 </FormRow>
               </Stack>
             </Box>
+
+            <Divider />
+
+            {/* 操作按钮 */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 1,
+                pt: 1,
+              }}
+            >
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleTestConnection}
+              >
+                测试连接
+              </Button>
+              <Button variant="outlined" onClick={handleSave}>
+                保存
+              </Button>
+              <Button variant="contained" onClick={handleSaveAndConnect}>
+                保存并连接
+              </Button>
+            </Box>
           </Stack>
         </Paper>
-      </Box>
-
-      {/* 底部操作按钮 */}
-      <Box
-        sx={{
-          borderTop: 1,
-          borderColor: "divider",
-          p: 2,
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 1,
-          backgroundColor: "background.paper",
-        }}
-      >
-        <Button variant="outlined" color="secondary" onClick={handleTestConnection}>
-          测试连接
-        </Button>
-        <Button variant="outlined" onClick={handleSave}>
-          保存
-        </Button>
-        <Button variant="contained" onClick={handleSaveAndConnect}>
-          保存并连接
-        </Button>
       </Box>
     </Box>
   );

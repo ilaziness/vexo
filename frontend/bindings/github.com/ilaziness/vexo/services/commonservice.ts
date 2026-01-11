@@ -16,3 +16,11 @@ export function MainWindowMax(): $CancellablePromise<void> {
 export function MainWindowMin(): $CancellablePromise<void> {
     return $Call.ByID(2775081409);
 }
+
+export function SelectDirectory(): $CancellablePromise<string> {
+    return $Call.ByID(556670317);
+}
+
+export function SelectFile(): $CancellablePromise<string> {
+    return $Call.ByID(3784135936);
+}

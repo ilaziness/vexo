@@ -14,7 +14,7 @@ export function CloseWindow(): $CancellablePromise<void> {
 }
 
 /**
- * ReadConfig 读取配置方法，不需要参数
+ * ReadConfig 读取配置方法，返回当前配置
  */
 export function ReadConfig(): $CancellablePromise<$models.Config | null> {
     return $Call.ByID(1067814135).then(($result: any) => {
@@ -23,7 +23,9 @@ export function ReadConfig(): $CancellablePromise<$models.Config | null> {
 }
 
 /**
- * SaveConfig 保存配置方法，需要传入配置对象，保存到 UserDataDir 指定的目录
+ * SaveConfig 保存配置方法
+ * 1. 如果 UserDataDir 改变，更新应用配置文件
+ * 2. 将所有配置保存到用户配置文件
  */
 export function SaveConfig(config: $models.Config): $CancellablePromise<void> {
     return $Call.ByID(3626712470, config);

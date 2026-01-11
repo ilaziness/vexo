@@ -9,8 +9,8 @@ export interface TerminalSettings {
 export const useTerminalStore = create<TerminalSettings>((set) => ({
   fontFamily:
     '"Noto Sans Mono", "Cascadia Code", "Fira Code", Menlo, Monaco, Consolas, "DejaVu Sans Mono", "Ubuntu Mono", "Courier New", monospace',
-  fontSize: 15,
-  lineHeight: 1.2,
+  fontSize: 14,
+  lineHeight: 1,
   setFontFamily: (f: string) => set(() => ({ fontFamily: f })),
   setFontSize: (s: number) => set(() => ({ fontSize: s })),
   setLineHeight: (l: number) => set(() => ({ lineHeight: l })),

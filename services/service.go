@@ -43,3 +43,18 @@ func (cs *CommonService) MainWindowMax() {
 func (cs *CommonService) MainWindowClose() {
 	cs.mainWindow.Close()
 }
+
+func (cs *CommonService) SelectDirectory() (string, error) {
+	return app.Dialog.OpenFile().SetTitle("选择目录").
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		CanCreateDirectories(true).
+		PromptForSingleSelection()
+}
+
+func (cs *CommonService) SelectFile() (string, error) {
+	return app.Dialog.OpenFile().SetTitle("选择文件").
+		CanChooseDirectories(false).
+		CanChooseFiles(true).
+		PromptForSingleSelection()
+}

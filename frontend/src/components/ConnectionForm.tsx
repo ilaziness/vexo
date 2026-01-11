@@ -38,10 +38,10 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   error,
   connecting,
 }) => {
-  const [host, setHost] = useState("192.168.82.151");
-  const [port, setPort] = useState<string>("60122");
-  const [user, setUser] = useState("ubuntu");
-  const [password, setPassword] = useState("dever@123");
+  const [host, setHost] = useState("172.20.10.4");
+  const [port, setPort] = useState<string>("22");
+  const [user, setUser] = useState("test");
+  const [password, setPassword] = useState("test");
   const [key, setKey] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState("default");

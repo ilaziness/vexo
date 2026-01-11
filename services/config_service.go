@@ -27,16 +27,21 @@ type GeneralConfig struct {
 }
 
 type TerminalConfig struct {
-	Font       string  `toml:"font"`
-	FontSize   int     `toml:"font_size"`
-	LineHeight float64 `toml:"line_height"`
+	Font       string  `toml:"font" json:"fontFamily"`
+	FontSize   int     `toml:"font_size" json:"fontSize"`
+	LineHeight float64 `toml:"line_height" json:"lineHeight"`
+}
+
+// AppConfig 应用配置，只保存 user_data_dir
+type AppConfig struct {
+	General GeneralConfig `toml:"general"`
 }
 
 type ConfigService struct {
-	Config            *Config
-	configPath        string // UserDataDir 下的配置文件路径
-	defaultConfigPath string // 可执行目录下的默认配置文件路径
-	window            *application.WebviewWindow
+	Config     *Config
+	userConfig string // UserDataDir 下的用户配置文件路径
+	appConfig  string // 可执行目录下的应用配置文件路径
+	window     *application.WebviewWindow
 }
 
 // GetDefaultConfig 获取默认配置
@@ -57,9 +62,9 @@ func GetDefaultConfig() *Config {
 			UserDataDir: defaultUserDataDir,
 		},
 		Terminal: TerminalConfig{
-			Font:       "monospace",
+			Font:       "'Noto Sans Mono', monospace",
 			FontSize:   14,
-			LineHeight: 1.2,
+			LineHeight: 1,
 		},
 	}
 }
@@ -101,62 +106,57 @@ func NewConfigService() *ConfigService {
 	// 获取可执行文件所在目录
 	execDir := filepath.Dir(execPath)
 
-	// 默认配置文件路径：可执行目录/config/config.toml
-	defaultConfigPath := filepath.Join(execDir, "config", "config.toml")
+	// 应用配置文件路径：可执行目录/config.toml
+	appConfigPath := filepath.Join(execDir, "config.toml")
 
-	// 1. 读取或创建默认配置
+	// 1. 获取默认配置
 	defaultConfig := GetDefaultConfig()
 
-	// 确保默认配置目录存在
-	defaultConfigDir := filepath.Dir(defaultConfigPath)
-	if _, err = os.Stat(defaultConfigDir); os.IsNotExist(err) {
-		os.MkdirAll(defaultConfigDir, 0755)
+	// 2. 读取应用配置（如果存在）
+	appConfig := &AppConfig{
+		General: defaultConfig.General,
 	}
-
-	// 如果默认配置文件不存在，创建并写入
-	if _, err = os.Stat(defaultConfigPath); os.IsNotExist(err) {
-		if data, err := toml.Marshal(defaultConfig); err == nil {
-			os.WriteFile(defaultConfigPath, data, 0644)
-		}
-	} else {
-		// 如果存在，读取默认配置文件
-		if data, err := os.ReadFile(defaultConfigPath); err == nil {
-			toml.Unmarshal(data, defaultConfig)
+	if data, err := os.ReadFile(appConfigPath); err == nil {
+		toml.Unmarshal(data, appConfig)
+	} else if os.IsNotExist(err) {
+		// 首次启动，创建应用配置文件，只保存 user_data_dir
+		if data, err := toml.Marshal(appConfig); err == nil {
+			os.WriteFile(appConfigPath, data, 0644)
 		}
 	}
 
-	// 确保默认 UserDataDir 存在
-	if _, err := os.Stat(defaultConfig.General.UserDataDir); os.IsNotExist(err) {
-		os.MkdirAll(defaultConfig.General.UserDataDir, 0755)
+	// 确保 UserDataDir 存在
+	userDataDir := appConfig.General.UserDataDir
+	if userDataDir == "" {
+		userDataDir = defaultConfig.General.UserDataDir
+	}
+	if _, err := os.Stat(userDataDir); os.IsNotExist(err) {
+		os.MkdirAll(userDataDir, 0755)
 	}
 
-	// 2. 检查 UserDataDir 下是否有配置文件
-	userConfigPath := filepath.Join(defaultConfig.General.UserDataDir, "config.toml")
+	// 3. 读取用户配置（如果存在）
+	userConfigPath := filepath.Join(userDataDir, "config.toml")
 	finalConfig := defaultConfig
+	finalConfig.General.UserDataDir = userDataDir
 
-	if _, err := os.Stat(userConfigPath); err == nil {
-		// 读取用户配置并合并
+	if data, err := os.ReadFile(userConfigPath); err == nil {
 		userConfig := &Config{}
-		if data, err := os.ReadFile(userConfigPath); err == nil {
-			if err := toml.Unmarshal(data, userConfig); err == nil {
-				finalConfig = mergeConfig(defaultConfig, userConfig)
-
-				// 如果合并后的 UserDataDir 发生变化，更新路径
-				if finalConfig.General.UserDataDir != defaultConfig.General.UserDataDir {
-					// 确保新的 UserDataDir 存在
-					if _, err := os.Stat(finalConfig.General.UserDataDir); os.IsNotExist(err) {
-						os.MkdirAll(finalConfig.General.UserDataDir, 0755)
-					}
-					userConfigPath = filepath.Join(finalConfig.General.UserDataDir, "config.toml")
-				}
-			}
+		if err := toml.Unmarshal(data, userConfig); err == nil {
+			// 用户配置覆盖默认配置（不包括 UserDataDir，UserDataDir 由应用配置管理）
+			finalConfig = mergeConfig(defaultConfig, userConfig)
+			finalConfig.General.UserDataDir = userDataDir
+		}
+	} else if os.IsNotExist(err) {
+		// 首次启动，创建用户配置文件
+		if data, err := toml.Marshal(finalConfig); err == nil {
+			os.WriteFile(userConfigPath, data, 0644)
 		}
 	}
 
 	return &ConfigService{
-		Config:            finalConfig,
-		configPath:        userConfigPath,
-		defaultConfigPath: defaultConfigPath,
+		Config:     finalConfig,
+		userConfig: userConfigPath,
+		appConfig:  appConfigPath,
 	}
 }
 
@@ -186,69 +186,55 @@ func (cs *ConfigService) CloseWindow() {
 	}
 }
 
-// ReadConfig 读取配置方法，不需要参数
+// ReadConfig 读取配置方法，返回当前配置
 func (cs *ConfigService) ReadConfig() (*Config, error) {
-	data, err := os.ReadFile(cs.configPath)
-	if err != nil {
-		// 如果配置文件不存在，返回默认配置
-		if os.IsNotExist(err) {
-			// 确保配置文件所在目录存在
-			configDir := filepath.Dir(cs.configPath)
-			if _, err := os.Stat(configDir); os.IsNotExist(err) {
-				os.MkdirAll(configDir, 0755)
-			}
-			defaultConfig := &Config{
-				General: GeneralConfig{
-					UserDataDir: filepath.Dir(cs.configPath), // 使用当前目录作为用户数据目录
-				},
-				Terminal: TerminalConfig{
-					Font:       "monospace",
-					FontSize:   14,
-					LineHeight: 1.2,
-				},
-			}
-			return defaultConfig, nil
+	return cs.Config, nil
+}
+
+// SaveConfig 保存配置方法
+// 1. 如果 UserDataDir 改变，更新应用配置文件
+// 2. 将所有配置保存到用户配置文件
+func (cs *ConfigService) SaveConfig(config Config) error {
+	// 1. 检查 UserDataDir 是否发生变化
+	if config.General.UserDataDir != cs.Config.General.UserDataDir {
+		// 更新应用配置文件中的 user_data_dir
+		appConfig := &AppConfig{
+			General: GeneralConfig{
+				UserDataDir: config.General.UserDataDir,
+			},
 		}
-		return nil, err
-	}
+		if data, err := toml.Marshal(appConfig); err == nil {
+			os.WriteFile(cs.appConfig, data, 0644)
+		}
 
-	config := &Config{}
-	err = toml.Unmarshal(data, config)
-	if err != nil {
-		return nil, err
-	}
-
-	// 确保用户数据目录存在
-	if config.General.UserDataDir != "" {
+		// 确保新的 UserDataDir 存在
 		if _, err := os.Stat(config.General.UserDataDir); os.IsNotExist(err) {
 			os.MkdirAll(config.General.UserDataDir, 0755)
 		}
+
+		// 更新用户配置文件路径
+		cs.userConfig = filepath.Join(config.General.UserDataDir, "config.toml")
 	}
 
-	return config, nil
-}
-
-// SaveConfig 保存配置方法，需要传入配置对象，保存到 UserDataDir 指定的目录
-func (cs *ConfigService) SaveConfig(config Config) error {
+	// 2. 保存完整配置到用户配置文件
 	data, err := toml.Marshal(config)
 	if err != nil {
 		return err
 	}
 
-	// 更新当前配置
-	cs.Config = &config
-
-	// 如果 UserDataDir 发生变化，更新配置文件路径
-	if config.General.UserDataDir != "" && config.General.UserDataDir != filepath.Dir(cs.configPath) {
-		cs.configPath = filepath.Join(config.General.UserDataDir, "config.toml")
-	}
-
-	// 确保配置文件所在目录存在
-	configDir := filepath.Dir(cs.configPath)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	// 确保用户配置目录存在
+	userConfigDir := filepath.Dir(cs.userConfig)
+	if err := os.MkdirAll(userConfigDir, 0755); err != nil {
 		return err
 	}
 
-	// 保存到 UserDataDir 下的 config.toml
-	return os.WriteFile(cs.configPath, data, 0644)
+	// 保存到用户配置文件
+	if err := os.WriteFile(cs.userConfig, data, 0644); err != nil {
+		return err
+	}
+
+	// 3. 更新内存中的配置
+	cs.Config = &config
+
+	return nil
 }

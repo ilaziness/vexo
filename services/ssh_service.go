@@ -43,7 +43,9 @@ type SSHConnect struct {
 	sftpService     *SftpService
 	outputChan      chan []byte
 	outputBuffSize  int
-	inputUnregister func() // 用于取消输入事件监听器的函数
+	inputUnregister func()         // 用于取消输入事件监听器的函数
+	outputWg        sync.WaitGroup // 等待输出 goroutine 结束
+	outputOnce      sync.Once      // 确保 outputChan 只被关闭一次
 }
 
 type SSHService struct {
@@ -253,8 +255,8 @@ func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client)
 		clientKey:      clientKey,
 		client:         client,
 		ID:             generateConnectID(),
-		outputChan:     make(chan []byte, 1024),
-		outputBuffSize: 32768, // 32KB - 业界标准缓冲区大小
+		outputChan:     make(chan []byte, 10),
+		outputBuffSize: 32768, // 32KB
 	}
 }
 
@@ -301,7 +303,7 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 func (sc *SSHConnect) sendOutput() {
 	go func() {
 		for data := range sc.outputChan {
-			Logger.Debug("SSH session output:", zap.ByteString("msg", data), zap.String("id", sc.ID))
+			//Logger.Debug("SSH session output:", zap.ByteString("msg", data), zap.String("id", sc.ID))
 			app.Event.Emit(SSHEventOutput, SSHEventData{
 				ID:   sc.ID,
 				Data: data,
@@ -321,43 +323,60 @@ func (sc *SSHConnect) startOutput() error {
 		return err
 	}
 	sc.sendOutput()
+
+	// 启动 stdout 读取 goroutine
+	sc.outputWg.Add(1)
 	go func() {
+		defer sc.outputWg.Done()
 		buf := make([]byte, sc.outputBuffSize)
 		for {
 			n, err := stdout.Read(buf)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
+					Logger.Debug("stdout EOF reached", zap.String("id", sc.ID))
 					return
 				}
-				Logger.Error("Error reading from stdout:", zap.Error(err))
-				sc.outputChan <- []byte(err.Error())
+				Logger.Error("Error reading from stdout:", zap.Error(err), zap.String("id", sc.ID))
 				return
 			}
-			data := make([]byte, n)
-			copy(data, buf[:n])
-			sc.outputChan <- data
+			if n > 0 {
+				data := make([]byte, n)
+				copy(data, buf[:n])
+				sc.outputChan <- data
+			}
 		}
 	}()
+
+	// 启动 stderr 读取 goroutine
+	sc.outputWg.Add(1)
 	go func() {
+		defer sc.outputWg.Done()
 		buf := make([]byte, sc.outputBuffSize)
 		for {
-
 			n, err := stderr.Read(buf)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
+					Logger.Debug("stderr EOF reached", zap.String("id", sc.ID))
 					return
 				}
-				Logger.Error("Error reading from stderr:", zap.Error(err))
-				sc.outputChan <- []byte(err.Error())
+				Logger.Error("Error reading from stderr:", zap.Error(err), zap.String("id", sc.ID))
 				return
 			}
-			data := make([]byte, n)
-			copy(data, buf[:n])
-			sc.outputChan <- data
-
+			if n > 0 {
+				data := make([]byte, n)
+				copy(data, buf[:n])
+				sc.outputChan <- data
+			}
 		}
 	}()
 	return nil
+}
+
+// closeOutputChan 安全地关闭输出 channel（只关闭一次）
+func (sc *SSHConnect) closeOutputChan() {
+	sc.outputOnce.Do(func() {
+		close(sc.outputChan)
+	})
 }
 
 // startInput 启动监听前端输入的协程
@@ -400,10 +419,20 @@ func (sc *SSHConnect) Close() error {
 		Logger.Debug("SFTP service closed", zap.String("ID", sc.ID))
 	}
 
+	// 关闭 SSH session，这会触发 stdout/stderr 的 EOF，导致读取 goroutine 退出
 	if sc.session != nil {
 		_ = sc.session.Signal(ssh.SIGTERM)
 		_ = sc.session.Close()
+		sc.session = nil
 	}
+
+	// 等待所有输出读取 goroutine 完成，然后关闭 channel
+	// 注意：如果 startOutput 还没有被调用，outputWg.Wait() 会立即返回（计数为0）
+	go func() {
+		sc.outputWg.Wait()
+		sc.closeOutputChan()
+		Logger.Debug("Output channel closed in Close()", zap.String("ID", sc.ID))
+	}()
 
 	sc.sendCloseEvent()
 	sc.sshService.clientNumSub(sc.clientKey)

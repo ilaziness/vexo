@@ -23,8 +23,13 @@ import {
 } from "@mui/icons-material";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 
+interface BookmarkGroup {
+  name: string;
+  bookmarks: SSHBookmark[];
+}
+
 interface BookmarkTreeProps {
-  bookmarks: Record<string, SSHBookmark[]>;
+  bookmarks: BookmarkGroup[];
   selectedBookmark: SSHBookmark | null;
   onBookmarkSelect: (bookmark: SSHBookmark) => void;
   onGroupRename: (oldGroupName: string, newGroupName: string) => void;
@@ -122,12 +127,12 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
       {/* 树形列表 */}
       <Box sx={{ flex: 1, overflowY: "auto" }}>
         <List sx={{ py: 1 }}>
-          {Object.entries(bookmarks).map(([groupName, bookmarkList]) => (
-            <React.Fragment key={groupName}>
+          {bookmarks.map((group) => (
+            <React.Fragment key={group.name}>
               {/* 分组 */}
               <ListItem
                 disablePadding
-                onMouseEnter={() => setHoveredGroup(groupName)}
+                onMouseEnter={() => setHoveredGroup(group.name)}
                 onMouseLeave={() => setHoveredGroup(null)}
                 sx={{
                   "&:hover": {
@@ -137,7 +142,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                 }}
               >
                 <ListItemButton
-                  onClick={() => toggleGroup(groupName)}
+                  onClick={() => toggleGroup(group.name)}
                   sx={{
                     py: 0.75,
                     px: 1.5,
@@ -151,18 +156,18 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                       gap: 1,
                     }}
                   >
-                    {expandedGroups[groupName] ? (
+                    {expandedGroups[group.name] ? (
                       <ExpandMore sx={{ fontSize: 20, color: "text.secondary" }} />
                     ) : (
                       <ChevronRight sx={{ fontSize: 20, color: "text.secondary" }} />
                     )}
                     <FolderOutlined sx={{ fontSize: 18, color: "warning.main" }} />
-                    {editingGroup === groupName ? (
+                    {editingGroup === group.name ? (
                       <TextField
                         value={newGroupName}
                         onChange={(e) => setNewGroupName(e.target.value)}
-                        onKeyDown={(e) => handleGroupRenameKeyDown(e, groupName)}
-                        onBlur={() => finishEditingGroup(groupName)}
+                        onKeyDown={(e) => handleGroupRenameKeyDown(e, group.name)}
+                        onBlur={() => finishEditingGroup(group.name)}
                         autoFocus
                         size="small"
                         variant="standard"
@@ -173,7 +178,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                       />
                     ) : (
                       <ListItemText
-                        primary={groupName}
+                        primary={group.name}
                         primaryTypographyProps={{
                           fontSize: "0.95rem",
                           fontWeight: 500,
@@ -186,7 +191,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                         display: "flex", 
                         gap: 0.5, 
                         ml: "auto",
-                        visibility: hoveredGroup === groupName && editingGroup !== groupName ? "visible" : "hidden"
+                        visibility: hoveredGroup === group.name && editingGroup !== group.name ? "visible" : "hidden"
                       }}
                     >
                       <Tooltip title="编辑分组">
@@ -194,7 +199,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                           size="small"
                           onClick={(e) => {
                             e.stopPropagation();
-                            startEditingGroup(groupName, groupName);
+                            startEditingGroup(group.name, group.name);
                           }}
                           sx={{ padding: "4px" }}
                         >
@@ -206,7 +211,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                           size="small"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onGroupDelete(groupName);
+                            onGroupDelete(group.name);
                           }}
                           sx={{ padding: "4px" }}
                         >
@@ -219,9 +224,9 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
               </ListItem>
 
               {/* 书签列表 */}
-              <Collapse in={expandedGroups[groupName]} timeout="auto" unmountOnExit>
+              <Collapse in={expandedGroups[group.name]} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
-                  {bookmarkList.map((bookmark) => (
+                  {group.bookmarks.map((bookmark) => (
                     <ListItem
                       key={bookmark.id}
                       disablePadding
@@ -285,7 +290,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                       py: 0.5,
                       color: "primary.main",
                     }}
-                    onClick={() => onBookmarkAdd(groupName)}
+                    onClick={() => onBookmarkAdd(group.name)}
                   >
                     <AddIcon sx={{ fontSize: 16, mr: 1.5 }} />
                     <ListItemText

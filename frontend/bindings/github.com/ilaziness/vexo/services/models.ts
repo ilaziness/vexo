@@ -216,20 +216,20 @@ export class SSHEventData {
 }
 
 export class TerminalConfig {
-    "Font": string;
-    "FontSize": number;
-    "LineHeight": number;
+    "fontFamily": string;
+    "fontSize": number;
+    "lineHeight": number;
 
     /** Creates a new TerminalConfig instance. */
     constructor($$source: Partial<TerminalConfig> = {}) {
-        if (!("Font" in $$source)) {
-            this["Font"] = "";
+        if (!("fontFamily" in $$source)) {
+            this["fontFamily"] = "";
         }
-        if (!("FontSize" in $$source)) {
-            this["FontSize"] = 0;
+        if (!("fontSize" in $$source)) {
+            this["fontSize"] = 0;
         }
-        if (!("LineHeight" in $$source)) {
-            this["LineHeight"] = 0;
+        if (!("lineHeight" in $$source)) {
+            this["lineHeight"] = 0;
         }
 
         Object.assign(this, $$source);
