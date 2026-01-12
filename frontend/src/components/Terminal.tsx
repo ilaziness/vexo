@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Box } from "@mui/material";
 import "@xterm/xterm/css/xterm.css";
 import "../styles/terminal.css";
@@ -12,9 +12,11 @@ import {
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import useTerminalStore from "../stores/terminal";
 import { decodeBase64, encodeBase64 } from "../func/decode";
+import Loading from "./Loading";
 
 // Terminal 组件，封装 xterm.js
 export default function Terminal(props: { linkID: string }) {
+  const [isInitializing, setIsInitializing] = useState(true);
   const termRef = React.useRef<HTMLDivElement>(null);
   const term = React.useRef<TerminalLib>(null);
   const fit = React.useRef<FitAddon>(null);
@@ -51,37 +53,27 @@ export default function Terminal(props: { linkID: string }) {
     term.current.loadAddon(fit.current);
     if (termRef.current) {
       term.current.open(termRef.current);
+      fit.current?.fit();
 
-      // 使用 requestAnimationFrame 确保 DOM 完全渲染后再执行 fit
-      // 这样可以避免字符间距计算错误的问题
-      requestAnimationFrame(() => {
-        // 双重 RAF 确保布局计算完成
-        requestAnimationFrame(() => {
-          fit.current?.fit();
-          term.current?.focus();
+      try {
+        // 启动 SSH 连接
+        await SSHService.Start(
+          props.linkID,
+          term.current?.cols || 80,
+          term.current?.rows || 24,
+        );
+        LogService.Info(`SSH connection started for link ID: ${props.linkID}`);
 
-          // 在 fit 之后立即刷新终端渲染
-          term.current?.refresh(0, term.current.rows - 1);
-
-          // 启动 SSH 连接
-          SSHService.Start(
-            props.linkID,
-            term.current?.cols || 80,
-            term.current?.rows || 24,
-          )
-            .then(() => {
-              LogService.Info(
-                `SSH connection started for link ID: ${props.linkID}`,
-              );
-            })
-            .catch((err) => {
-              LogService.Error(
-                `Failed to start SSH connection for link ID: ${props.linkID}, error: ${err}`,
-              );
-              term.current?.write(`\r\nConnection error: ${err}\r\n`);
-            });
-        });
-      });
+        fit.current?.fit();
+        term.current?.focus();
+        term.current?.refresh(0, term.current.rows - 1);
+      } catch (err) {
+        LogService.Error(
+          `Failed to start SSH connection for link ID: ${props.linkID}, error: ${err}`,
+        );
+        term.current?.write(`\r\nConnection error: ${err}\r\n`);
+      }
+      setIsInitializing(false);
 
       // Handle user input
       term.current?.onData(handleInputData);
@@ -141,7 +133,8 @@ export default function Terminal(props: { linkID: string }) {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        border: "1px solid red",
+        // border: "1px solid red",
+        position: "relative",
       }}
     >
       <Box
@@ -153,6 +146,19 @@ export default function Terminal(props: { linkID: string }) {
           minHeight: "100%",
         }}
       />
+      {isInitializing && (
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            position: "absolute",
+            top: 0,
+            left: 0,
+          }}
+        >
+          <Loading message="Initializing terminal..." />
+        </Box>
+      )}
     </Box>
   );
 }

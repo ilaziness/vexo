@@ -18,7 +18,7 @@ interface SSHContainerProps {
 
 // SSH 连接容器组件，管理连接状态和错误处理
 const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
-  const { setName } = useSSHTabsStore();
+  const { setName, setSSHInfo, getByIndex } = useSSHTabsStore();
   const { reloadTab } = useReloadSSHTabStore();
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
@@ -26,7 +26,10 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const [activeTab, setActiveTab] = React.useState(0); // 0 for terminal, 1 for sftp
   const [sftpLoaded, setSftpLoaded] = React.useState(false);
   const [isReloading, setIsReloading] = React.useState<boolean>(false);
-  const [lastSSHInfo, setLastSSHInfo] = React.useState<SSHLinkInfo | null>(null);
+  const [lastSSHInfo, setLastSSHInfo] = React.useState<SSHLinkInfo | null>(
+    null,
+  );
+  const tabInfo = getByIndex(tabIndex);
   let tabItems = [
     {
       label: "SSH",
@@ -39,12 +42,13 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   ];
   const sftpIndex = 1;
 
+  // connect ssh server
   const connect = async (li: SSHLinkInfo) => {
     setConnectionError("");
     setConnecting(true);
     setLastSSHInfo(li);
     try {
-      const ID = await SSHService.Connect(
+      const linkID = await SSHService.Connect(
         li.host,
         li.port,
         li.user,
@@ -52,9 +56,10 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         li.key || "",
         li.keyPassword || "",
       );
-      LogService.Debug(`SSH connection established with ID: ${ID}`);
-      setLinkID(ID);
+      LogService.Debug(`SSH connection established with ID: ${linkID}`);
+      setLinkID(linkID);
       setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
+      setSSHInfo(tabIndex, li);
     } catch (err: any) {
       const msg = "Connection failed";
       LogService.Error(`${msg}: ${err.message || err}`).then(() => {});
@@ -73,26 +78,29 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   };
 
   useEffect(() => {
-    if (reloadTab.index === tabIndex) {
-      // 断开当前连接
-      if (linkID) {
-        SSHService.CloseByID(linkID).catch((err) => {
-          LogService.Error(`Failed to close SSH connection: ${err}`);
-        });
+    const doReload = async () => {
+      if (reloadTab.index === tabIndex) {
+        LogService.Debug(`reload tab ${reloadTab.index} - ${tabIndex}`);
+        if (linkID != "") await SSHService.CloseByID(linkID);
+        // 重置状态
+        setActiveTab(0);
+        setSftpLoaded(false);
+        // 如果有保存的连接信息，重新连接
+        if (lastSSHInfo) {
+          setIsReloading(true);
+          await connect(lastSSHInfo);
+        }
       }
-      // 重置状态
-      setLinkID("");
-      setConnectionError("");
-      setConnecting(false);
-      setActiveTab(0);
-      setSftpLoaded(false);
-      // 如果有保存的连接信息，重新连接
-      if (lastSSHInfo) {
-        setIsReloading(true);
-        connect(lastSSHInfo);
-      }
+    };
+    doReload();
+  }, [reloadTab]);
+
+  useEffect(() => {
+    if (tabInfo?.sshInfo) {
+      setIsReloading(true);
+      connect(tabInfo.sshInfo).then(() => {});
     }
-  }, [reloadTab, tabIndex, linkID, lastSSHInfo]);
+  }, [tabIndex]);
 
   if (isReloading) {
     return <Loading message="Reloading SSH connection..." />;

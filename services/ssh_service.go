@@ -125,6 +125,7 @@ func (s *SSHService) Connect(host string, port int, user, password, key, keyPass
 }
 
 func (s *SSHService) clientNumAdd(clientKey string) {
+	Logger.Debug("clientNumAdd", zap.String("clientKey", clientKey))
 	oldNum, ok := s.clientNum.Load(clientKey)
 	if ok {
 		s.clientNum.Store(clientKey, oldNum.(int)+1)
@@ -134,6 +135,7 @@ func (s *SSHService) clientNumAdd(clientKey string) {
 }
 
 func (s *SSHService) clientNumSub(clientKey string) {
+	Logger.Debug("clientNumSub", zap.String("clientKey", clientKey))
 	oldNum, ok := s.clientNum.Load(clientKey)
 	if ok {
 		s.clientNum.Store(clientKey, oldNum.(int)-1)
@@ -151,17 +153,6 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
-	return conn.(*SSHConnect).Start(cols, rows)
-}
-
-// Restart restarts the SSH connection with the given ID.
-func (s *SSHService) Restart(ID string, cols, rows int) error {
-	Logger.Debug("Restarting SSH connection", zap.String("id", ID))
-	conn, ok := s.SSHConnects.Load(ID)
-	if !ok {
-		return fmt.Errorf("SSH connection with ID %s not found", ID)
-	}
-	_ = s.CloseByID(ID)
 	return conn.(*SSHConnect).Start(cols, rows)
 }
 
@@ -200,6 +191,7 @@ func (s *SSHService) Resize(ID string, cols int, rows int) error {
 
 // Close closes all SSH connections managed by the service.
 func (s *SSHService) Close() {
+	Logger.Debug("Close ssh all")
 	s.SSHConnects.Range(func(_, connAny any) bool {
 		conn := connAny.(*SSHConnect)
 		_ = conn.Close()
@@ -212,6 +204,7 @@ func (s *SSHService) Close() {
 
 // CloseByID closes the SSH connection with the specified ID.
 func (s *SSHService) CloseByID(ID string) error {
+	Logger.Debug("CloseByID", zap.String("ID", ID))
 	connAny, ok := s.SSHConnects.Load(ID)
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
@@ -219,12 +212,12 @@ func (s *SSHService) CloseByID(ID string) error {
 	conn := connAny.(*SSHConnect)
 	_ = conn.Close()
 	s.SSHConnects.Delete(ID)
-	s.clientNumSub(conn.clientKey)
 	return nil
 }
 
 // closeClient close ssh client
 func (s *SSHService) closeClient(clientKey string) {
+	Logger.Debug("closeClient", zap.String("clientKey", clientKey))
 	s.SSHConnects.Range(func(_, value any) bool {
 		conn := value.(*SSHConnect)
 		if conn.clientKey == clientKey {

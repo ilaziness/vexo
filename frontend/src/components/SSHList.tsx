@@ -6,9 +6,10 @@ import TerminalIcon from "@mui/icons-material/Terminal";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 import OpBar from "./OpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
+import { getTabIndex } from "../func/service.ts";
 
 export default function SSHList() {
-  const { sshTabs, delTab } = useSSHTabsStore();
+  const { sshTabs, delTab, pushTab, getByIndex } = useSSHTabsStore();
   const { doTabReload } = useReloadSSHTabStore();
   const [tabValue, setTabValue] = React.useState(sshTabs[0].index); // 当前标签
   const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
@@ -18,11 +19,11 @@ export default function SSHList() {
 
   const handleContextMenu = (
     e: React.MouseEvent<HTMLElement>,
-    index: string,
+    tabIndex: string,
   ) => {
     e.preventDefault();
     setMenuAnchorEl(e.currentTarget);
-    setMenuTabIndex(index);
+    setMenuTabIndex(tabIndex);
   };
 
   const closeContextMenu = () => {
@@ -38,26 +39,25 @@ export default function SSHList() {
     closeContextMenu();
   };
 
+  // duplicate ssh tab
   const handleDuplicateTab = () => {
     closeContextMenu();
+    const currentTabInfo = getByIndex(menuTabIndex || "");
+    const number = sshTabs.length + 1;
+    pushTab({
+      index: getTabIndex(),
+      name: `新建连接 ${number}`,
+      sshInfo: currentTabInfo ? currentTabInfo.sshInfo : undefined,
+    });
   };
 
+  // refresh ssh tab
   const handleRefreshTab = () => {
     closeContextMenu();
     if (menuTabIndex) {
       doTabReload(menuTabIndex);
     }
   };
-
-  // const addTab = () => {
-  //   const number = sshTabs.length + 1;
-  //   const newIndex = `${getTabIndex()}`;
-  //   pushTab({
-  //     index: newIndex,
-  //     name: `新建连接 ${number}`,
-  //   });
-  //   setTabValue(newIndex);
-  // };
 
   const tabOnchange = (event: React.SyntheticEvent, newValue: string) => {
     setTabValue(newValue);
@@ -132,11 +132,6 @@ export default function SSHList() {
             />
           ))}
         </Tabs>
-        {/*<Tooltip title="新建连接">*/}
-        {/*  <IconButton size="small" onClick={addTab}>*/}
-        {/*    <AddIcon />*/}
-        {/*  </IconButton>*/}
-        {/*</Tooltip>*/}
         <OpBar />
         <Menu
           open={Boolean(menuAnchorEl)}
