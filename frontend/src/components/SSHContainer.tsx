@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Box, Tab, Tabs } from "@mui/material";
 import {
   LogService,
@@ -8,8 +8,9 @@ import { SSHLinkInfo } from "../types/ssh";
 import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
+import Loading from "./Loading";
 import { parseCallServiceError } from "../func/service";
-import { useSSHTabsStore } from "../stores/ssh";
+import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 
 interface SSHContainerProps {
   tabIndex: string;
@@ -18,11 +19,14 @@ interface SSHContainerProps {
 // SSH 连接容器组件，管理连接状态和错误处理
 const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const { setName } = useSSHTabsStore();
+  const { reloadTab } = useReloadSSHTabStore();
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
   const [activeTab, setActiveTab] = React.useState(0); // 0 for terminal, 1 for sftp
   const [sftpLoaded, setSftpLoaded] = React.useState(false);
+  const [isReloading, setIsReloading] = React.useState<boolean>(false);
+  const [lastSSHInfo, setLastSSHInfo] = React.useState<SSHLinkInfo | null>(null);
   let tabItems = [
     {
       label: "SSH",
@@ -38,6 +42,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const connect = async (li: SSHLinkInfo) => {
     setConnectionError("");
     setConnecting(true);
+    setLastSSHInfo(li);
     try {
       const ID = await SSHService.Connect(
         li.host,
@@ -45,6 +50,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         li.user,
         li.password || "",
         li.key || "",
+        li.keyPassword || "",
       );
       LogService.Debug(`SSH connection established with ID: ${ID}`);
       setLinkID(ID);
@@ -55,6 +61,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       setConnectionError(parseCallServiceError(err));
     } finally {
       setConnecting(false);
+      setIsReloading(false);
     }
   };
 
@@ -64,6 +71,32 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       setSftpLoaded(true);
     }
   };
+
+  useEffect(() => {
+    if (reloadTab.index === tabIndex) {
+      // 断开当前连接
+      if (linkID) {
+        SSHService.CloseByID(linkID).catch((err) => {
+          LogService.Error(`Failed to close SSH connection: ${err}`);
+        });
+      }
+      // 重置状态
+      setLinkID("");
+      setConnectionError("");
+      setConnecting(false);
+      setActiveTab(0);
+      setSftpLoaded(false);
+      // 如果有保存的连接信息，重新连接
+      if (lastSSHInfo) {
+        setIsReloading(true);
+        connect(lastSSHInfo);
+      }
+    }
+  }, [reloadTab, tabIndex, linkID, lastSSHInfo]);
+
+  if (isReloading) {
+    return <Loading message="Reloading SSH connection..." />;
+  }
 
   if (linkID === "") {
     return (
@@ -117,20 +150,36 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       </Tabs>
 
       <Box sx={{ height: "calc(100% - 30px)" }}>
-        {tabItems.map(
-          (item, index) =>
-            (index != sftpIndex || sftpLoaded) && (
-              <Box
-                key={index}
-                sx={{
-                  height: "100%",
-                  display: activeTab === index ? "block" : "none",
-                }}
-              >
-                {item.component}
-              </Box>
-            ),
-        )}
+        {/*ssh sftp*/}
+        <Box sx={{ height: "calc(100% - 20px)" }}>
+          {tabItems.map(
+            (item, index) =>
+              (index != sftpIndex || sftpLoaded) && (
+                <Box
+                  key={index}
+                  sx={{
+                    height: "100%",
+                    display: activeTab === index ? "block" : "none",
+                  }}
+                >
+                  {item.component}
+                </Box>
+              ),
+          )}
+        </Box>
+        {/*status bar*/}
+        <Box
+          sx={{
+            height: 20,
+            px: 0.5,
+            py: 0.1,
+            fontSize: 8,
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          status bar
+        </Box>
       </Box>
     </Box>
   );

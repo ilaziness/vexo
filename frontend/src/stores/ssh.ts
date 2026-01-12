@@ -58,7 +58,27 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
   setName: (index: string, name: string) =>
     set((state) => ({
       sshTabs: state.sshTabs.map((tab) =>
-        tab.index === index ? { ...tab, name } : tab
+        tab.index === index ? { ...tab, name } : tab,
       ),
     })),
 }));
+
+export interface reloadSSHTabStoreType {
+  reloadTab: {
+    index: string;
+    count: number;
+  };
+  doTabReload: (index: string) => void;
+}
+
+export const useReloadSSHTabStore = create<reloadSSHTabStoreType>(
+  (set, get) => ({
+    reloadTab: {
+      index: "",
+      count: 0,
+    },
+    doTabReload: (index: string) => {
+      set({ reloadTab: { index: index, count: get().reloadTab.count } });
+    },
+  }),
+);

@@ -64,7 +64,7 @@ func NewSSHService() *SSHService {
 
 // Connect establishes an SSH connection to the specified host using the provided credentials.
 // return session ID if success
-func (s *SSHService) Connect(host string, port int, user string, password string, key string) (ID string, err error) {
+func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword string) (ID string, err error) {
 	Logger.Debug("Connecting to SSH server", zap.String("host", host), zap.Int("port", port))
 	if password == "" && key == "" {
 		return "", fmt.Errorf("empty password and key")
@@ -88,9 +88,17 @@ func (s *SSHService) Connect(host string, port int, user string, password string
 				log.Fatalf("unable to read private key: %v", err)
 				return "", err
 			}
-			signer, err := ssh.ParsePrivateKey(keyContent)
-			if err != nil {
-				return "", err
+			var signer ssh.Signer
+			if keyPassword == "" {
+				signer, err = ssh.ParsePrivateKey(keyContent)
+				if err != nil {
+					return "", err
+				}
+			} else {
+				signer, err = ssh.ParsePrivateKeyWithPassphrase(keyContent, []byte(keyPassword))
+				if err != nil {
+					return "", err
+				}
 			}
 			cfg.Auth = []ssh.AuthMethod{
 				ssh.PublicKeys(signer),

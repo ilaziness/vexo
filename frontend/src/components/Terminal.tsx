@@ -136,27 +136,23 @@ export default function Terminal(props: { linkID: string }) {
       sx={{
         width: "100%",
         height: "100%",
+        minWidth: "100%",
+        minHeight: "100%",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
         border: "1px solid red",
       }}
     >
-      <Box sx={{ width: "100%", height: "calc(100% - 20px)" }}>
-        <Box ref={termRef} sx={{ width: "100%", height: "100%" }} />
-      </Box>
       <Box
+        ref={termRef}
         sx={{
-          height: 20,
-          px: 0.5,
-          py: 0.1,
-          fontSize: 8,
-          display: "flex",
-          alignItems: "center",
+          width: "100%",
+          height: "100%",
+          minWidth: "100%",
+          minHeight: "100%",
         }}
-      >
-        status bar
-      </Box>
+      />
     </Box>
   );
 }

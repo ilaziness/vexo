@@ -3,12 +3,13 @@ import { tabsClasses } from "@mui/material/Tabs";
 import React from "react";
 import SSHContainer from "./SSHContainer";
 import TerminalIcon from "@mui/icons-material/Terminal";
-import { useSSHTabsStore } from "../stores/ssh";
+import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 import OpBar from "./OpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
 
 export default function SSHList() {
   const { sshTabs, delTab } = useSSHTabsStore();
+  const { doTabReload } = useReloadSSHTabStore();
   const [tabValue, setTabValue] = React.useState(sshTabs[0].index); // 当前标签
   const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
     null,
@@ -43,6 +44,9 @@ export default function SSHList() {
 
   const handleRefreshTab = () => {
     closeContextMenu();
+    if (menuTabIndex) {
+      doTabReload(menuTabIndex);
+    }
   };
 
   // const addTab = () => {
