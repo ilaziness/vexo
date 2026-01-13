@@ -111,7 +111,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         targetPath,
         showHiddenFiles,
       );
-      console.log(files);
       setFileList(sortFileList(files));
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));

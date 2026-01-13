@@ -3,6 +3,7 @@ package services
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -15,6 +16,20 @@ var (
 	Mode          = "debug"
 	ModeDebug     = "debug"
 	ModeRelease   = "release"
+
+	defaultFontFamily = []string{
+		"'Noto Sans Mono'",
+		"'ui-monospace'",
+		"'Cascadia Code'",
+		"Consolas",
+		"Menlo",
+		"Monaco",
+		"'DejaVu Sans Mono'",
+		"'Ubuntu Mono'",
+		"'Liberation Mono'",
+		"'Courier New'",
+		"monospace",
+	}
 )
 
 type Config struct {
@@ -62,7 +77,7 @@ func GetDefaultConfig() *Config {
 			UserDataDir: defaultUserDataDir,
 		},
 		Terminal: TerminalConfig{
-			Font:       "'Noto Sans Mono', monospace",
+			Font:       strings.Join(defaultFontFamily, ","),
 			FontSize:   14,
 			LineHeight: 1,
 		},

@@ -13,6 +13,7 @@ import {
 import useTerminalStore from "../stores/terminal";
 import { decodeBase64, encodeBase64 } from "../func/decode";
 import Loading from "./Loading";
+import { sleep } from "../func/service";
 
 // Terminal 组件，封装 xterm.js
 export default function Terminal(props: { linkID: string }) {
@@ -42,6 +43,7 @@ export default function Terminal(props: { linkID: string }) {
     LogService.Debug("Initializing terminal for link ID: " + props.linkID);
     const config = await ConfigService.ReadConfig();
     const settings = config?.Terminal || useTerminalStore.getState();
+    LogService.Debug(`Terminal setting ${JSON.stringify(settings)}`);
     term.current = new TerminalLib({
       cursorBlink: true,
       cursorStyle: "bar",
@@ -53,6 +55,7 @@ export default function Terminal(props: { linkID: string }) {
     term.current.loadAddon(fit.current);
     if (termRef.current) {
       term.current.open(termRef.current);
+      await sleep(100);
       fit.current?.fit();
 
       try {
@@ -65,8 +68,8 @@ export default function Terminal(props: { linkID: string }) {
         LogService.Info(`SSH connection started for link ID: ${props.linkID}`);
 
         fit.current?.fit();
-        term.current?.focus();
         term.current?.refresh(0, term.current.rows - 1);
+        term.current?.focus();
       } catch (err) {
         LogService.Error(
           `Failed to start SSH connection for link ID: ${props.linkID}, error: ${err}`,

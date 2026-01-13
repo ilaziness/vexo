@@ -25,6 +25,7 @@ import {
   SSHBookmark,
   BookmarkGroup,
 } from "../../bindings/github.com/ilaziness/vexo/services/models";
+import { generateRandomId } from "../func/id";
 
 // 输入连接信息表单
 interface ConnectionFormProps {
@@ -107,7 +108,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const handleSaveBookmark = () => {
     // 创建新的SSHBookmark对象
     const newBookmark: SSHBookmark = {
-      id: `bookmark-${Date.now()}`,
+      id: generateRandomId(),
       title: `${host}:${port}`,
       group_name: selectedGroup,
       host,

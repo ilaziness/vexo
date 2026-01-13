@@ -50,14 +50,12 @@ type SSHConnect struct {
 
 type SSHService struct {
 	clients     *sync.Map // 客户端连接列表，key是host:port字符串, value是*ssh.Client
-	clientNum   *sync.Map // 客户端session列表，key是host:port字符串，value打开的会话数
 	SSHConnects *sync.Map // 终端会话列表，key是SSHConnect.ID，value是*sshConnect
 }
 
 func NewSSHService() *SSHService {
 	return &SSHService{
 		clients:     new(sync.Map),
-		clientNum:   new(sync.Map),
 		SSHConnects: new(sync.Map),
 	}
 }
@@ -119,31 +117,11 @@ func (s *SSHService) Connect(host string, port int, user, password, key, keyPass
 	}
 	connect := NewSSHConnect(s, clientKey, client)
 	s.SSHConnects.Store(connect.ID, connect)
-	s.clientNumAdd(clientKey)
 	Logger.Debug("set connect done")
 	return connect.ID, nil
 }
 
-func (s *SSHService) clientNumAdd(clientKey string) {
-	Logger.Debug("clientNumAdd", zap.String("clientKey", clientKey))
-	oldNum, ok := s.clientNum.Load(clientKey)
-	if ok {
-		s.clientNum.Store(clientKey, oldNum.(int)+1)
-	} else {
-		s.clientNum.Store(clientKey, 1)
-	}
-}
 
-func (s *SSHService) clientNumSub(clientKey string) {
-	Logger.Debug("clientNumSub", zap.String("clientKey", clientKey))
-	oldNum, ok := s.clientNum.Load(clientKey)
-	if ok {
-		s.clientNum.Store(clientKey, oldNum.(int)-1)
-		if oldNum.(int)-1 <= 0 {
-			s.closeClient(clientKey)
-		}
-	}
-}
 
 // Start starts the SSH connection with the given ID.
 func (s *SSHService) Start(ID string, cols, rows int) error {
@@ -198,7 +176,6 @@ func (s *SSHService) Close() {
 		return true
 	})
 	s.clients = new(sync.Map)
-	s.clientNum = new(sync.Map)
 	s.SSHConnects = new(sync.Map)
 }
 
@@ -210,28 +187,34 @@ func (s *SSHService) CloseByID(ID string) error {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
 	conn := connAny.(*SSHConnect)
+	clientKey := conn.clientKey
 	_ = conn.Close()
 	s.SSHConnects.Delete(ID)
+	s.closeClientIfNoConnections(clientKey)
 	return nil
 }
 
-// closeClient close ssh client
-func (s *SSHService) closeClient(clientKey string) {
-	Logger.Debug("closeClient", zap.String("clientKey", clientKey))
+// closeClientIfNoConnections close ssh client if no other connections use it
+func (s *SSHService) closeClientIfNoConnections(clientKey string) {
+	Logger.Debug("closeClientIfNoConnections", zap.String("clientKey", clientKey))
+	hasOtherConnections := false
 	s.SSHConnects.Range(func(_, value any) bool {
 		conn := value.(*SSHConnect)
 		if conn.clientKey == clientKey {
-			client, ok := s.clients.LoadAndDelete(clientKey)
-			if ok {
-				err := client.(*ssh.Client).Close()
-				if err != nil {
-					Logger.Warn("Failed to close SSH client", zap.Error(err))
-				}
-			}
-			return false
+			hasOtherConnections = true
+			return false // 停止遍历
 		}
 		return true
 	})
+	if !hasOtherConnections {
+		client, ok := s.clients.LoadAndDelete(clientKey)
+		if ok {
+			err := client.(*ssh.Client).Close()
+			if err != nil {
+				Logger.Warn("Failed to close SSH client", zap.Error(err))
+			}
+		}
+	}
 }
 
 // SelectKeyFile 选择私钥文件
@@ -436,7 +419,6 @@ func (sc *SSHConnect) Close() error {
 	}()
 
 	sc.sendCloseEvent()
-	sc.sshService.clientNumSub(sc.clientKey)
 	sc.sshService.SSHConnects.Delete(sc.ID)
 	Logger.Info("SSH connection closed", zap.String("ID", sc.ID))
 	return nil

@@ -1,4 +1,3 @@
-
 export const parseCallServiceError = (err: any): string => {
   if (err && typeof err === "object") {
     if ("message" in err && typeof err.message === "string") {
@@ -25,7 +24,7 @@ export const parseCallServiceError = (err: any): string => {
 };
 
 export const getTabIndex = (): string => {
-  return `${new Date().getMilliseconds()}`;
+  return `${new Date().getTime()}`;
 };
 
 export const formatFileSize = (bytes: number): string => {
@@ -35,4 +34,8 @@ export const formatFileSize = (bytes: number): string => {
   if (bytes < 1024 * 1024 * 1024)
     return (bytes / (1024 * 1024)).toFixed(2) + " MB";
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+};
+
+export const sleep = (ms: number): Promise<void> => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 };

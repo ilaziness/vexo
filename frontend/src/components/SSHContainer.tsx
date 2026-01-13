@@ -30,7 +30,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     null,
   );
   const tabInfo = getByIndex(tabIndex);
-  let tabItems = [
+  const tabItems = [
     {
       label: "SSH",
       component: <Terminal linkID={linkID} />,

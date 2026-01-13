@@ -44,11 +44,13 @@ export default function SSHList() {
     closeContextMenu();
     const currentTabInfo = getByIndex(menuTabIndex || "");
     const number = sshTabs.length + 1;
+    const newIndex = getTabIndex();
     pushTab({
-      index: getTabIndex(),
+      index: newIndex,
       name: `新建连接 ${number}`,
       sshInfo: currentTabInfo ? currentTabInfo.sshInfo : undefined,
     });
+    setTabValue(newIndex);
   };
 
   // refresh ssh tab
