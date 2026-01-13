@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	EventInputPasswort = "eventInput_Password"
+	EventInputPasswort = "eventInputPassword"
 )
 
 func init() {
@@ -31,6 +32,85 @@ type SSHBookmark struct {
 	PrivateKeyPassword string `json:"private_key_password"`
 	User               string `json:"user"`
 	Password           string `json:"password"`
+}
+
+// BookmarkGroup 书签分组结构
+type BookmarkGroup struct {
+	Name      string        `json:"name"`
+	Bookmarks []SSHBookmark `json:"bookmarks"`
+}
+
+// BookmarkService 书签服务结构
+type BookmarkService struct {
+	cfgService   *ConfigService
+	bookmarks    []*BookmarkGroup
+	bookmarkFile string
+	window       *application.WebviewWindow
+	userPassword string
+	passwordChan chan struct{} // 用于等待用户密码输入完成的信号channel
+}
+
+// NewBookmarkService 创建新的书签服务实例
+func NewBookmarkService(cfgs *ConfigService) *BookmarkService {
+	bookmarkFile := filepath.Join(cfgs.Config.General.UserDataDir, "bookmarks.json")
+	bs := &BookmarkService{
+		cfgService:   cfgs,
+		bookmarkFile: bookmarkFile,
+	}
+	// 初始化时加载书签数据到内存
+	bs.loadBookmarksToMemory()
+	return bs
+}
+
+// SetUserPassword 设置用户密码用于加密/解密私钥密码
+func (bs *BookmarkService) SetUserPassword(password string) {
+	bs.userPassword = password
+
+	// 如果有等待密码输入的channel，向channel发送完成信号
+	if bs.passwordChan != nil {
+		select {
+		case bs.passwordChan <- struct{}{}:
+		default:
+			// 如果channel已满或关闭，忽略
+		}
+		bs.passwordChan = nil // 清空channel引用
+	}
+}
+
+// waitForPassword 触发事件并等待用户输入密码，超时60秒
+func (bs *BookmarkService) waitForPassword(reason string) error {
+	// 创建新的channel用于等待密码输入完成信号
+	bs.passwordChan = make(chan struct{}, 1)
+
+	// 触发密码输入事件
+	app.Event.Emit(EventInputPasswort, reason)
+
+	// 等待密码输入完成，超时60秒
+	select {
+	case <-bs.passwordChan:
+		// 密码已经设置完成
+		return nil
+	case <-time.After(60 * time.Second):
+		// 超时，关闭channel
+		close(bs.passwordChan)
+		bs.passwordChan = nil
+		return fmt.Errorf("密码输入超时")
+	}
+}
+
+// initializeDefaultBookmarks 初始化默认书签数据
+func (bs *BookmarkService) initializeDefaultBookmarks() error {
+	defaultGroup := &BookmarkGroup{
+		Name:      "默认书签",
+		Bookmarks: []SSHBookmark{},
+	}
+
+	bookmarkGroups := []*BookmarkGroup{defaultGroup}
+
+	// 更新内存中的数据
+	bs.bookmarks = bookmarkGroups
+
+	return bs.saveBookmarks()
 }
 
 // encryptBookmark 对书签中的敏感字段进行加密
@@ -124,6 +204,8 @@ func (bs *BookmarkService) decryptBookmark(bookmark SSHBookmark) (SSHBookmark, e
 		}
 		decryptedPassword, err := secret.Decrypt(bs.userPassword, bookmark.PrivateKeyPassword)
 		if err != nil {
+			// 解密失败，清空用户密码，让用户重新输入
+			bs.userPassword = ""
 			return bookmark, fmt.Errorf("解密私钥密码失败: %v", err)
 		}
 		bookmark.PrivateKeyPassword = decryptedPassword
@@ -138,6 +220,8 @@ func (bs *BookmarkService) decryptBookmark(bookmark SSHBookmark) (SSHBookmark, e
 		}
 		decryptedPassword, err := secret.Decrypt(bs.userPassword, bookmark.Password)
 		if err != nil {
+			// 解密失败，清空用户密码，让用户重新输入
+			bs.userPassword = ""
 			return bookmark, fmt.Errorf("解密登录密码失败: %v", err)
 		}
 		bookmark.Password = decryptedPassword
@@ -146,83 +230,32 @@ func (bs *BookmarkService) decryptBookmark(bookmark SSHBookmark) (SSHBookmark, e
 	return bookmark, nil
 }
 
-// BookmarkGroup 书签分组结构
-type BookmarkGroup struct {
-	Name      string        `json:"name"`
-	Bookmarks []SSHBookmark `json:"bookmarks"`
-}
-
-// BookmarkService 书签服务结构
-type BookmarkService struct {
-	cfgService   *ConfigService
-	bookmarks    []*BookmarkGroup
-	bookmarkFile string
-	window       *application.WebviewWindow
-	userPassword string
-	passwordChan chan struct{} // 用于等待用户密码输入完成的信号channel
-}
-
-// NewBookmarkService 创建新的书签服务实例
-func NewBookmarkService(cfgs *ConfigService) *BookmarkService {
-	bookmarkFile := filepath.Join(cfgs.Config.General.UserDataDir, "bookmarks.json")
-	bs := &BookmarkService{
-		cfgService:   cfgs,
-		bookmarkFile: bookmarkFile,
+// DecryptPassword 解密密码字符串，如果不是base64则直接返回，是则解密后返回，失败则返回原始字符串
+func (bs *BookmarkService) DecryptPassword(password string) string {
+	if password == "" {
+		return password
 	}
-	// 初始化时加载书签数据到内存
-	bs.loadBookmarksToMemory()
-	return bs
-}
+	// 检查是否为base64格式
+	if _, err := base64.StdEncoding.DecodeString(password); err != nil {
+		// 不是base64，直接返回原字符串
+		return password
+	}
 
-// SetUserPassword 设置用户密码用于加密/解密私钥密码
-func (bs *BookmarkService) SetUserPassword(password string) {
-	bs.userPassword = password
-
-	// 如果有等待密码输入的channel，向channel发送完成信号
-	if bs.passwordChan != nil {
-		select {
-		case bs.passwordChan <- struct{}{}:
-		default:
-			// 如果channel已满或关闭，忽略
+	// 是base64，尝试解密
+	if bs.userPassword == "" {
+		if err := bs.waitForPassword("需要密码来解密密码"); err != nil {
+			return password // 解密失败，返回原始字符串
 		}
-		bs.passwordChan = nil // 清空channel引用
-	}
-}
-
-// waitForPassword 触发事件并等待用户输入密码，超时60秒
-func (bs *BookmarkService) waitForPassword(reason string) error {
-	// 创建新的channel用于等待密码输入完成信号
-	bs.passwordChan = make(chan struct{}, 1)
-
-	// 触发密码输入事件
-	app.Event.Emit(EventInputPasswort, reason)
-
-	// 等待密码输入完成，超时60秒
-	select {
-	case <-bs.passwordChan:
-		// 密码已经设置完成
-		return nil
-	case <-time.After(60 * time.Second):
-		// 超时，关闭channel
-		close(bs.passwordChan)
-		bs.passwordChan = nil
-		return fmt.Errorf("密码输入超时")
-	}
-}
-
-// initializeDefaultBookmarks 初始化默认书签数据
-func (bs *BookmarkService) initializeDefaultBookmarks() error {
-	defaultGroup := &BookmarkGroup{
-		Name:      "默认书签",
-		Bookmarks: []SSHBookmark{},
 	}
 
-	bookmarkGroups := []*BookmarkGroup{defaultGroup}
+	decrypted, err := secret.Decrypt(bs.userPassword, password)
+	if err != nil {
+		// 解密失败，清空用户密码，让用户重新输入
+		bs.userPassword = ""
+		return password // 解密失败，返回原始字符串
+	}
 
-	// 更新内存中的数据
-	bs.bookmarks = bookmarkGroups
-
-	return bs.saveBookmarks()
+	return decrypted
 }
 
 // ShowWindow show bookmark manage window

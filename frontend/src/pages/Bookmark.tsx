@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Box, Paper } from "@mui/material";
-import { BookmarkService } from "../../bindings/github.com/ilaziness/vexo/services";
+import {
+  BookmarkService,
+  LogService,
+  SSHService,
+} from "../../bindings/github.com/ilaziness/vexo/services";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import BookmarkTree from "../components/BookmarkTree";
 import BookmarkForm from "../components/BookmarkForm";
 import { useMessageStore } from "../stores/message";
+import { useSSHTabsStore } from "../stores/ssh";
 import Message from "../components/Message";
-import { parseCallServiceError } from "../func/service";
+import { parseCallServiceError, genTabIndex } from "../func/service";
 import { generateRandomId } from "../func/id";
 import PasswordInputDialog from "../components/PasswordInputDialog";
 
@@ -20,8 +25,8 @@ const Bookmark: React.FC = () => {
   const [selectedBookmark, setSelectedBookmark] = useState<SSHBookmark | null>(
     null,
   );
-
-  const { errorMessage } = useMessageStore();
+  const { pushTab, setCurrentTab } = useSSHTabsStore();
+  const { errorMessage, successMessage } = useMessageStore();
 
   useEffect(() => {
     loadBookmarks();
@@ -41,7 +46,7 @@ const Bookmark: React.FC = () => {
         setBookmarks([]);
       }
     } catch (error) {
-      console.error("Failed to load bookmarks:", error);
+      LogService.Warn(`Failed to load bookmarks:${error}`);
       errorMessage("加载书签失败: " + parseCallServiceError(error));
     }
   };
@@ -77,7 +82,7 @@ const Bookmark: React.FC = () => {
       // 重新加载书签
       await loadBookmarks();
     } catch (error) {
-      console.error("Failed to rename group:", error);
+      LogService.Warn(`Failed to rename group: ${error}`);
       errorMessage("重命名分组失败: " + parseCallServiceError(error));
     }
   };
@@ -87,7 +92,7 @@ const Bookmark: React.FC = () => {
       await BookmarkService.AddGroup(groupName);
       await loadBookmarks();
     } catch (error) {
-      console.error("Failed to add group:", error);
+      LogService.Warn(`Failed to add group: ${error}`);
       errorMessage("添加分组失败: " + parseCallServiceError(error));
     }
   };
@@ -100,7 +105,7 @@ const Bookmark: React.FC = () => {
         setSelectedBookmark(null);
       }
     } catch (error) {
-      console.error("Failed to delete group:", error);
+      LogService.Warn(`Failed to delete group: ${error}`);
       errorMessage("删除分组失败: " + parseCallServiceError(error));
     }
   };
@@ -130,7 +135,7 @@ const Bookmark: React.FC = () => {
         setSelectedBookmark(null);
       }
     } catch (error) {
-      console.error("Failed to delete bookmark:", error);
+      LogService.Warn(`Failed to delete bookmark: ${error}`);
       errorMessage("删除书签失败: " + parseCallServiceError(error));
     }
   };
@@ -138,27 +143,70 @@ const Bookmark: React.FC = () => {
   const handleSaveBookmark = async (bookmark: SSHBookmark) => {
     try {
       await BookmarkService.SaveBookmark(bookmark);
+      successMessage("书签保存成功");
       await loadBookmarks();
     } catch (error) {
-      console.error("Failed to save bookmark:", error);
+      LogService.Warn(`Failed to save bookmark: ${error}`);
       errorMessage("保存书签失败: " + parseCallServiceError(error));
     }
   };
 
-  const handleTestConnection = (bookmark: SSHBookmark) => {
-    // TODO: 实现测试连接功能
-    console.log("Testing connection for:", bookmark);
+  const handleTestConnection = async (bookmark: SSHBookmark) => {
+    try {
+      await SSHService.TestConnectInfo(
+        bookmark.host,
+        bookmark.port,
+        bookmark.user,
+        await BookmarkService.DecryptPassword(bookmark.password),
+        bookmark.private_key,
+        await BookmarkService.DecryptPassword(bookmark.private_key_password),
+      );
+      successMessage("连接测试成功");
+    } catch (error) {
+      LogService.Warn(`Connection test failed: ${error}`);
+      errorMessage("连接测试失败");
+    }
   };
 
   const handleSaveAndConnect = async (bookmark: SSHBookmark) => {
     try {
+      // 先测试连接
+      await SSHService.TestConnectInfo(
+        bookmark.host,
+        bookmark.port,
+        bookmark.user,
+        await BookmarkService.DecryptPassword(bookmark.password),
+        bookmark.private_key,
+        await BookmarkService.DecryptPassword(bookmark.private_key_password),
+      );
+
+      // 连接成功后保存书签
       await BookmarkService.SaveBookmark(bookmark);
+      successMessage("书签保存成功");
       await loadBookmarks();
-      // TODO: 实现连接功能
-      console.log("Saving and connecting to:", bookmark);
+
+      // 创建新标签页并设置为当前标签
+      const newTab = {
+        index: genTabIndex(),
+        name: bookmark.title,
+        sshInfo: {
+          host: bookmark.host,
+          port: bookmark.port,
+          user: bookmark.user,
+          password: await BookmarkService.DecryptPassword(bookmark.password),
+          key: bookmark.private_key,
+          keyPassword: await BookmarkService.DecryptPassword(
+            bookmark.private_key_password,
+          ),
+        },
+      };
+
+      pushTab(newTab);
+      setCurrentTab(newTab.index);
+      BookmarkService.CloseWindow();
     } catch (error) {
-      console.error("Failed to save and connect:", error);
-      errorMessage("保存并连接失败: " + parseCallServiceError(error));
+      LogService.Warn(`Failed to save and connect: ${error}`);
+      errorMessage("连接失败");
     }
   };
 

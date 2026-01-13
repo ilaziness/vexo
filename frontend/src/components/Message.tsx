@@ -1,4 +1,4 @@
-import { Snackbar } from "@mui/material";
+import { Snackbar, Alert } from "@mui/material";
 import { useMessageStore } from "../stores/message.ts";
 
 function Message() {
@@ -8,9 +8,16 @@ function Message() {
       <Snackbar
         open={message.open}
         onClose={setClose}
-        message={message.text}
         autoHideDuration={3000}
-      />
+      >
+        <Alert
+          onClose={setClose}
+          severity={message.type}
+          sx={{ width: '100%' }}
+        >
+          {message.text}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

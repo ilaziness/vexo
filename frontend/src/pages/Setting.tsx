@@ -27,33 +27,7 @@ import { SelectDirectory } from "../../bindings/github.com/ilaziness/vexo/servic
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/message.ts";
-
-// 横向表单项组件
-const FormRow: React.FC<{
-  label: string;
-  children: React.ReactNode;
-}> = ({ label, children }) => (
-  <Box
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      mb: 2,
-      "&:last-child": { mb: 0 },
-    }}
-  >
-    <Typography
-      sx={{
-        width: 100,
-        flexShrink: 0,
-        fontWeight: 500,
-        fontSize: "0.95rem",
-      }}
-    >
-      {label}
-    </Typography>
-    <Box sx={{ flex: 1 }}>{children}</Box>
-  </Box>
-);
+import FormRow from "../components/FormRow";
 
 const Setting: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"general" | "terminal" | "about">(

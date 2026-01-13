@@ -17,13 +17,14 @@ import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import { CommonService } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useMessageStore } from "../stores/message";
+import FormRow from "./FormRow";
 
 interface BookmarkFormProps {
   bookmark: SSHBookmark | null;
   groupNames: string[]; // 添加分组列表
-  onSave: (bookmark: SSHBookmark) => void;
-  onTestConnection: (bookmark: SSHBookmark) => void;
-  onSaveAndConnect: (bookmark: SSHBookmark) => void;
+  onSave: (bookmark: SSHBookmark) => Promise<void>;
+  onTestConnection: (bookmark: SSHBookmark) => Promise<void>;
+  onSaveAndConnect: (bookmark: SSHBookmark) => Promise<void>;
 }
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -46,6 +47,8 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     user: "",
     password: "",
   });
+
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (bookmark) {
@@ -97,21 +100,36 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (validateForm()) {
-      onSave(formData);
+      setIsLoading(true);
+      try {
+        await onSave(formData);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
     if (validateForm()) {
-      onTestConnection(formData);
+      setIsLoading(true);
+      try {
+        await onTestConnection(formData);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleSaveAndConnect = () => {
+  const handleSaveAndConnect = async () => {
     if (validateForm()) {
-      onSaveAndConnect(formData);
+      setIsLoading(true);
+      try {
+        await onSaveAndConnect(formData);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -137,33 +155,6 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
       console.error("选择文件失败:", error);
     }
   };
-
-  // 横向表单项组件
-  const FormRow: React.FC<{
-    label: string;
-    children: React.ReactNode;
-  }> = ({ label, children }) => (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        mb: 2,
-        "&:last-child": { mb: 0 },
-      }}
-    >
-      <Typography
-        sx={{
-          width: 120,
-          flexShrink: 0,
-          fontWeight: 500,
-          fontSize: "0.95rem",
-        }}
-      >
-        {label}
-      </Typography>
-      <Box sx={{ flex: 1 }}>{children}</Box>
-    </Box>
-  );
 
   if (!bookmark) {
     return (
@@ -210,7 +201,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
       </Box>
 
       {/* 表单内容 */}
-      <Box sx={{ flex: 1, overflowY: "auto", p: 3 }}>
+      <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
         <Paper sx={{ p: 3 }} elevation={1}>
           <Stack spacing={2.5}>
             {/* 基本信息 */}
@@ -222,7 +213,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 基本信息
               </Typography>
               <Stack spacing={2}>
-                <FormRow label="书签名称">
+                <FormRow label="书签名称" labelWidth={120}>
                   <TextField
                     fullWidth
                     size="small"
@@ -232,7 +223,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     placeholder="请输入书签名称"
                   />
                 </FormRow>
-                <FormRow label="分组">
+                <FormRow label="分组" labelWidth={120}>
                   <FormControl fullWidth size="small">
                     <Select
                       value={formData.group_name}
@@ -264,7 +255,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 连接信息
               </Typography>
               <Stack spacing={2}>
-                <FormRow label="主机地址">
+                <FormRow label="主机地址" labelWidth={120}>
                   <TextField
                     fullWidth
                     size="small"
@@ -274,7 +265,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     placeholder="例如: 192.168.1.100 或 example.com"
                   />
                 </FormRow>
-                <FormRow label="端口">
+                <FormRow label="端口" labelWidth={120}>
                   <TextField
                     fullWidth
                     size="small"
@@ -285,7 +276,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     placeholder="默认: 22"
                   />
                 </FormRow>
-                <FormRow label="用户名">
+                <FormRow label="用户名" labelWidth={120}>
                   <TextField
                     fullWidth
                     size="small"
@@ -309,7 +300,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 认证信息
               </Typography>
               <Stack spacing={2}>
-                <FormRow label="密码">
+                <FormRow label="密码" labelWidth={120}>
                   <TextField
                     fullWidth
                     size="small"
@@ -320,7 +311,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     placeholder="密码认证（可选）"
                   />
                 </FormRow>
-                <FormRow label="密钥文件">
+                <FormRow label="密钥文件" labelWidth={120}>
                   <TextField
                     fullWidth
                     size="small"
@@ -346,7 +337,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     }}
                   />
                 </FormRow>
-                <FormRow label="密钥密码">
+                <FormRow label="密钥密码" labelWidth={120}>
                   <TextField
                     fullWidth
                     size="small"
@@ -375,13 +366,22 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 variant="outlined"
                 color="secondary"
                 onClick={handleTestConnection}
+                loading={isLoading}
               >
                 测试连接
               </Button>
-              <Button variant="outlined" onClick={handleSave}>
+              <Button
+                variant="outlined"
+                onClick={handleSave}
+                loading={isLoading}
+              >
                 保存
               </Button>
-              <Button variant="contained" onClick={handleSaveAndConnect}>
+              <Button
+                variant="contained"
+                onClick={handleSaveAndConnect}
+                loading={isLoading}
+              >
                 保存并连接
               </Button>
             </Box>

@@ -18,8 +18,8 @@ const PasswordInputDialog: React.FC = () => {
 
   useEffect(() => {
     // 监听密码输入事件
-    const unsubscribe = Events.On("eventInput_Password", (event: any) => {
-      console.log("Received eventInput_Password event:", event);
+    const unsubscribe = Events.On("eventInputPassword", (event: any) => {
+      console.log("Received eventInputPassword event:", event);
       setMessage(event.data || "需要密码来加密/解密密码");
       setOpen(true);
       setPassword("");

@@ -136,6 +136,53 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 	return err
 }
 
+// TestConnectInfo tests SSH connection information without establishing a persistent connection.
+func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword string) error {
+	Logger.Debug("Testing SSH connection", zap.String("host", host), zap.Int("port", port))
+	if password == "" && key == "" {
+		return fmt.Errorf("empty password and key")
+	}
+	cfg := &ssh.ClientConfig{
+		User:            user,
+		Auth:            []ssh.AuthMethod{},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         time.Second * 20, // Reduced timeout for testing
+	}
+	if key != "" {
+		keyContent, err := os.ReadFile(key)
+		if err != nil {
+			return fmt.Errorf("unable to read private key: %v", err)
+		}
+		var signer ssh.Signer
+		if keyPassword == "" {
+			signer, err = ssh.ParsePrivateKey(keyContent)
+			if err != nil {
+				return err
+			}
+		} else {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(keyContent, []byte(keyPassword))
+			if err != nil {
+				return err
+			}
+		}
+		cfg.Auth = []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		}
+	}
+	if password != "" {
+		cfg.Auth = append(cfg.Auth, ssh.Password(password))
+	}
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), cfg)
+	if err != nil {
+		Logger.Debug("Test SSH connect error", zap.Error(err))
+		return err
+	}
+	// Immediately close the test connection
+	defer client.Close()
+	Logger.Debug("Test SSH connect successful", zap.String("host", host), zap.Int("port", port))
+	return nil
+}
+
 // StartSftp create sftp service for the SSH connection
 func (s *SSHService) StartSftp(ID string) error {
 	Logger.Debug("Starting SFTP service", zap.String("id", ID))

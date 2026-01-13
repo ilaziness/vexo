@@ -39,7 +39,7 @@ interface BookmarkGroup {
 }
 
 export default function Header() {
-  const { pushTab, setCurrentTab } = useSSHTabsStore();
+  const { sshTabs, pushTab, setCurrentTab } = useSSHTabsStore();
   const { mode, setMode } = useColorScheme();
   const { errorMessage } = useMessageStore();
 
@@ -62,7 +62,7 @@ export default function Header() {
   };
 
   const handleAddTab = () => {
-    const number = useSSHTabsStore.getState().sshTabs.length + 1;
+    const number = sshTabs.length + 1;
     const newIndex = `${genTabIndex()}`;
     pushTab({
       index: newIndex,
