@@ -9,9 +9,8 @@ import SSHTabText from "./SSHTabText.tsx";
 import { getTabIndex } from "../func/service.ts";
 
 export default function SSHList() {
-  const { sshTabs, delTab, pushTab, getByIndex } = useSSHTabsStore();
+  const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } = useSSHTabsStore();
   const { doTabReload } = useReloadSSHTabStore();
-  const [tabValue, setTabValue] = React.useState(sshTabs[0].index); // 当前标签
   const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
     null,
   );
@@ -33,9 +32,7 @@ export default function SSHList() {
 
   const handleCloseTab = () => {
     if (menuTabIndex === null) return;
-    const newTabValue = delTab(menuTabIndex, tabValue);
-    setTabValue(newTabValue);
-
+    delTab(menuTabIndex, currentTab);
     closeContextMenu();
   };
 
@@ -50,7 +47,7 @@ export default function SSHList() {
       name: `新建连接 ${number}`,
       sshInfo: currentTabInfo ? currentTabInfo.sshInfo : undefined,
     });
-    setTabValue(newIndex);
+    setCurrentTab(newIndex);
   };
 
   // refresh ssh tab
@@ -62,7 +59,7 @@ export default function SSHList() {
   };
 
   const tabOnchange = (event: React.SyntheticEvent, newValue: string) => {
-    setTabValue(newValue);
+    setCurrentTab(newValue);
   };
 
   return (
@@ -88,7 +85,7 @@ export default function SSHList() {
         }}
       >
         <Tabs
-          value={tabValue}
+          value={currentTab}
           onChange={tabOnchange}
           aria-label="ssh tabs"
           variant="scrollable"
@@ -153,7 +150,7 @@ export default function SSHList() {
             role="tabpanel"
             key={item.index}
             sx={{
-              display: tabValue === item.index ? "flex" : "none",
+              display: currentTab === item.index ? "flex" : "none",
               width: "100%",
               height: "100%",
             }}

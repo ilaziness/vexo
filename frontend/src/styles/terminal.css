@@ -17,7 +17,7 @@
     background-color: rgba(255, 255, 255, 0.15);
     border-radius: 20px; /* 圆角胶囊形状 */
 
-    /* 关键：利用 transparent 边框制造“内边距”效果，让滑块看起来不挨着边缘 */
+    /* 关键：利用 transparent 边框制造"内边距"效果，让滑块看起来不挨着边缘 */
     border: 3px solid transparent;
     background-clip: content-box;
 }
@@ -35,4 +35,8 @@
 .xterm {
     width: 100%;
     height: 100%;
+}
+.xterm-screen {
+    padding-left: 3px;
+    padding-bottom: 2px;
 }

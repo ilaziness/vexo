@@ -12,9 +12,11 @@ export const useSSHLinksStore = create((set) => ({
 
 export interface SSHTabs {
   sshTabs: SSHTab[];
+  currentTab: string;
   pushTab: (tab: SSHTab) => void;
   delTab: (delTab: string, currentTab: string) => string; // 返回需要激活的标签
   setName: (index: string, name: string) => void;
+  setCurrentTab: (index: string) => void;
   getByIndex: (index: string) => SSHTab | undefined;
   setSSHInfo: (index: string, sshInfo: SSHLinkInfo) => void;
 }
@@ -26,6 +28,7 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
       name: "新建连接",
     },
   ] as SSHTab[],
+  currentTab: `${getTabIndex()}`,
   pushTab: (tab: SSHTab) =>
     set((state: any) => ({
       sshTabs: [...state.sshTabs, tab],
@@ -54,7 +57,7 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
         newTabValue = newSshTabs[0].index;
       }
     }
-    set({ sshTabs: newSshTabs });
+    set({ sshTabs: newSshTabs, currentTab: newTabValue });
     return newTabValue;
   },
   setName: (index: string, name: string) =>
@@ -63,6 +66,8 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
         tab.index === index ? { ...tab, name } : tab,
       ),
     })),
+  setCurrentTab: (index: string) =>
+    set({ currentTab: index }),
   getByIndex: (index: string): SSHTab | undefined =>
     get().sshTabs.find((val) => {
       return val.index === index;
