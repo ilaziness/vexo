@@ -26,7 +26,7 @@ import { MoreHoriz, GitHub as GitHubIcon } from "@mui/icons-material";
 import { SelectDirectory } from "../../bindings/github.com/ilaziness/vexo/services/commonservice";
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
-import { useMessageStore } from "../stores/common";
+import { useMessageStore } from "../stores/message.ts";
 
 // 横向表单项组件
 const FormRow: React.FC<{

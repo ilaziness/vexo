@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { SSHLinkInfo, SSHTab } from "../types/ssh";
-import { getTabIndex } from "../func/service";
+import { genTabIndex } from "../func/service";
 
 export const useSSHLinksStore = create((set) => ({
   sshLinks: [] as SSHLinkInfo[],
@@ -24,11 +24,11 @@ export interface SSHTabs {
 export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
   sshTabs: [
     {
-      index: `${getTabIndex()}`,
+      index: `${genTabIndex()}`,
       name: "新建连接",
     },
   ] as SSHTab[],
-  currentTab: `${getTabIndex()}`,
+  currentTab: `${genTabIndex()}`,
   pushTab: (tab: SSHTab) =>
     set((state: any) => ({
       sshTabs: [...state.sshTabs, tab],
@@ -50,7 +50,7 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
         // 如果没有其他标签了，创建一个新标签
         newSshTabs = [
           {
-            index: `${getTabIndex()}`,
+            index: `${genTabIndex()}`,
             name: "新建连接",
           },
         ];
@@ -66,8 +66,7 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
         tab.index === index ? { ...tab, name } : tab,
       ),
     })),
-  setCurrentTab: (index: string) =>
-    set({ currentTab: index }),
+  setCurrentTab: (index: string) => set({ currentTab: index }),
   getByIndex: (index: string): SSHTab | undefined =>
     get().sshTabs.find((val) => {
       return val.index === index;

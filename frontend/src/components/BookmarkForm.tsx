@@ -16,6 +16,7 @@ import {
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import { CommonService } from "../../bindings/github.com/ilaziness/vexo/services";
+import { useMessageStore } from "../stores/message";
 
 interface BookmarkFormProps {
   bookmark: SSHBookmark | null;
@@ -32,6 +33,8 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
   onTestConnection,
   onSaveAndConnect,
 }) => {
+  const { errorMessage } = useMessageStore();
+
   const [formData, setFormData] = useState<SSHBookmark>({
     id: "",
     title: "",
@@ -70,20 +73,44 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     }));
   };
 
+  const validateForm = (): boolean => {
+    if (!formData.title.trim()) {
+      errorMessage("书签名称不能为空");
+      return false;
+    }
+    if (!formData.host.trim()) {
+      errorMessage("主机地址不能为空");
+      return false;
+    }
+    if (!formData.port || formData.port <= 0) {
+      errorMessage("端口必须是有效的正整数");
+      return false;
+    }
+    if (!formData.user.trim()) {
+      errorMessage("用户名不能为空");
+      return false;
+    }
+    if (!formData.password.trim() && !formData.private_key.trim()) {
+      errorMessage("密码和密钥文件至少填写一项");
+      return false;
+    }
+    return true;
+  };
+
   const handleSave = () => {
-    if (formData) {
+    if (validateForm()) {
       onSave(formData);
     }
   };
 
   const handleTestConnection = () => {
-    if (formData) {
+    if (validateForm()) {
       onTestConnection(formData);
     }
   };
 
   const handleSaveAndConnect = () => {
-    if (formData) {
+    if (validateForm()) {
       onSaveAndConnect(formData);
     }
   };

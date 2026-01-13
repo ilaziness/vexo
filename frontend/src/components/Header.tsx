@@ -28,10 +28,10 @@ import {
   ConfigService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../stores/ssh";
-import { getTabIndex } from "../func/service";
+import { genTabIndex, parseCallServiceError } from "../func/service";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import React, { useState, useEffect } from "react";
-import { useMessageStore } from "../stores/common";
+import { useMessageStore } from "../stores/message";
 
 interface BookmarkGroup {
   name: string;
@@ -63,7 +63,7 @@ export default function Header() {
 
   const handleAddTab = () => {
     const number = useSSHTabsStore.getState().sshTabs.length + 1;
-    const newIndex = `${getTabIndex()}`;
+    const newIndex = `${genTabIndex()}`;
     pushTab({
       index: newIndex,
       name: `新建连接 ${number}`,
@@ -127,31 +127,35 @@ export default function Header() {
   };
 
   const handleBookmarkSelect = async (bookmarkID: string) => {
-    const bookmark = await BookmarkService.GetBookmarkByID(bookmarkID);
-    if (!bookmark) {
-      errorMessage("bookmark not found");
-      return;
-    }
-    if (!bookmark.password && !bookmark.private_key) {
-      errorMessage("password and private key file are empty");
-      return;
-    }
-    const sshInfo = {
-      host: bookmark.host,
-      port: bookmark.port,
-      user: bookmark.user,
-      password: bookmark.password || undefined,
-      key: bookmark.private_key || undefined,
-      keyPassword: bookmark.private_key_password || undefined,
-    };
-    const newIndex = getTabIndex().toString();
-    pushTab({
-      index: newIndex,
-      name: bookmark.title,
-      sshInfo,
-    });
-    setCurrentTab(newIndex);
     closeBookmarkMenu();
+    try {
+      const bookmark = await BookmarkService.GetBookmarkByID(bookmarkID);
+      if (!bookmark) {
+        errorMessage("bookmark not found");
+        return;
+      }
+      if (!bookmark.password && !bookmark.private_key) {
+        errorMessage("password and private key file are empty");
+        return;
+      }
+      const sshInfo = {
+        host: bookmark.host,
+        port: bookmark.port,
+        user: bookmark.user,
+        password: bookmark.password || undefined,
+        key: bookmark.private_key || undefined,
+        keyPassword: bookmark.private_key_password || undefined,
+      };
+      const newIndex = genTabIndex();
+      pushTab({
+        index: newIndex,
+        name: bookmark.title,
+        sshInfo,
+      });
+      setCurrentTab(newIndex);
+    } catch (err) {
+      errorMessage(parseCallServiceError(err));
+    }
   };
 
   const menuIcon = [

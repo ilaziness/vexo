@@ -1,17 +1,13 @@
 package services
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -37,6 +33,119 @@ type SSHBookmark struct {
 	Password           string `json:"password"`
 }
 
+// encryptBookmark 对书签中的敏感字段进行加密
+func (bs *BookmarkService) encryptBookmark(bookmark SSHBookmark) (SSHBookmark, error) {
+	// 加密私钥密码
+	if bookmark.PrivateKeyPassword != "" {
+		if bs.userPassword == "" {
+			if err := bs.waitForPassword("需要密码来加密私钥密码"); err != nil {
+				return bookmark, err
+			}
+		}
+		encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.PrivateKeyPassword)
+		if err != nil {
+			return bookmark, fmt.Errorf("加密私钥密码失败: %v", err)
+		}
+		bookmark.PrivateKeyPassword = encryptedPassword
+	}
+
+	// 加密登录密码
+	if bookmark.Password != "" {
+		if bs.userPassword == "" {
+			if err := bs.waitForPassword("需要密码来加密登录密码"); err != nil {
+				return bookmark, err
+			}
+		}
+		encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.Password)
+		if err != nil {
+			return bookmark, fmt.Errorf("加密登录密码失败: %v", err)
+		}
+		bookmark.Password = encryptedPassword
+	}
+
+	return bookmark, nil
+}
+
+// processBookmarkForSave 处理书签保存逻辑，包括条件加密
+func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existingBookmark *SSHBookmark) (SSHBookmark, error) {
+	// 处理私钥密码更新逻辑
+	if existingBookmark != nil {
+		// 更新现有书签
+		if bookmark.PrivateKeyPassword == "" {
+			// 如果前端没有传递私钥密码，保持原有的加密密码
+			bookmark.PrivateKeyPassword = existingBookmark.PrivateKeyPassword
+		} else {
+			// 如果前端传递了私钥密码，加密保存
+			if bs.userPassword == "" {
+				if err := bs.waitForPassword("需要密码来加密私钥密码"); err != nil {
+					return bookmark, err
+				}
+			}
+			encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.PrivateKeyPassword)
+			if err != nil {
+				return bookmark, fmt.Errorf("加密私钥密码失败: %v", err)
+			}
+			bookmark.PrivateKeyPassword = encryptedPassword
+		}
+
+		// 处理登录密码更新逻辑
+		if bookmark.Password == "" {
+			// 如果前端没有传递登录密码，保持原有的加密密码
+			bookmark.Password = existingBookmark.Password
+		} else {
+			// 如果前端传递了登录密码，加密保存
+			if bs.userPassword == "" {
+				if err := bs.waitForPassword("需要密码来加密登录密码"); err != nil {
+					return bookmark, err
+				}
+			}
+			encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.Password)
+			if err != nil {
+				return bookmark, fmt.Errorf("加密登录密码失败: %v", err)
+			}
+			bookmark.Password = encryptedPassword
+		}
+	} else {
+		// 新增书签，直接加密所有敏感字段
+		return bs.encryptBookmark(bookmark)
+	}
+
+	return bookmark, nil
+}
+
+// decryptBookmark 对书签中的敏感字段进行解密
+func (bs *BookmarkService) decryptBookmark(bookmark SSHBookmark) (SSHBookmark, error) {
+	// 解密私钥密码
+	if bookmark.PrivateKeyPassword != "" {
+		if bs.userPassword == "" {
+			if err := bs.waitForPassword("需要密码来解密私钥密码"); err != nil {
+				return bookmark, err
+			}
+		}
+		decryptedPassword, err := secret.Decrypt(bs.userPassword, bookmark.PrivateKeyPassword)
+		if err != nil {
+			return bookmark, fmt.Errorf("解密私钥密码失败: %v", err)
+		}
+		bookmark.PrivateKeyPassword = decryptedPassword
+	}
+
+	// 解密登录密码
+	if bookmark.Password != "" {
+		if bs.userPassword == "" {
+			if err := bs.waitForPassword("需要密码来解密登录密码"); err != nil {
+				return bookmark, err
+			}
+		}
+		decryptedPassword, err := secret.Decrypt(bs.userPassword, bookmark.Password)
+		if err != nil {
+			return bookmark, fmt.Errorf("解密登录密码失败: %v", err)
+		}
+		bookmark.Password = decryptedPassword
+	}
+
+	return bookmark, nil
+}
+
 // BookmarkGroup 书签分组结构
 type BookmarkGroup struct {
 	Name      string        `json:"name"`
@@ -49,7 +158,7 @@ type BookmarkService struct {
 	bookmarks    []*BookmarkGroup
 	bookmarkFile string
 	window       *application.WebviewWindow
-	userPassword []byte
+	userPassword string
 	passwordChan chan struct{} // 用于等待用户密码输入完成的信号channel
 }
 
@@ -67,9 +176,7 @@ func NewBookmarkService(cfgs *ConfigService) *BookmarkService {
 
 // SetUserPassword 设置用户密码用于加密/解密私钥密码
 func (bs *BookmarkService) SetUserPassword(password string) {
-	// 使用SHA-256哈希密码作为AES密钥，提供更好的安全性
-	hash := sha256.Sum256([]byte(password))
-	bs.userPassword = hash[:]
+	bs.userPassword = password
 
 	// 如果有等待密码输入的channel，向channel发送完成信号
 	if bs.passwordChan != nil {
@@ -101,66 +208,6 @@ func (bs *BookmarkService) waitForPassword(reason string) error {
 		bs.passwordChan = nil
 		return fmt.Errorf("密码输入超时")
 	}
-}
-
-// encrypt 使用用户密码加密数据
-func (bs *BookmarkService) encrypt(plaintext string) (string, error) {
-	if len(bs.userPassword) == 0 {
-		// 如果没有设置密码，等待用户输入密码
-		if err := bs.waitForPassword("需要密码来加密私钥密码"); err != nil {
-			return "", err
-		}
-	}
-
-	block, err := aes.NewCipher(bs.userPassword)
-	if err != nil {
-		return "", err
-	}
-
-	plaintextBytes := []byte(plaintext)
-	// CTR模式使用nonce而不是IV，nonce长度等于block size
-	ciphertext := make([]byte, aes.BlockSize+len(plaintextBytes))
-	nonce := ciphertext[:aes.BlockSize]
-	if _, err := rand.Read(nonce); err != nil {
-		return "", err
-	}
-
-	stream := cipher.NewCTR(block, nonce)
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintextBytes)
-
-	return base64.StdEncoding.EncodeToString(ciphertext), nil
-}
-
-// decrypt 使用用户密码解密数据
-func (bs *BookmarkService) decrypt(encryptedText string) (string, error) {
-	if len(bs.userPassword) == 0 {
-		// 如果没有设置密码，等待用户输入密码
-		if err := bs.waitForPassword("需要密码来解密私钥密码"); err != nil {
-			return "", err
-		}
-	}
-
-	ciphertext, err := base64.StdEncoding.DecodeString(encryptedText)
-	if err != nil {
-		return "", err
-	}
-
-	block, err := aes.NewCipher(bs.userPassword)
-	if err != nil {
-		return "", err
-	}
-
-	if len(ciphertext) < aes.BlockSize {
-		return "", fmt.Errorf("ciphertext too short")
-	}
-
-	nonce := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	stream := cipher.NewCTR(block, nonce)
-	stream.XORKeyStream(ciphertext, ciphertext)
-
-	return string(ciphertext), nil
 }
 
 // initializeDefaultBookmarks 初始化默认书签数据
@@ -328,31 +375,12 @@ func (bs *BookmarkService) SaveBookmark(bookmark SSHBookmark) error {
 			targetGroupIndex = existingGroupIndex
 		}
 
-		// 处理私钥密码更新逻辑
-		if bookmark.PrivateKeyPassword == "" {
-			// 如果前端没有传递私钥密码，保持原有的加密密码
-			bookmark.PrivateKeyPassword = existingBookmark.PrivateKeyPassword
-		} else {
-			// 如果前端传递了私钥密码，加密保存
-			encryptedPassword, err := bs.encrypt(bookmark.PrivateKeyPassword)
-			if err != nil {
-				return fmt.Errorf("加密私钥密码失败: %v", err)
-			}
-			bookmark.PrivateKeyPassword = encryptedPassword
+		// 处理加密逻辑
+		processedBookmark, err := bs.processBookmarkForSave(bookmark, &existingBookmark)
+		if err != nil {
+			return err
 		}
-
-		// 处理登录密码更新逻辑
-		if bookmark.Password == "" {
-			// 如果前端没有传递登录密码，保持原有的加密密码
-			bookmark.Password = existingBookmark.Password
-		} else {
-			// 如果前端传递了登录密码，加密保存
-			encryptedPassword, err := bs.encrypt(bookmark.Password)
-			if err != nil {
-				return fmt.Errorf("加密登录密码失败: %v", err)
-			}
-			bookmark.Password = encryptedPassword
-		}
+		bookmark = processedBookmark
 
 		// 如果分组发生变化，需要移动书签
 		if targetGroupIndex != existingGroupIndex {
@@ -368,23 +396,12 @@ func (bs *BookmarkService) SaveBookmark(bookmark SSHBookmark) error {
 		}
 	} else {
 		// 新增书签
-		// 如果有私钥密码，加密保存
-		if bookmark.PrivateKeyPassword != "" {
-			encryptedPassword, err := bs.encrypt(bookmark.PrivateKeyPassword)
-			if err != nil {
-				return fmt.Errorf("加密私钥密码失败: %v", err)
-			}
-			bookmark.PrivateKeyPassword = encryptedPassword
+		// 处理加密逻辑
+		processedBookmark, err := bs.processBookmarkForSave(bookmark, nil)
+		if err != nil {
+			return err
 		}
-
-		// 如果有登录密码，加密保存
-		if bookmark.Password != "" {
-			encryptedPassword, err := bs.encrypt(bookmark.Password)
-			if err != nil {
-				return fmt.Errorf("加密登录密码失败: %v", err)
-			}
-			bookmark.Password = encryptedPassword
-		}
+		bookmark = processedBookmark
 
 		// 检查分组是否存在，如果不存在则使用默认分组
 		groupExists := false
@@ -483,25 +500,12 @@ func (bs *BookmarkService) GetBookmarkByID(bookmarkID string) (*SSHBookmark, err
 	for _, group := range bookmarkGroups {
 		for _, bookmark := range group.Bookmarks {
 			if bookmark.ID == bookmarkID {
-				// 如果有加密的私钥密码，解密返回
-				if bookmark.PrivateKeyPassword != "" {
-					decryptedPassword, err := bs.decrypt(bookmark.PrivateKeyPassword)
-					if err != nil {
-						return nil, fmt.Errorf("解密私钥密码失败: %v", err)
-					}
-					bookmark.PrivateKeyPassword = decryptedPassword
+				// 解密敏感字段
+				decryptedBookmark, err := bs.decryptBookmark(bookmark)
+				if err != nil {
+					return nil, err
 				}
-
-				// 如果有加密的登录密码，解密返回
-				if bookmark.Password != "" {
-					decryptedPassword, err := bs.decrypt(bookmark.Password)
-					if err != nil {
-						return nil, fmt.Errorf("解密登录密码失败: %v", err)
-					}
-					bookmark.Password = decryptedPassword
-				}
-
-				return &bookmark, nil
+				return &decryptedBookmark, nil
 			}
 		}
 	}

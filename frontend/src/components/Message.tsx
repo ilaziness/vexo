@@ -1,5 +1,5 @@
 import { Snackbar } from "@mui/material";
-import { useMessageStore } from "../stores/common.ts";
+import { useMessageStore } from "../stores/message.ts";
 
 function Message() {
   const { message, setClose } = useMessageStore();

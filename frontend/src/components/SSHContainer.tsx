@@ -48,6 +48,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     setConnecting(true);
     setLastSSHInfo(li);
     try {
+      LogService.Debug(`SSHLinkInfo ${JSON.stringify(li)}`);
       const linkID = await SSHService.Connect(
         li.host,
         li.port,
@@ -103,7 +104,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   }, [tabIndex]);
 
   if (isReloading) {
-    return <Loading message="Reloading SSH connection..." />;
+    return <Loading message="Loading SSH connection..." />;
   }
 
   if (linkID === "") {

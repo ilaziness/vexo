@@ -19,7 +19,7 @@ import {
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { SSHLinkInfo } from "../types/ssh";
-import { useMessageStore } from "../stores/common";
+import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
 import {
   SSHBookmark,

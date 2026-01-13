@@ -121,8 +121,6 @@ func (s *SSHService) Connect(host string, port int, user, password, key, keyPass
 	return connect.ID, nil
 }
 
-
-
 // Start starts the SSH connection with the given ID.
 func (s *SSHService) Start(ID string, cols, rows int) error {
 	Logger.Debug("Starting SSH connection", zap.String("id", ID))
@@ -131,7 +129,11 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 	if !ok {
 		return fmt.Errorf("SSH connection with ID %s not found", ID)
 	}
-	return conn.(*SSHConnect).Start(cols, rows)
+	err := conn.(*SSHConnect).Start(cols, rows)
+	if err != nil {
+		s.CloseByID(ID)
+	}
+	return err
 }
 
 // StartSftp create sftp service for the SSH connection
@@ -196,7 +198,6 @@ func (s *SSHService) CloseByID(ID string) error {
 
 // closeClientIfNoConnections close ssh client if no other connections use it
 func (s *SSHService) closeClientIfNoConnections(clientKey string) {
-	Logger.Debug("closeClientIfNoConnections", zap.String("clientKey", clientKey))
 	hasOtherConnections := false
 	s.SSHConnects.Range(func(_, value any) bool {
 		conn := value.(*SSHConnect)
@@ -206,6 +207,7 @@ func (s *SSHService) closeClientIfNoConnections(clientKey string) {
 		}
 		return true
 	})
+	Logger.Debug("closeClientIfNoConnections", zap.String("clientKey", clientKey), zap.Bool("hasOtherConnections", hasOtherConnections))
 	if !hasOtherConnections {
 		client, ok := s.clients.LoadAndDelete(clientKey)
 		if ok {

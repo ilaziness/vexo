@@ -6,10 +6,11 @@ import TerminalIcon from "@mui/icons-material/Terminal";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 import OpBar from "./OpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
-import { getTabIndex } from "../func/service.ts";
+import { genTabIndex } from "../func/service.ts";
 
 export default function SSHList() {
-  const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } = useSSHTabsStore();
+  const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } =
+    useSSHTabsStore();
   const { doTabReload } = useReloadSSHTabStore();
   const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
     null,
@@ -41,7 +42,7 @@ export default function SSHList() {
     closeContextMenu();
     const currentTabInfo = getByIndex(menuTabIndex || "");
     const number = sshTabs.length + 1;
-    const newIndex = getTabIndex();
+    const newIndex = genTabIndex();
     pushTab({
       index: newIndex,
       name: `新建连接 ${number}`,

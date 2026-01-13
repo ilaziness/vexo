@@ -13,7 +13,7 @@ import {
 import useTerminalStore from "../stores/terminal";
 import { decodeBase64, encodeBase64 } from "../func/decode";
 import Loading from "./Loading";
-import { sleep } from "../func/service";
+import { parseCallServiceError, sleep } from "../func/service";
 
 // Terminal 组件，封装 xterm.js
 export default function Terminal(props: { linkID: string }) {
@@ -74,7 +74,9 @@ export default function Terminal(props: { linkID: string }) {
         LogService.Error(
           `Failed to start SSH connection for link ID: ${props.linkID}, error: ${err}`,
         );
-        term.current?.write(`\r\nConnection error: ${err}\r\n`);
+        term.current?.write(
+          `Connection error: ${parseCallServiceError(err)}\r\n`,
+        );
       }
       setIsInitializing(false);
 

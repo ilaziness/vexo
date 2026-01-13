@@ -23,7 +23,8 @@ export const parseCallServiceError = (err: any): string => {
   return String(err);
 };
 
-export const getTabIndex = (): string => {
+// genTabIndex generate tab index ID
+export const genTabIndex = (): string => {
   return `${new Date().getTime()}`;
 };
 

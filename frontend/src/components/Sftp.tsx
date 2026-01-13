@@ -42,7 +42,7 @@ import {
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { formatFileSize, parseCallServiceError } from "../func/service";
 import { sortFileList } from "../func/ftp";
-import { useMessageStore } from "../stores/common";
+import { useMessageStore } from "../stores/message";
 import SftpNavbar from "./SftpNavbar";
 import { FileInfo } from "../func/types";
 

@@ -4,7 +4,7 @@ import { BookmarkService } from "../../bindings/github.com/ilaziness/vexo/servic
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import BookmarkTree from "../components/BookmarkTree";
 import BookmarkForm from "../components/BookmarkForm";
-import { useMessageStore } from "../stores/common";
+import { useMessageStore } from "../stores/message";
 import Message from "../components/Message";
 import { parseCallServiceError } from "../func/service";
 import { generateRandomId } from "../func/id";
