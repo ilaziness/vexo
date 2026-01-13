@@ -157,41 +157,58 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                     }}
                   >
                     {expandedGroups[group.name] ? (
-                      <ExpandMore sx={{ fontSize: 20, color: "text.secondary" }} />
+                      <ExpandMore
+                        sx={{ fontSize: 20, color: "text.secondary" }}
+                      />
                     ) : (
-                      <ChevronRight sx={{ fontSize: 20, color: "text.secondary" }} />
+                      <ChevronRight
+                        sx={{ fontSize: 20, color: "text.secondary" }}
+                      />
                     )}
-                    <FolderOutlined sx={{ fontSize: 18, color: "warning.main" }} />
+                    <FolderOutlined
+                      sx={{ fontSize: 18, color: "warning.main" }}
+                    />
                     {editingGroup === group.name ? (
                       <TextField
                         value={newGroupName}
                         onChange={(e) => setNewGroupName(e.target.value)}
-                        onKeyDown={(e) => handleGroupRenameKeyDown(e, group.name)}
+                        onKeyDown={(e) =>
+                          handleGroupRenameKeyDown(e, group.name)
+                        }
                         onBlur={() => finishEditingGroup(group.name)}
                         autoFocus
                         size="small"
                         variant="standard"
                         sx={{ flex: 1, minWidth: 0 }}
-                        inputProps={{
-                          style: { fontSize: "0.95rem", padding: "2px 0" },
+                        slotProps={{
+                          htmlInput: {
+                            fontSize: "0.95rem",
+                            padding: "2px 0",
+                          },
                         }}
                       />
                     ) : (
                       <ListItemText
                         primary={group.name}
-                        primaryTypographyProps={{
-                          fontSize: "0.95rem",
-                          fontWeight: 500,
+                        slotProps={{
+                          primary: {
+                            fontSize: "0.95rem",
+                            fontWeight: 500,
+                          },
                         }}
                         sx={{ my: 0, flex: 1, minWidth: 0 }}
                       />
                     )}
-                    <Box 
-                      sx={{ 
-                        display: "flex", 
-                        gap: 0.5, 
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 0.5,
                         ml: "auto",
-                        visibility: hoveredGroup === group.name && editingGroup !== group.name ? "visible" : "hidden"
+                        visibility:
+                          hoveredGroup === group.name &&
+                          editingGroup !== group.name
+                            ? "visible"
+                            : "hidden",
                       }}
                     >
                       <Tooltip title="编辑分组">
@@ -224,7 +241,11 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
               </ListItem>
 
               {/* 书签列表 */}
-              <Collapse in={expandedGroups[group.name]} timeout="auto" unmountOnExit>
+              <Collapse
+                in={expandedGroups[group.name]}
+                timeout="auto"
+                unmountOnExit
+              >
                 <List component="div" disablePadding>
                   {group.bookmarks.map((bookmark) => (
                     <ListItem
@@ -250,18 +271,25 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                         }}
                       >
                         <BookmarkBorderOutlined
-                          sx={{ fontSize: 16, mr: 1.5, color: "primary.main", flexShrink: 0 }}
+                          sx={{
+                            fontSize: 16,
+                            mr: 1.5,
+                            color: "primary.main",
+                            flexShrink: 0,
+                          }}
                         />
                         <ListItemText
                           primary={bookmark.title}
                           secondary={`${bookmark.user}@${bookmark.host}`}
-                          primaryTypographyProps={{
-                            fontSize: "0.9rem",
-                            noWrap: true,
-                          }}
-                          secondaryTypographyProps={{
-                            fontSize: "0.75rem",
-                            noWrap: true,
+                          slotProps={{
+                            primary: {
+                              fontSize: "0.9rem",
+                              noWrap: true,
+                            },
+                            secondary: {
+                              fontSize: "0.75rem",
+                              noWrap: true,
+                            },
                           }}
                           sx={{ flex: 1, minWidth: 0 }}
                         />
@@ -272,9 +300,12 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                               e.stopPropagation();
                               onBookmarkDelete(bookmark.id);
                             }}
-                            sx={{ 
+                            sx={{
                               padding: "4px",
-                              visibility: hoveredBookmark === bookmark.id ? "visible" : "hidden"
+                              visibility:
+                                hoveredBookmark === bookmark.id
+                                  ? "visible"
+                                  : "hidden",
                             }}
                           >
                             <DeleteIcon sx={{ fontSize: 16 }} />
@@ -295,8 +326,10 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                     <AddIcon sx={{ fontSize: 16, mr: 1.5 }} />
                     <ListItemText
                       primary="添加书签"
-                      primaryTypographyProps={{
-                        fontSize: "0.9rem",
+                      slotProps={{
+                        primary: {
+                          fontSize: "0.9rem",
+                        },
                       }}
                     />
                   </ListItemButton>
@@ -336,9 +369,11 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
               <AddIcon sx={{ fontSize: 20, mr: 1 }} />
               <ListItemText
                 primary="添加分组"
-                primaryTypographyProps={{
-                  fontSize: "0.95rem",
-                  fontWeight: 500,
+                slotProps={{
+                  primary: {
+                    fontSize: "0.95rem",
+                    fontWeight: 500,
+                  },
                 }}
               />
             </ListItemButton>

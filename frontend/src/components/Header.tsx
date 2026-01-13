@@ -13,7 +13,8 @@ import {
 import SettingsIcon from "@mui/icons-material/Settings";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import BookmarksIcon from "@mui/icons-material/Bookmarks";
-import ToggleOnIcon from "@mui/icons-material/ToggleOn";
+import BookmarkIcon from "@mui/icons-material/Bookmark";
+import PaletteIcon from "@mui/icons-material/Palette";
 import {
   BookmarkService,
   ConfigService,
@@ -61,6 +62,38 @@ export default function Header() {
     handleColorModeMenuClose();
   };
 
+  const handleBookmark = () => {};
+
+  const menuIcon = [
+    {
+      title: "新连接",
+      icon: <NoteAddIcon />,
+      clickHandler: handleAddTab,
+    },
+    {
+      title: "书签",
+      icon: <BookmarkIcon />,
+      clickHandler: handleBookmark,
+    },
+    {
+      title: "书签管理",
+      icon: <BookmarksIcon />,
+      clickHandler: () => {
+        BookmarkService.ShowWindow().then(() => {});
+      },
+    },
+    {
+      title: "颜色模式",
+      icon: <PaletteIcon />,
+      clickHandler: handleColorModeMenuOpen,
+    },
+    {
+      title: "设置",
+      icon: <SettingsIcon />,
+      clickHandler: showSettingWindow,
+    },
+  ];
+
   return (
     <Box
       component={"header"}
@@ -72,31 +105,13 @@ export default function Header() {
       })}
     >
       <Stack direction="column" spacing={1} alignItems="center" padding={0.5}>
-        <Tooltip title="新建连接">
-          <IconButton size="small" onClick={handleAddTab}>
-            <NoteAddIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip
-          title="书签"
-          onClick={() => {
-            BookmarkService.ShowWindow().then(() => {});
-          }}
-        >
-          <IconButton size="small">
-            <BookmarksIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="设置">
-          <IconButton size="small" onClick={showSettingWindow}>
-            <SettingsIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="修改颜色模式">
-          <IconButton size="small" onClick={handleColorModeMenuOpen}>
-            <ToggleOnIcon />
-          </IconButton>
-        </Tooltip>
+        {menuIcon.map((item, key) => (
+          <Tooltip title={item.title} key={key}>
+            <IconButton size="small" onClick={item.clickHandler}>
+              {item.icon}
+            </IconButton>
+          </Tooltip>
+        ))}
 
         {/* 颜色模式选择菜单 */}
         <Menu
@@ -104,11 +119,13 @@ export default function Header() {
           open={open}
           onClose={handleColorModeMenuClose}
           onClick={(e) => e.stopPropagation()}
-          PaperProps={{
-            elevation: 8,
-            sx: {
-              overflow: "visible",
-              mt: 1,
+          slotProps={{
+            paper: {
+              elevation: 8,
+              sx: {
+                overflow: "visible",
+                mt: 1,
+              },
             },
           }}
         >
