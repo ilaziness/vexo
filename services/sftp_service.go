@@ -145,6 +145,12 @@ func (sft *SftpService) UploadFile(sessionID string, localPathFile, remoteDir st
 		return err
 	}
 	defer localFile.Close()
+	_, err = ftpClient.Stat(remoteDir)
+	if err != nil && os.IsNotExist(err) {
+		if err = ftpClient.MkdirAll(remoteDir); err != nil {
+			return err
+		}
+	}
 
 	// Create the remote file for writing
 	remoteFilePath := joinRemotePath(remoteDir, filepath.Base(localPathFile))
@@ -279,17 +285,17 @@ func (sft *SftpService) UploadDirectory(sessionID string, localPath, remotePath 
 
 	for _, entry := range entries {
 		localEntryPath := filepath.Join(localPath, entry.Name())
-		remoteEntryPath := joinRemotePath(remotePath, entry.Name())
 
 		if entry.IsDir() {
 			// Recursively upload subdirectory
+			remoteEntryPath := joinRemotePath(remotePath, entry.Name())
 			err = sft.UploadDirectory(sessionID, localEntryPath, remoteEntryPath)
 			if err != nil {
 				return err
 			}
 		} else {
 			// Upload file
-			err = sft.UploadFile(sessionID, localEntryPath, remoteEntryPath)
+			err = sft.UploadFile(sessionID, localEntryPath, joinRemotePath(remotePath, filepath.Base(localPath)))
 			if err != nil {
 				return err
 			}
@@ -332,6 +338,11 @@ func (sft *SftpService) DownloadDirectory(sessionID string, localPath, remotePat
 	}
 	Logger.Info("下载目录", zap.String("localPath", localPath), zap.String("remotePath", remotePath))
 
+	// Create the local directory if it doesn't exist
+	if err := os.MkdirAll(localPath, 0755); err != nil {
+		return err
+	}
+
 	// Read the directory contents
 	entries, err := ftpClient.ReadDir(remotePath)
 	if err != nil {
@@ -344,13 +355,13 @@ func (sft *SftpService) DownloadDirectory(sessionID string, localPath, remotePat
 
 		if entry.IsDir() {
 			// Recursively download subdirectory
-			err = sft.DownloadDirectory(sessionID, remoteEntryPath, localEntryPath)
+			err = sft.DownloadDirectory(sessionID, localEntryPath, remoteEntryPath)
 			if err != nil {
 				return err
 			}
 		} else {
 			// Download file
-			err = sft.DownloadFile(sessionID, remoteEntryPath, localEntryPath)
+			err = sft.DownloadFile(sessionID, localEntryPath, remoteEntryPath)
 			if err != nil {
 				return err
 			}
