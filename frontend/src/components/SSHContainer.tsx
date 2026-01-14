@@ -161,7 +161,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
 
       <Box sx={{ height: "calc(100% - 30px)" }}>
         {/*ssh sftp*/}
-        <Box sx={{ height: "calc(100% - 20px)" }}>
+        <Box sx={{ height: "calc(100% - 30px)" }}>
           {tabItems.map(
             (item, index) =>
               (index != sftpIndex || sftpLoaded) && (
@@ -180,9 +180,9 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         {/*status bar*/}
         <Box
           sx={{
-            height: 20,
-            px: 0.5,
-            py: 1,
+            height: 30,
+            px: 2,
+            py: 0,
             fontSize: 8,
             display: "flex",
             alignItems: "center",
