@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
-import { CommonService } from "../../bindings/github.com/ilaziness/vexo/services";
+import { WindowService } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useMessageStore } from "../stores/message";
 import FormRow from "./FormRow";
 
@@ -144,7 +144,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
   // 处理选择文件
   const handleSelectFile = async () => {
     try {
-      const selectedPath = await CommonService.SelectFile();
+      const selectedPath = await WindowService.SelectFile();
       if (selectedPath) {
         setFormData((prev) => ({
           ...prev,

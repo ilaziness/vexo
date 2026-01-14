@@ -179,7 +179,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     try {
       if (isDir) {
         // 下载目录
-        await SftpService.DownloadDirectory(linkID, "", remotePath);
+        await SftpService.DownloadDirectoryDialog(linkID, remotePath);
       } else {
         // 下载文件
         await SftpService.DownloadFileDialog(linkID, remotePath);
@@ -201,7 +201,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       if (type === "file") {
         await SftpService.UploadFileDialog(linkID, remotePath);
       } else {
-        await SftpService.UploadDirectory(linkID, "", remotePath);
+        await SftpService.UploadDirectoryDialog(linkID, remotePath);
       }
 
       await refreshFileList();

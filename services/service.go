@@ -6,7 +6,7 @@ var app *application.App
 
 func RegisterServices(a *application.App, mainWindow *application.WebviewWindow) {
 	app = a
-	commonService := &CommonService{
+	commonService := &WindowService{
 		mainWindow: mainWindow,
 	}
 	sshService := NewSSHService()
@@ -26,25 +26,25 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	})
 }
 
-type CommonService struct {
+type WindowService struct {
 	mainWindow *application.WebviewWindow
 }
 
-func (cs *CommonService) MainWindowMin() {
+func (cs *WindowService) MainWindowMin() {
 	cs.mainWindow.Minimise()
 }
-func (cs *CommonService) MainWindowMax() {
+func (cs *WindowService) MainWindowMax() {
 	if cs.mainWindow.IsMaximised() {
 		cs.mainWindow.UnMaximise()
 		return
 	}
 	cs.mainWindow.Maximise()
 }
-func (cs *CommonService) MainWindowClose() {
+func (cs *WindowService) MainWindowClose() {
 	cs.mainWindow.Close()
 }
 
-func (cs *CommonService) SelectDirectory() (string, error) {
+func (cs *WindowService) SelectDirectory() (string, error) {
 	return app.Dialog.OpenFile().SetTitle("选择目录").
 		CanChooseDirectories(true).
 		CanChooseFiles(false).
@@ -52,7 +52,7 @@ func (cs *CommonService) SelectDirectory() (string, error) {
 		PromptForSingleSelection()
 }
 
-func (cs *CommonService) SelectFile() (string, error) {
+func (cs *WindowService) SelectFile() (string, error) {
 	return app.Dialog.OpenFile().SetTitle("选择文件").
 		CanChooseDirectories(false).
 		CanChooseFiles(true).

@@ -20,31 +20,33 @@
 ## 2. 项目结构规范
 
 ```
-
 ├── service/                  # 核心逻辑
-├── frontend/
-│   ├── src/
+├── internal                  # 应用内部功能包
+│   ├── secret                # 加解密相关
+├── frontend/                 # 前端react项目目录
+│   ├── bindings/github.com/ilaziness/vexo/services    # go暴露到前端的函数、类型等
+│   ├── public                # 公共静态资源
+│   ├── src/                  # 前端源文件
 │   │   ├── components/       # React UI 组件（使用 MUI）
+│   │   ├── func              # 功能函数
+│   │   ├── language          # 多语言翻译文件
 │   │   ├── pages/            # 页面级组件（配合 React Router）
-│   │   ├── func/             # 功能函数定义
 │   │   ├── stores/           # 状态管理
-│   └── public/
+│   │   ├── styles            # 组件css
+│   │   ├── theme             # 主题配色
+│   │   ├── types             # ts类型定义
+│   │   ├── main.tsx          # 前端react主入口
+│   │   ├── routes.ts         # 路由
+│   ├── public/
+├── main.go                   # main入口   
 └── go.mod
 ```
 
 ---
 
-## 3. Agent 设计规范
+## 3. 编码规范
 
-### 3.1 SSH Agent 职责
-
-- **连接管理**：建立、维持、关闭 SSH 会话。
-- **认证支持**：支持密码、私钥（含 passphrase）、Agent Forwarding。
-- **通道复用**：单个连接支持多终端标签页（multiplexing）。
-- **安全隔离**：每个会话运行在独立 goroutine，避免状态污染。
-- **错误处理**：提供结构化错误码，便于前端展示用户友好提示。
-
-### 3.2 接口约定（Go ↔ Frontend）
+模块化，可复用，减少重复模块代码
 
 ---
 

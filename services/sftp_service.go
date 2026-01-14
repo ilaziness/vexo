@@ -11,11 +11,35 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/ilaziness/vexo/internal/utils"
 )
 
+const (
+	EventProgress = "eventProgress"
+
+	TransferTypeUpload   = "upload"
+	TransferTypeDownload = "download"
+)
+
+func init() {
+	application.RegisterEvent[ProgressData](EventProgress)
+}
+
 var sftpClient = new(sync.Map)
+
+type ProgressData struct {
+	ID           string // 本地传输ID
+	SessionID    string
+	TransferType string // 传输类型
+	LocalFile    string // 本地文件/目录，包含完整路径
+	RemoteFile   string // 远程文件/目录，包含完整路径
+	TotalSize    int64
+	Rate         int
+}
 
 // FileInfo represents file information for SFTP operations
 type FileInfo struct {
@@ -129,11 +153,11 @@ func (sft *SftpService) GetFileInfo(sessionID string, path string) (FileInfo, er
 	return convertFileInfo(info), nil
 }
 
-// UploadFile uploads a local file to the specified remote path.
+// uploadFile uploads a local file to the specified remote path.
 // localPathFile is local file path with file full name.
 // remoteDir is remote directory without file name.
-func (sft *SftpService) UploadFile(sessionID string, localPathFile, remoteDir string) error {
-	Logger.Debug("UploadFile", zap.String("sessionID", sessionID), zap.String("localPathFile", localPathFile), zap.String("remoteDir", remoteDir))
+func (sft *SftpService) uploadFile(sessionID string, localPathFile, remoteDir string, tracker *transferTracker) error {
+	Logger.Debug("uploadFile", zap.String("sessionID", sessionID), zap.String("localPathFile", localPathFile), zap.String("remoteDir", remoteDir))
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
@@ -154,15 +178,21 @@ func (sft *SftpService) UploadFile(sessionID string, localPathFile, remoteDir st
 
 	// Create the remote file for writing
 	remoteFilePath := joinRemotePath(remoteDir, filepath.Base(localPathFile))
-	Logger.Debug("UploadFile Create File", zap.String("file", remoteFilePath))
+	Logger.Debug("uploadFile Create File", zap.String("file", remoteFilePath))
 	remoteFile, err := ftpClient.Create(remoteFilePath)
 	if err != nil {
 		return err
 	}
 	defer remoteFile.Close()
 
+	if tracker == nil {
+		return fmt.Errorf("tracker is required")
+	}
+
+	progressWriter := &progressWriter{writer: remoteFile, tracker: tracker}
+
 	// Copy the local file content to the remote file
-	_, err = io.Copy(remoteFile, localFile)
+	_, err = io.Copy(progressWriter, localFile)
 	return err
 }
 
@@ -174,37 +204,50 @@ func (sft *SftpService) UploadFileDialog(sessionID string, remotePath string) er
 	if err != nil {
 		return err
 	}
-	if localPath == "" {
-		return fmt.Errorf("no file selected")
-	}
 	Logger.Info("UploadFileDialog", zap.String("localPath", localPath), zap.String("remotePath", remotePath))
-	return sft.UploadFile(sessionID, localPath, remotePath)
+	// Calculate file size and create tracker
+	info, err := os.Stat(localPath)
+	if err != nil {
+		return err
+	}
+	tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), filepath.Base(localPath), info.Size())
+	tracker.startProgress()
+	return sft.uploadFile(sessionID, localPath, remotePath, tracker)
 }
 
-// DownloadFile downloads a remote file to the specified local path
-func (sft *SftpService) DownloadFile(sessionID string, localPath, remotePath string) error {
-	Logger.Debug("DownloadFile", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
+// downloadFile downloads a remote file to the specified local path
+// localPath local save file directory
+// remotePathFile remote file
+func (sft *SftpService) downloadFile(sessionID string, localPath, remotePathFile string, tracker *transferTracker) error {
+	Logger.Debug("downloadFile", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePathFile))
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
 	}
 
 	// Open the remote file for reading
-	remoteFile, err := ftpClient.Open(remotePath)
+	remoteFile, err := ftpClient.Open(remotePathFile)
 	if err != nil {
 		return err
 	}
 	defer remoteFile.Close()
 
 	// Create the local file for writing
-	localFile, err := os.Create(filepath.Join(localPath, filepath.Base(remotePath)))
+	localFilePath := filepath.Join(localPath, filepath.Base(remotePathFile))
+	localFile, err := os.Create(localFilePath)
 	if err != nil {
 		return err
 	}
 	defer localFile.Close()
 
+	if tracker == nil {
+		return fmt.Errorf("tracker is required")
+	}
+
+	progressWriter := &progressWriter{writer: localFile, tracker: tracker}
+
 	// Copy the remote file content to the local file
-	_, err = io.Copy(localFile, remoteFile)
+	_, err = io.Copy(progressWriter, remoteFile)
 	if err != nil {
 		return err
 	}
@@ -213,48 +256,57 @@ func (sft *SftpService) DownloadFile(sessionID string, localPath, remotePath str
 }
 
 // DownloadFileDialog opens a save dialog to select where to download a remote file
-func (sft *SftpService) DownloadFileDialog(sessionID string, remotePath string) error {
-	Logger.Debug("DownloadFileDialog", zap.String("sessionID", sessionID), zap.String("remotePath", remotePath))
+func (sft *SftpService) DownloadFileDialog(sessionID string, remotePathFile string) error {
+	Logger.Debug("DownloadFileDialog", zap.String("sessionID", sessionID), zap.String("remotePath", remotePathFile))
 	// 选择保存位置
 	localPath, err := app.Dialog.SaveFile().
 		SetMessage("保存文件").
-		SetFilename(filepath.Base(remotePath)).
+		SetFilename(filepath.Base(remotePathFile)).
 		CanCreateDirectories(true).
 		PromptForSingleSelection()
 	if err != nil {
 		return err
 	}
-	if localPath == "" {
-		return fmt.Errorf("no file selected")
+	// Get remote file info and create tracker
+	ftpClient, err := sft.getSftpClient(sessionID)
+	if err != nil {
+		return err
 	}
-	Logger.Info("下载文件", zap.String("localPath", localPath), zap.String("remotePath", remotePath))
-	return sft.DownloadFile(sessionID, localPath, remotePath)
+	info, err := ftpClient.Stat(remotePathFile)
+	if err != nil {
+		return err
+	}
+	tracker := newTransferTracker(sessionID, TransferTypeDownload, filepath.Join(localPath, filepath.Base(remotePathFile)), remotePathFile, filepath.Base(remotePathFile), info.Size())
+	tracker.startProgress()
+	return sft.downloadFile(sessionID, localPath, remotePathFile, tracker)
 }
 
-// UploadDirectory recursively uploads a local directory to the specified remote path
-// if localPath empty string, it will open a file dialog to select a directory
-func (sft *SftpService) UploadDirectory(sessionID string, localPath, remotePath string) error {
-	Logger.Debug("UploadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
+func (sft *SftpService) UploadDirectoryDialog(sessionID, remotePath string) error {
+	localPath, err := app.Dialog.OpenFile().SetTitle("选择目录").
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		PromptForSingleSelection()
+	if err != nil {
+		return err
+	}
+	// Calculate directory size and create tracker
+	total, err := sft.calcLocalDirSize(localPath)
+	if err != nil {
+		return err
+	}
+	tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), filepath.Base(localPath), total)
+	tracker.startProgress()
+	return sft.uploadDirectory(sessionID, localPath, remotePath, tracker)
+}
+
+// uploadDirectory recursively uploads a local directory to the specified remote path
+func (sft *SftpService) uploadDirectory(sessionID string, localPath, remotePath string, tracker *transferTracker) error {
+	Logger.Debug("uploadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
 	var err error
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
 	}
-
-	// if localPath is empty string
-	if localPath == "" {
-		localPath, err = app.Dialog.OpenFile().SetTitle("选择目录").
-			CanChooseDirectories(true).
-			CanChooseFiles(false).
-			PromptForSingleSelection()
-		if err != nil {
-			return err
-		}
-		if localPath == "" {
-			return fmt.Errorf("no directory selected")
-		}
-	}
-	Logger.Info("上传目录", zap.String("localPath", localPath), zap.String("remotePath", remotePath))
 
 	// Stat the local directory
 	info, err := os.Stat(localPath)
@@ -266,15 +318,20 @@ func (sft *SftpService) UploadDirectory(sessionID string, localPath, remotePath 
 		return fmt.Errorf("path is not a directory")
 	}
 
+	remoteDir := joinRemotePath(remotePath, filepath.Base(localPath))
 	// Create the remote directory if it doesn't exist
-	info, err = ftpClient.Stat(remotePath)
+	info, err = ftpClient.Stat(remoteDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = ftpClient.MkdirAll(remotePath)
+			err = ftpClient.MkdirAll(remoteDir)
 			if err != nil {
 				return err
 			}
 		}
+	}
+
+	if tracker == nil {
+		return fmt.Errorf("tracker is required")
 	}
 
 	// Read the directory contents
@@ -288,14 +345,14 @@ func (sft *SftpService) UploadDirectory(sessionID string, localPath, remotePath 
 
 		if entry.IsDir() {
 			// Recursively upload subdirectory
-			remoteEntryPath := joinRemotePath(remotePath, entry.Name())
-			err = sft.UploadDirectory(sessionID, localEntryPath, remoteEntryPath)
+			remoteEntryPath := joinRemotePath(remoteDir, entry.Name())
+			err = sft.uploadDirectory(sessionID, localEntryPath, remoteEntryPath, tracker)
 			if err != nil {
 				return err
 			}
 		} else {
 			// Upload file
-			err = sft.UploadFile(sessionID, localEntryPath, joinRemotePath(remotePath, filepath.Base(localPath)))
+			err = sft.uploadFile(sessionID, localEntryPath, remoteDir, tracker)
 			if err != nil {
 				return err
 			}
@@ -305,10 +362,27 @@ func (sft *SftpService) UploadDirectory(sessionID string, localPath, remotePath 
 	return nil
 }
 
-// DownloadDirectory recursively downloads a remote directory to the specified local path
-// if localPath empty string, it will open a file dialog to select a directory
-func (sft *SftpService) DownloadDirectory(sessionID string, localPath, remotePath string) error {
-	Logger.Debug("DownloadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
+func (sft *SftpService) DownloadDirectoryDialog(sessionID, remotePath string) error {
+	localPath, err := app.Dialog.OpenFile().SetTitle("选择目录").
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		PromptForSingleSelection()
+	if err != nil {
+		return err
+	}
+	// Calculate remote directory size and create tracker
+	total, err := sft.calcRemoteDirSize(sessionID, remotePath)
+	if err != nil {
+		return err
+	}
+	tracker := newTransferTracker(sessionID, TransferTypeDownload, localPath, remotePath, filepath.Base(remotePath), total)
+	tracker.startProgress()
+	return sft.downloadDirectory(sessionID, localPath, remotePath, tracker)
+}
+
+// downloadDirectory recursively downloads a remote directory to the specified local path
+func (sft *SftpService) downloadDirectory(sessionID string, localPath, remotePath string, tracker *transferTracker) error {
+	Logger.Debug("downloadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
@@ -324,23 +398,14 @@ func (sft *SftpService) DownloadDirectory(sessionID string, localPath, remotePat
 		return fmt.Errorf("path is not a directory")
 	}
 
-	if localPath == "" {
-		localPath, err = app.Dialog.SaveFile().
-			SetMessage("保存目录").
-			CanCreateDirectories(true).
-			PromptForSingleSelection()
-		if err != nil {
-			return err
-		}
-	}
-	if localPath == "" {
-		return fmt.Errorf("no directory selected")
-	}
-	Logger.Info("下载目录", zap.String("localPath", localPath), zap.String("remotePath", remotePath))
-
+	localDir := filepath.Join(localPath, filepath.Base(remotePath))
 	// Create the local directory if it doesn't exist
-	if err := os.MkdirAll(localPath, 0755); err != nil {
+	if err := os.MkdirAll(localDir, 0755); err != nil {
 		return err
+	}
+
+	if tracker == nil {
+		return fmt.Errorf("tracker is required")
 	}
 
 	// Read the directory contents
@@ -351,17 +416,17 @@ func (sft *SftpService) DownloadDirectory(sessionID string, localPath, remotePat
 
 	for _, entry := range entries {
 		remoteEntryPath := joinRemotePath(remotePath, entry.Name())
-		localEntryPath := filepath.Join(localPath, entry.Name())
+		localEntryPath := filepath.Join(localDir, entry.Name())
 
 		if entry.IsDir() {
 			// Recursively download subdirectory
-			err = sft.DownloadDirectory(sessionID, localEntryPath, remoteEntryPath)
+			err = sft.downloadDirectory(sessionID, localEntryPath, remoteEntryPath, tracker)
 			if err != nil {
 				return err
 			}
 		} else {
 			// Download file
-			err = sft.DownloadFile(sessionID, localEntryPath, remoteEntryPath)
+			err = sft.downloadFile(sessionID, localEntryPath, remoteEntryPath, tracker)
 			if err != nil {
 				return err
 			}
@@ -456,4 +521,131 @@ func (sft *SftpService) CreateDirectory(sessionID string, path string) error {
 		return fmt.Errorf("directory already exists")
 	}
 	return ftpClient.MkdirAll(path)
+}
+
+func (sft *SftpService) calcLocalDirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
+}
+
+func (sft *SftpService) calcRemoteDirSize(sessionID, remotePath string) (int64, error) {
+	ftpClient, err := sft.getSftpClient(sessionID)
+	if err != nil {
+		return 0, err
+	}
+	var size int64
+	var walk func(string) error
+	walk = func(path string) error {
+		entries, err := ftpClient.ReadDir(path)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				if err := walk(joinRemotePath(path, entry.Name())); err != nil {
+					return err
+				}
+			} else {
+				size += entry.Size()
+			}
+		}
+		return nil
+	}
+	err = walk(remotePath)
+	return size, err
+}
+
+type transferTracker struct {
+	sessionID    string
+	id           string
+	transferType string
+	localFile    string
+	remoteFile   string
+	file         string
+	total        int64
+	transferred  int64
+	mutex        sync.Mutex
+}
+
+func newTransferTracker(sessionID, transferType, localFile, remoteFile, fileName string, total int64) *transferTracker {
+	return &transferTracker{
+		sessionID:    sessionID,
+		id:           utils.GenerateRandomID(),
+		transferType: transferType,
+		localFile:    localFile,
+		remoteFile:   remoteFile,
+		file:         fileName,
+		total:        total,
+	}
+}
+
+func (t *transferTracker) update(n int64) {
+	t.mutex.Lock()
+	t.transferred += n
+	t.mutex.Unlock()
+}
+
+func (t *transferTracker) getRate() int {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if t.total == 0 {
+		return 100
+	}
+	rate := int(t.transferred * 100 / t.total)
+	rate = min(rate, 100)
+	return rate
+}
+
+func (t *transferTracker) startProgress() {
+	// Emit initial progress with rate 0
+	app.Event.Emit(EventProgress, ProgressData{
+		ID:           t.id,
+		SessionID:    t.sessionID,
+		TransferType: t.transferType,
+		LocalFile:    t.localFile,
+		RemoteFile:   t.remoteFile,
+		TotalSize:    t.total,
+		Rate:         0,
+	})
+	ticker := time.NewTicker(time.Second)
+	go func() {
+		for range ticker.C {
+			rate := t.getRate()
+			app.Event.Emit(EventProgress, ProgressData{
+				ID:           t.id,
+				SessionID:    t.sessionID,
+				TransferType: t.transferType,
+				LocalFile:    t.localFile,
+				RemoteFile:   t.remoteFile,
+				TotalSize:    t.total,
+				Rate:         rate,
+			})
+			if rate >= 100 {
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+type progressWriter struct {
+	writer  io.Writer
+	tracker *transferTracker
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n, err := pw.writer.Write(p)
+	if n > 0 {
+		pw.tracker.update(int64(n))
+	}
+	return n, err
 }

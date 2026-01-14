@@ -23,7 +23,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { MoreHoriz, GitHub as GitHubIcon } from "@mui/icons-material";
-import { SelectDirectory } from "../../bindings/github.com/ilaziness/vexo/services/commonservice";
+import { SelectDirectory } from "../../bindings/github.com/ilaziness/vexo/services/windowservice";
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/message.ts";

@@ -9,6 +9,7 @@ import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
 import Loading from "./Loading";
+import StatusBar from "./StatusBar";
 import { parseCallServiceError } from "../func/service";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 
@@ -181,13 +182,15 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
           sx={{
             height: 20,
             px: 0.5,
-            py: 0.1,
+            py: 1,
             fontSize: 8,
             display: "flex",
             alignItems: "center",
+            justifyContent: "flex-end",
+            direction: "row",
           }}
         >
-          status bar
+          <StatusBar sessionID={linkID} />
         </Box>
       </Box>
     </Box>

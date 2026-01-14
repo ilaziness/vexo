@@ -2,20 +2,35 @@ import { Box, Menu, MenuItem, Tab, Tabs } from "@mui/material";
 import { tabsClasses } from "@mui/material/Tabs";
 import React from "react";
 import SSHContainer from "./SSHContainer";
+import { Events } from "@wailsio/runtime";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
+import { useTransferStore } from "../stores/transfer";
 import OpBar from "./OpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
 import { genTabIndex } from "../func/service.ts";
+import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
 
 export default function SSHList() {
   const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } =
     useSSHTabsStore();
   const { doTabReload } = useReloadSSHTabStore();
+  const { addProgress } = useTransferStore();
   const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
     null,
   );
   const [menuTabIndex, setMenuTabIndex] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const unsubscribe = Events.On("eventProgress", (event: any) => {
+      const eventData = event.data as ProgressData;
+      addProgress(eventData);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [addProgress]);
 
   const handleContextMenu = (
     e: React.MouseEvent<HTMLElement>,
