@@ -66,12 +66,12 @@ const SftpNavbar: React.FC<SftpNavbarProps> = ({
         gap: 1,
       }}
     >
-      <Tooltip title={showHiddenFiles ? "显示隐藏文件" : "隐藏隐藏文件"}>
+      <Tooltip title={showHiddenFiles ? "显示隐藏文件" : "不显示隐藏文件"}>
         <IconButton size="small" onClick={onToggleShowHidden}>
           {showHiddenFiles ? (
-            <VisibilityOffIcon fontSize="small" />
-          ) : (
             <VisibilityIcon fontSize="small" />
+          ) : (
+            <VisibilityOffIcon fontSize="small" />
           )}
         </IconButton>
       </Tooltip>

@@ -210,8 +210,8 @@ func (sft *SftpService) UploadFileDialog(sessionID string, remotePath string) er
 	if err != nil {
 		return err
 	}
-	tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), filepath.Base(localPath), info.Size())
-	tracker.startProgress()
+	tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), info.Size())
+	defer tracker.stopProgress()
 	return sft.uploadFile(sessionID, localPath, remotePath, tracker)
 }
 
@@ -276,11 +276,12 @@ func (sft *SftpService) DownloadFileDialog(sessionID string, remotePathFile stri
 	if err != nil {
 		return err
 	}
-	tracker := newTransferTracker(sessionID, TransferTypeDownload, filepath.Join(localPath, filepath.Base(remotePathFile)), remotePathFile, filepath.Base(remotePathFile), info.Size())
-	tracker.startProgress()
+	tracker := newTransferTracker(sessionID, TransferTypeDownload, filepath.Join(localPath, filepath.Base(remotePathFile)), remotePathFile, info.Size())
+	defer tracker.stopProgress()
 	return sft.downloadFile(sessionID, localPath, remotePathFile, tracker)
 }
 
+// UploadDirectoryDialog select local directory upload to remote directory
 func (sft *SftpService) UploadDirectoryDialog(sessionID, remotePath string) error {
 	localPath, err := app.Dialog.OpenFile().SetTitle("选择目录").
 		CanChooseDirectories(true).
@@ -294,8 +295,8 @@ func (sft *SftpService) UploadDirectoryDialog(sessionID, remotePath string) erro
 	if err != nil {
 		return err
 	}
-	tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), filepath.Base(localPath), total)
-	tracker.startProgress()
+	tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), total)
+	defer tracker.stopProgress()
 	return sft.uploadDirectory(sessionID, localPath, remotePath, tracker)
 }
 
@@ -345,8 +346,7 @@ func (sft *SftpService) uploadDirectory(sessionID string, localPath, remotePath 
 
 		if entry.IsDir() {
 			// Recursively upload subdirectory
-			remoteEntryPath := joinRemotePath(remoteDir, entry.Name())
-			err = sft.uploadDirectory(sessionID, localEntryPath, remoteEntryPath, tracker)
+			err = sft.uploadDirectory(sessionID, localEntryPath, remoteDir, tracker)
 			if err != nil {
 				return err
 			}
@@ -375,8 +375,8 @@ func (sft *SftpService) DownloadDirectoryDialog(sessionID, remotePath string) er
 	if err != nil {
 		return err
 	}
-	tracker := newTransferTracker(sessionID, TransferTypeDownload, localPath, remotePath, filepath.Base(remotePath), total)
-	tracker.startProgress()
+	tracker := newTransferTracker(sessionID, TransferTypeDownload, localPath, remotePath, total)
+	defer tracker.stopProgress()
 	return sft.downloadDirectory(sessionID, localPath, remotePath, tracker)
 }
 
@@ -570,22 +570,25 @@ type transferTracker struct {
 	transferType string
 	localFile    string
 	remoteFile   string
-	file         string
 	total        int64
 	transferred  int64
 	mutex        sync.Mutex
+	ticker       *time.Ticker
+	done         chan struct{}
 }
 
-func newTransferTracker(sessionID, transferType, localFile, remoteFile, fileName string, total int64) *transferTracker {
-	return &transferTracker{
+func newTransferTracker(sessionID, transferType, localFile, remoteFile string, total int64) *transferTracker {
+	tracker := &transferTracker{
 		sessionID:    sessionID,
 		id:           utils.GenerateRandomID(),
 		transferType: transferType,
 		localFile:    localFile,
 		remoteFile:   remoteFile,
-		file:         fileName,
 		total:        total,
+		done:         make(chan struct{}),
 	}
+	tracker.startProgress()
+	return tracker
 }
 
 func (t *transferTracker) update(n int64) {
@@ -600,7 +603,8 @@ func (t *transferTracker) getRate() int {
 	if t.total == 0 {
 		return 100
 	}
-	rate := int(t.transferred * 100 / t.total)
+	// 避免整数溢出：先除后乘
+	rate := int((t.transferred * 100) / t.total)
 	rate = min(rate, 100)
 	return rate
 }
@@ -616,25 +620,55 @@ func (t *transferTracker) startProgress() {
 		TotalSize:    t.total,
 		Rate:         0,
 	})
-	ticker := time.NewTicker(time.Second)
+
+	t.ticker = time.NewTicker(500 * time.Millisecond)
 	go func() {
-		for range ticker.C {
-			rate := t.getRate()
-			app.Event.Emit(EventProgress, ProgressData{
-				ID:           t.id,
-				SessionID:    t.sessionID,
-				TransferType: t.transferType,
-				LocalFile:    t.localFile,
-				RemoteFile:   t.remoteFile,
-				TotalSize:    t.total,
-				Rate:         rate,
-			})
-			if rate >= 100 {
-				ticker.Stop()
+		defer t.ticker.Stop()
+		for {
+			select {
+			case <-t.ticker.C:
+				rate := t.getRate()
+				app.Event.Emit(EventProgress, ProgressData{
+					ID:           t.id,
+					SessionID:    t.sessionID,
+					TransferType: t.transferType,
+					LocalFile:    t.localFile,
+					RemoteFile:   t.remoteFile,
+					TotalSize:    t.total,
+					Rate:         rate,
+				})
+				if rate >= 100 {
+					close(t.done)
+					return
+				}
+			case <-t.done:
+				// 发送最终进度
+				rate := t.getRate()
+				app.Event.Emit(EventProgress, ProgressData{
+					ID:           t.id,
+					SessionID:    t.sessionID,
+					TransferType: t.transferType,
+					LocalFile:    t.localFile,
+					RemoteFile:   t.remoteFile,
+					TotalSize:    t.total,
+					Rate:         rate,
+				})
 				return
 			}
 		}
 	}()
+}
+
+func (t *transferTracker) stopProgress() {
+	if t.ticker != nil {
+		t.ticker.Stop()
+	}
+	select {
+	case <-t.done:
+		// already closed
+	default:
+		close(t.done)
+	}
 }
 
 type progressWriter struct {

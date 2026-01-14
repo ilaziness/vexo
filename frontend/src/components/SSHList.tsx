@@ -10,6 +10,7 @@ import OpBar from "./OpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
 import { genTabIndex } from "../func/service.ts";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
+import { LogService } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 
 export default function SSHList() {
   const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } =
@@ -24,6 +25,7 @@ export default function SSHList() {
   React.useEffect(() => {
     const unsubscribe = Events.On("eventProgress", (event: any) => {
       const eventData = event.data as ProgressData;
+      LogService.Debug(`eventProgress: ${JSON.stringify(event)}`);
       addProgress(eventData);
     });
 

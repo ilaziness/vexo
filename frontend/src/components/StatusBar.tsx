@@ -1,15 +1,14 @@
 import React from "react";
 import {
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   Slide,
-  Icon,
-  Box,
   Stack,
+  Tooltip,
 } from "@mui/material";
-import { CloudUpload } from "@mui/icons-material";
+import MobiledataOffIcon from "@mui/icons-material/MobiledataOff";
+import SignalCellularAltIcon from "@mui/icons-material/SignalCellularAlt";
 import TransferList from "./TransferList";
 
 interface StatusBarProps {
@@ -30,31 +29,32 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
   return (
     <>
       <Stack direction="row" spacing={2}>
-        <Icon
-          onClick={handleClick}
-          sx={{
-            fontSize: 12,
-            color: "text.secondary",
-            "&:hover": {
-              color: "primary.main",
-              cursor: "pointer",
-            },
-          }}
-        >
-          <CloudUpload fontSize="small" />
-        </Icon>
-        <Icon
-          onClick={handleClick}
-          sx={{
-            fontSize: 15,
-            color: "text.secondary",
-            "&:hover": {
-              color: "primary.main",
-            },
-          }}
-        >
-          <CloudUpload fontSize="small" />
-        </Icon>
+        <Tooltip title="传输列表">
+          <MobiledataOffIcon
+            fontSize="small"
+            onClick={handleClick}
+            sx={{
+              color: "text.secondary",
+              "&:hover": {
+                color: "primary.main",
+                cursor: "pointer",
+              },
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="传输列表">
+          <SignalCellularAltIcon
+            fontSize="small"
+            onClick={handleClick}
+            sx={{
+              color: "text.secondary",
+              "&:hover": {
+                color: "primary.main",
+                cursor: "pointer",
+              },
+            }}
+          />
+        </Tooltip>
       </Stack>
 
       <Dialog
@@ -70,7 +70,6 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
           },
           paper: {
             sx: {
-              width: "100%",
               height: "50%",
             },
           },

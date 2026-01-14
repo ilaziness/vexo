@@ -1,32 +1,34 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Box,
   List,
   ListItem,
-  ListItemText,
   LinearProgress,
   Typography,
   IconButton,
 } from "@mui/material";
-import { CloudUpload, CloudDownload, Close } from "@mui/icons-material";
+import {
+  CloudUpload,
+  CloudDownload,
+  Close,
+  ArrowForward,
+  ArrowBack,
+} from "@mui/icons-material";
 import { useTransferStore } from "../stores/transfer";
+import { formatFileSize } from "../func/service";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models";
 
 interface TransferListProps {
   sessionID: string;
 }
 
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
-
 const TransferList: React.FC<TransferListProps> = ({ sessionID }) => {
-  const { getTransfersBySession, removeProgress } = useTransferStore();
-  const transfers = getTransfersBySession(sessionID);
+  const transfersMap = useTransferStore((state) => state.transfers);
+  const { removeProgress } = useTransferStore();
+
+  const transfers = useMemo(() => {
+    return transfersMap.get(sessionID) || [];
+  }, [transfersMap, sessionID]);
 
   const handleRemove = (id: string) => {
     removeProgress(sessionID, id);
@@ -43,11 +45,22 @@ const TransferList: React.FC<TransferListProps> = ({ sessionID }) => {
   }
 
   return (
-    <Box sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <List sx={{ flex: 1, overflow: "auto" }}>
         {transfers.map((transfer: ProgressData) => {
-          const progress = transfer.TotalSize > 0 ? (transfer.Rate / transfer.TotalSize) * 100 : 0;
-          const isUpload = transfer.TransferType.toLowerCase().includes("upload");
+          const progress =
+            transfer.TotalSize > 0
+              ? (transfer.Rate / transfer.TotalSize) * 100
+              : 0;
+          const isUpload =
+            transfer.TransferType.toLowerCase().includes("upload");
 
           return (
             <ListItem
@@ -57,42 +70,101 @@ const TransferList: React.FC<TransferListProps> = ({ sessionID }) => {
                 borderColor: "divider",
                 borderRadius: 1,
                 mb: 1,
-                flexDirection: "column",
-                alignItems: "stretch",
+                "&:hover": {
+                  backgroundColor: "action.hover",
+                  borderColor: "primary.main",
+                },
+                transition: "all 0.2s ease-in-out",
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }}
+              >
+                {/* 上传/下载图标 */}
                 {isUpload ? (
-                  <CloudUpload color="primary" sx={{ mr: 1 }} />
+                  <CloudUpload color="primary" sx={{ flexShrink: 0 }} />
                 ) : (
-                  <CloudDownload color="secondary" sx={{ mr: 1 }} />
+                  <CloudDownload color="secondary" sx={{ flexShrink: 0 }} />
                 )}
-                <ListItemText
-                  primary={
-                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>
-                      {isUpload ? "上传" : "下载"}: {transfer.LocalFile.split("/").pop() || transfer.LocalFile}
-                    </Typography>
-                  }
-                  secondary={
-                    <Typography variant="caption" color="text.secondary">
-                      {transfer.RemoteFile}
-                    </Typography>
-                  }
-                />
-                <IconButton size="small" onClick={() => handleRemove(transfer.ID)}>
+
+                {/* 本地文件全路径 */}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={transfer.LocalFile}
+                >
+                  {transfer.LocalFile}
+                </Typography>
+
+                {/* 箭头 */}
+                {isUpload ? (
+                  <ArrowForward
+                    sx={{ flexShrink: 0, color: "text.secondary" }}
+                  />
+                ) : (
+                  <ArrowBack sx={{ flexShrink: 0, color: "text.secondary" }} />
+                )}
+
+                {/* 远程全路径 */}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={transfer.RemoteFile}
+                >
+                  {transfer.RemoteFile}
+                </Typography>
+
+                {/* 进度条 */}
+                <Box sx={{ flex: 2, minWidth: 100, maxWidth: 200 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={progress}
+                    sx={{ height: 6, borderRadius: 3 }}
+                  />
+                </Box>
+
+                {/* 文件大小 */}
+                <Typography
+                  variant="caption"
+                  sx={{ flexShrink: 0, minWidth: "fit-content" }}
+                >
+                  {formatFileSize(transfer.TotalSize)}
+                </Typography>
+
+                {/* 上传百分比 */}
+                <Typography
+                  variant="caption"
+                  sx={{ flexShrink: 0, minWidth: "fit-content" }}
+                >
+                  {progress.toFixed(1)}%
+                </Typography>
+
+                {/* 清除图标 */}
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemove(transfer.ID)}
+                  sx={{ flexShrink: 0 }}
+                >
                   <Close fontSize="small" />
                 </IconButton>
-              </Box>
-              <Box sx={{ mt: 1, width: "100%" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="caption">
-                    {formatFileSize(transfer.Rate)} / {formatFileSize(transfer.TotalSize)}
-                  </Typography>
-                  <Typography variant="caption">
-                    {progress.toFixed(1)}%
-                  </Typography>
-                </Box>
-                <LinearProgress variant="determinate" value={progress} />
               </Box>
             </ListItem>
           );

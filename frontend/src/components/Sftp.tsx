@@ -102,14 +102,16 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     };
   }, [linkID]);
 
-  const refreshFileList = async (path?: string) => {
+  const refreshFileList = async (path?: string, showHidden?: boolean) => {
     const targetPath = path || currentPath;
+    const showHiddenAll =
+      showHidden !== undefined ? showHidden : showHiddenFiles;
     setLoading(true);
     try {
       const files = await SftpService.ListFiles(
         linkID,
         targetPath,
-        showHiddenFiles,
+        showHiddenAll,
       );
       setFileList(sortFileList(files));
     } catch (err: any) {
@@ -402,7 +404,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         onToggleShowHidden={() => {
           const newShowHiddenFiles = !showHiddenFiles;
           setShowHiddenFiles(newShowHiddenFiles);
-          refreshFileList().then(() => {}); // 切换显示隐藏文件后立即刷新列表
+          refreshFileList("", newShowHiddenFiles).then(() => {}); // 切换显示隐藏文件后立即刷新列表
         }}
       />
 
@@ -423,7 +425,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
           onContextMenu={(e) => handleBlankContextMenu(e)}
           sx={{ flex: 1, overflow: "auto", boxShadow: "none" }}
         >
-          <Table stickyHeader>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
                 <TableCell>类型</TableCell>
