@@ -159,7 +159,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         ))}
       </Tabs>
 
-      <Box sx={{ height: "calc(100% - 30px)" }}>
+      <Box sx={{ height: "calc(100% - 30px)", position: "relative" }}>
         {/*ssh sftp*/}
         <Box sx={{ height: "calc(100% - 25px)" }}>
           {tabItems.map(

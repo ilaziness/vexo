@@ -1,14 +1,15 @@
 import React from "react";
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
+  Box,
+  IconButton,
   Slide,
   Stack,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import MobiledataOffIcon from "@mui/icons-material/MobiledataOff";
 import SignalCellularAltIcon from "@mui/icons-material/SignalCellularAlt";
+import CloseIcon from "@mui/icons-material/Close";
 import TransferList from "./TransferList";
 
 interface StatusBarProps {
@@ -18,8 +19,8 @@ interface StatusBarProps {
 const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
   const [open, setOpen] = React.useState(false);
 
-  const handleClick = () => {
-    setOpen(true);
+  const toggleOpen = () => {
+    setOpen((prev) => !prev);
   };
 
   const handleClose = () => {
@@ -32,7 +33,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
         <Tooltip title="传输列表">
           <MobiledataOffIcon
             fontSize="small"
-            onClick={handleClick}
+            onClick={toggleOpen}
             sx={{
               color: "text.secondary",
               "&:hover": {
@@ -45,7 +46,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
         <Tooltip title="传输列表">
           <SignalCellularAltIcon
             fontSize="small"
-            onClick={handleClick}
+            onClick={toggleOpen}
             sx={{
               color: "text.secondary",
               "&:hover": {
@@ -57,36 +58,55 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
         </Tooltip>
       </Stack>
 
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        fullScreen
-        slots={{
-          transition: Slide,
-        }}
-        slotProps={{
-          transition: {
-            direction: "up",
-          },
-          paper: {
-            sx: {
-              height: "50%",
-            },
-          },
-        }}
-      >
-        <DialogTitle>传输列表</DialogTitle>
-        <DialogContent
+      <Slide in={open} direction="up" mountOnEnter unmountOnExit>
+        <Box
           sx={{
-            flex: 1,
+            position: "absolute",
+            bottom: "25px",
+            left: 0,
+            right: 0,
+            height: "50%",
+            zIndex: 10,
             display: "flex",
             flexDirection: "column",
-            p: 0,
+            bgcolor: "background.default",
+            borderTop: 1,
+            borderColor: "divider",
+            boxShadow: 4,
           }}
         >
-          <TransferList sessionID={sessionID} />
-        </DialogContent>
-      </Dialog>
+          <Box
+            sx={{
+              p: 1,
+              px: 2,
+              borderBottom: 1,
+              borderColor: "divider",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              height: "40px",
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
+              传输列表
+            </Typography>
+            <IconButton onClick={handleClose} size="small">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              p: 0,
+            }}
+          >
+            <TransferList sessionID={sessionID} />
+          </Box>
+        </Box>
+      </Slide>
     </>
   );
 };
