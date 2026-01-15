@@ -3,34 +3,28 @@ import type { ColorSystemOptions } from "@mui/material/styles";
 const light: ColorSystemOptions = {
   palette: {
     mode: "light",
-    // 主色调：清爽的蓝色，代表技术感和专业性
     primary: {
-      main: "#1976d2", // 蓝色主色
-      light: "#42a5f5",
-      dark: "#1565c0",
+      main: "#6442d6", // 紫色主色调
+      light: "#9675dd", // 更亮的紫色变体
+      dark: "#4a2da0",  // 更深的紫色变体
       contrastText: "#ffffff",
     },
-    // 次要色：柔和的青色
     secondary: {
-      main: "#0288d1",
-      light: "#03a9f4",
-      dark: "#01579b",
+      main: "#7c4dff", // 紫色系的次要色，稍微亮一些
+      light: "#b794f6", // 更亮的紫色
+      dark: "#5e35b1",  // 更深的紫色
       contrastText: "#ffffff",
     },
-    // 背景色：简洁的浅色系
     background: {
-      default: "#f0f0f0", // 主背景 - 更柔和的灰色，减少眩光
-      paper: "#fefefe", // 卡片、面板背景 - 略带灰调的白色
+      default: "#fafafa",
+      paper: "#ffffff",
     },
-    // 文本颜色
     text: {
       primary: "rgba(0, 0, 0, 0.87)",
       secondary: "rgba(0, 0, 0, 0.6)",
       disabled: "rgba(0, 0, 0, 0.38)",
     },
-    // 分割线
     divider: "rgba(0, 0, 0, 0.12)",
-    // 动作按钮
     action: {
       active: "rgba(0, 0, 0, 0.54)",
       hover: "rgba(0, 0, 0, 0.04)",
@@ -38,26 +32,25 @@ const light: ColorSystemOptions = {
       disabled: "rgba(0, 0, 0, 0.26)",
       disabledBackground: "rgba(0, 0, 0, 0.12)",
     },
-    // 成功、错误、警告、信息
     success: {
-      main: "#2e7d32",
-      light: "#4caf50",
-      dark: "#1b5e20",
+      main: "#4caf50",
+      light: "#81c784",
+      dark: "#388e3c",
     },
     error: {
-      main: "#d32f2f",
-      light: "#ef5350",
-      dark: "#c62828",
+      main: "#f44336",
+      light: "#e57373",
+      dark: "#d32f2f",
     },
     warning: {
-      main: "#ed6c02",
-      light: "#ff9800",
-      dark: "#e65100",
+      main: "#ff9800",
+      light: "#ffb74d",
+      dark: "#f57c00",
     },
     info: {
-      main: "#0288d1",
-      light: "#03a9f4",
-      dark: "#01579b",
+      main: "#2196f3",
+      light: "#64b5f6",
+      dark: "#1976d2",
     },
   },
 };

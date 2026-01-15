@@ -52,6 +52,8 @@
 
 ## 4. 前端集成规范
 
+React开发时启用了严格模式StrictMode。
+
 ### 4.1 XTerm.js 集成
 
 - 使用 `@xterm/xterm@5.5` 及 `@xterm/addon-fit@0.10`、`@xterm/addon-web-links@0.12` 等官方插件。

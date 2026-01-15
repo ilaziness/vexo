@@ -106,7 +106,9 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   useEffect(() => {
     return () => {
       if (linkID) {
-        LogService.Debug(`SSHContainer unmounting, closing connection ${linkID}`);
+        LogService.Debug(
+          `SSHContainer unmounting, closing connection ${linkID}`,
+        );
         SSHService.CloseByID(linkID).catch((err) => {
           console.warn("Error closing connection on unmount:", err);
         });

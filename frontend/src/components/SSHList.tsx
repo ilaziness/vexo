@@ -134,6 +134,7 @@ export default function SSHList() {
               iconPosition="start"
               onContextMenu={(e) => handleContextMenu(e, item.index)}
               sx={{
+                textTransform: "none",
                 "&.MuiTab-root": {
                   height: 45,
                   minHeight: 45,

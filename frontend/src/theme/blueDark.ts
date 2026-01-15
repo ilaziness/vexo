@@ -1,6 +1,6 @@
 import type { ColorSystemOptions } from "@mui/material/styles";
 
-const dark: ColorSystemOptions = {
+const blueDark: ColorSystemOptions = {
   palette: {
     mode: "dark",
     // 主色调：柔和的蓝色，护眼且专业
@@ -62,4 +62,4 @@ const dark: ColorSystemOptions = {
   },
 };
 
-export default dark;
+export default blueDark;
