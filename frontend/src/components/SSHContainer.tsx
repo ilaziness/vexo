@@ -83,7 +83,13 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     const doReload = async () => {
       if (reloadTab.index === tabIndex) {
         LogService.Debug(`reload tab ${reloadTab.index} - ${tabIndex}`);
-        if (linkID != "") await SSHService.CloseByID(linkID);
+        if (linkID != "") {
+          try {
+            await SSHService.CloseByID(linkID);
+          } catch (e) {
+            console.warn("CloseByID error during reload:", e);
+          }
+        }
         // 重置状态
         setActiveTab(0);
         setSftpLoaded(false);
@@ -96,6 +102,17 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     };
     doReload();
   }, [reloadTab]);
+
+  useEffect(() => {
+    return () => {
+      if (linkID) {
+        LogService.Debug(`SSHContainer unmounting, closing connection ${linkID}`);
+        SSHService.CloseByID(linkID).catch((err) => {
+          console.warn("Error closing connection on unmount:", err);
+        });
+      }
+    };
+  }, [linkID]);
 
   useEffect(() => {
     if (tabInfo?.sshInfo) {

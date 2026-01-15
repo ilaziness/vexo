@@ -85,14 +85,24 @@ export default function Terminal(props: { linkID: string }) {
     }
   };
 
-  const initTerminal = async () => {
+  const onResize = ({ cols, rows }) => {
+    LogService.Debug(`Terminal resized to ${cols}x${rows}`);
+    SSHService.Resize(props.linkID, cols, rows);
+  };
+
+  const initTerminal = async (mountedRef: { current: boolean }) => {
     if (term.current) {
       return;
     }
     LogService.Debug("Initializing terminal for link ID: " + props.linkID);
     const config = await ConfigService.ReadConfig();
+    if (!mountedRef.current) return;
+
     const settings = config?.Terminal || useTerminalStore.getState();
     LogService.Debug(`Terminal setting ${JSON.stringify(settings)}`);
+
+    if (term.current) return;
+
     term.current = new TerminalLib({
       allowProposedApi: true,
       cursorBlink: true,
@@ -108,14 +118,9 @@ export default function Terminal(props: { linkID: string }) {
       loadAddonBeforeOpen();
       term.current.open(termRef.current);
       loadAddonAfterOpen();
-      
-      // 等待字体加载完成，防止因默认字体与配置字体宽度不一致导致 fit 计算出的行列数偏差
-      try {
-        await document.fonts.ready;
-      } catch (e) {
-        console.warn("Error waiting for fonts to load:", e);
-      }
+      if (!mountedRef.current) return;
       await sleep(100);
+      if (!mountedRef.current) return;
       termFit.current?.fit();
 
       try {
@@ -126,6 +131,7 @@ export default function Terminal(props: { linkID: string }) {
           term.current?.cols || 80,
           term.current?.rows || 24,
         );
+        if (!mountedRef.current) return;
         LogService.Info(`SSH connection started for link ID: ${props.linkID}`);
 
         term.current?.focus();
@@ -137,7 +143,7 @@ export default function Terminal(props: { linkID: string }) {
           `Connection error: ${parseCallServiceError(err)}\r\n`,
         );
       }
-      setIsInitializing(false);
+      if (mountedRef.current) setIsInitializing(false);
 
       // Handle user input
       term.current?.onData(handleInputData);
@@ -150,12 +156,8 @@ export default function Terminal(props: { linkID: string }) {
     }
   };
 
-  const onResize = ({ cols, rows }) => {
-    LogService.Debug(`Terminal resized to ${cols}x${rows}`);
-    SSHService.Resize(props.linkID, cols, rows);
-  };
-
   useEffect(() => {
+    const mountedRef = { current: true };
     // 注册事件监听器
     sshOutputHandler.current = (event: any) => {
       const dataObj = event.data;
@@ -163,7 +165,8 @@ export default function Terminal(props: { linkID: string }) {
       term.current?.write(decodeBase64(dataObj.data));
     };
     const unsubscribe = Events.On("sshOutput", sshOutputHandler.current);
-    initTerminal();
+
+    initTerminal(mountedRef);
 
     const observer = new ResizeObserver(() => {
       if (resizeTimeout.current) {
@@ -178,15 +181,9 @@ export default function Terminal(props: { linkID: string }) {
     }
 
     return () => {
-      LogService.Info(
-        `Terminal component unmounting, closing SSH connection ${props.linkID}`,
-      );
+      mountedRef.current = false;
+      LogService.Info(`Terminal component unmounting ${props.linkID}`);
       unsubscribe();
-      SSHService.CloseByID(props.linkID)
-        .then(() => {})
-        .catch((err) => {
-          //LogService.Error(err.message);
-        });
       try {
         term.current?.dispose();
         term.current = null;
