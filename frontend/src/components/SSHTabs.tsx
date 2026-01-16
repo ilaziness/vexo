@@ -140,8 +140,7 @@ export default function SSHTabs() {
                 "&.MuiTab-root": {
                   height: tabHeight,
                   minHeight: tabHeight,
-                  px: 1,
-                  py: 0.5,
+                  p: 0.5,
                   minWidth: 150,
                   width: 150,
                   borderRight: 2,

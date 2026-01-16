@@ -10,6 +10,7 @@ import {
 import { useColorScheme } from "@mui/material/styles";
 import PaletteIcon from "@mui/icons-material/Palette";
 import React, { useState } from "react";
+import useTerminalStore from "../stores/terminal";
 
 // 主题类型定义
 type ThemeOption = "system" | "light" | "dark" | "blueDark" | "atom" | "deep" | "eyeCare";
@@ -48,6 +49,10 @@ export default function ThemeSwitcher() {
 
   const changeColorMode = (val: ThemeOption) => {
     console.log("changeColorMode", val);
+
+    // 同步终端主题
+    useTerminalStore.getState().syncWithGlobalTheme(val);
+
     if (val === "system") {
       setMode("system");
       return;

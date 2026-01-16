@@ -9,7 +9,7 @@ const SSHTabText: React.FC<SSHTabTextProps> = ({ text }) => {
   return (
     <Box
       sx={{
-        maxWidth: 130,
+        maxWidth: 110,
       }}
     >
       <Tooltip title={text}>

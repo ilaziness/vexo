@@ -100,12 +100,11 @@ export default function Terminal(props: { linkID: string }) {
     LogService.Debug("Initializing terminal for link ID: " + props.linkID);
     const config = await ConfigService.ReadConfig();
     if (!mountedRef.current) return;
-
     const settings = config?.Terminal || useTerminalStore.getState();
     LogService.Debug(`Terminal setting ${JSON.stringify(settings)}`);
-
     if (term.current) return;
-
+    // 获取当前终端主题
+    const terminalTheme = useTerminalStore.getState().getCurrentTheme();
     term.current = new TerminalLib({
       allowProposedApi: true,
       cursorBlink: true,
@@ -113,9 +112,7 @@ export default function Terminal(props: { linkID: string }) {
       fontFamily: settings.fontFamily,
       fontSize: settings.fontSize,
       lineHeight: settings.lineHeight,
-      theme: {
-        background: "#1e1e1e",
-      },
+      theme: terminalTheme,
     });
     if (termRef.current) {
       loadAddonBeforeOpen();
@@ -158,6 +155,20 @@ export default function Terminal(props: { linkID: string }) {
       termFit.current?.fit();
     }
   };
+
+  // 监听终端主题变化，动态更新终端主题
+  useEffect(() => {
+    const unsubscribe = useTerminalStore.subscribe((state, prevState) => {
+      if (state.theme !== prevState.theme && term.current) {
+        const newTheme = state.getCurrentTheme();
+        term.current.options.theme = newTheme;
+        term.current.refresh(0, term.current.rows - 1);
+        LogService.Debug(`Terminal theme updated to: ${state.theme}`);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     const mountedRef = { current: true };
@@ -210,7 +221,6 @@ export default function Terminal(props: { linkID: string }) {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        bgcolor: "#1e1e1e",
       }}
     >
       <Box
