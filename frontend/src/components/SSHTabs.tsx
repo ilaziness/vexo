@@ -1,18 +1,18 @@
 import { Box, Menu, MenuItem, Tab, Tabs } from "@mui/material";
 import { tabsClasses } from "@mui/material/Tabs";
 import React from "react";
-import SSHContainer from "./SSHContainer";
+import SSHContainer from "./SSHContainer.tsx";
 import { Events } from "@wailsio/runtime";
 import TerminalIcon from "@mui/icons-material/Terminal";
-import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
-import { useTransferStore } from "../stores/transfer";
+import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh.ts";
+import { useTransferStore } from "../stores/transfer.ts";
 import OpBar from "./OpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
 import { genTabIndex } from "../func/service.ts";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
 import { LogService } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 
-export default function SSHList() {
+export default function SSHTabs() {
   const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } =
     useSSHTabsStore();
   const { doTabReload } = useReloadSSHTabStore();
@@ -169,9 +169,12 @@ export default function SSHList() {
             role="tabpanel"
             key={item.index}
             sx={{
-              display: currentTab === item.index ? "flex" : "none",
+              display: "flex",
               width: "100%",
               height: "100%",
+              position: "absolute",
+              top: 0,
+              left: currentTab === item.index ? 0 : "-9999rem",
             }}
           >
             <SSHContainer tabIndex={item.index} />

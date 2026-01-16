@@ -188,7 +188,10 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
                   key={index}
                   sx={{
                     height: "100%",
-                    display: activeTab === index ? "block" : "none",
+                    display: "block",
+                    position: "absolute",
+                    top: 0,
+                    left: activeTab === index ? 0 : "-9999rem",
                   }}
                 >
                   {item.component}

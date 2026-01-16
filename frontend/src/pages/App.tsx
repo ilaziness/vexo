@@ -1,5 +1,5 @@
 import { Box } from "@mui/material";
-import SSHList from "../components/SSHList.tsx";
+import SSHTabs from "../components/SSHTabs.tsx";
 import Header from "../components/Header.tsx";
 import Message from "../components/Message.tsx";
 import PasswordInputDialog from "../components/PasswordInputDialog.tsx";
@@ -16,7 +16,7 @@ function App() {
         }}
       >
         <Header />
-        <SSHList />
+        <SSHTabs />
       </Box>
       <Message />
       <PasswordInputDialog />
