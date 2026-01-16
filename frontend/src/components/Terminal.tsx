@@ -20,6 +20,7 @@ import useTerminalStore from "../stores/terminal";
 import { decodeBase64, encodeBase64 } from "../func/decode";
 import Loading from "./Loading";
 import { parseCallServiceError, sleep } from "../func/service";
+import StatusBar from "./StatusBar";
 
 const isWebgl2Supported = (() => {
   let isSupported = window.WebGL2RenderingContext ? undefined : false;
@@ -35,6 +36,8 @@ const isWebgl2Supported = (() => {
     return isSupported;
   };
 })();
+
+const statusBarHeigth = "25px";
 
 // Terminal 组件，封装 xterm.js
 export default function Terminal(props: { linkID: string }) {
@@ -207,7 +210,6 @@ export default function Terminal(props: { linkID: string }) {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        position: "relative",
         bgcolor: "#1e1e1e",
       }}
     >
@@ -215,11 +217,26 @@ export default function Terminal(props: { linkID: string }) {
         ref={termRef}
         sx={{
           width: "100%",
-          height: "100%",
+          height: `calc(100% - ${statusBarHeigth})`,
           minWidth: "100%",
-          minHeight: "100%",
+          minHeight: `calc(100% - ${statusBarHeigth})`,
         }}
       />
+      {/*status bar*/}
+      <Box
+        sx={{
+          height: statusBarHeigth,
+          px: 2,
+          fontSize: 8,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          direction: "row",
+          bgcolor: "background.default",
+        }}
+      >
+        <StatusBar sessionID={props.linkID} />
+      </Box>
       {isInitializing && (
         <Box
           sx={{

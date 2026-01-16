@@ -12,6 +12,8 @@ import { genTabIndex } from "../func/service.ts";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
 import { LogService } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 
+const tabHeight = "40px";
+
 export default function SSHTabs() {
   const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } =
     useSSHTabsStore();
@@ -97,7 +99,7 @@ export default function SSHTabs() {
           display: "flex",
           alignItems: "center",
           width: "100%",
-          height: 45,
+          height: tabHeight,
           pr: 1,
           "--wails-draggable": "drag",
         }}
@@ -109,8 +111,8 @@ export default function SSHTabs() {
           variant="scrollable"
           scrollButtons="auto"
           sx={{
-            minHeight: 45,
-            height: 45,
+            minHeight: tabHeight,
+            height: tabHeight,
             flex: 1,
             [`& .${tabsClasses.scrollButtons}`]: {
               "&.Mui-disabled": { opacity: 0.5 },
@@ -136,13 +138,12 @@ export default function SSHTabs() {
               sx={{
                 textTransform: "none",
                 "&.MuiTab-root": {
-                  height: 45,
-                  minHeight: 45,
-                  fontSize: 14,
+                  height: tabHeight,
+                  minHeight: tabHeight,
                   px: 1,
                   py: 0.5,
                   minWidth: 150,
-                  width: 180,
+                  width: 150,
                   borderRight: 2,
                   borderColor: "divider",
                 },
@@ -163,7 +164,14 @@ export default function SSHTabs() {
           <MenuItem onClick={handleRefreshTab}>刷新</MenuItem>
         </Menu>
       </Box>
-      <Box sx={{ width: "100%", height: "calc(100% - 45px)" }}>
+      {/* ssh tab body */}
+      <Box
+        sx={{
+          width: "100%",
+          height: `calc(100% - ${tabHeight})`,
+          position: "relative",
+        }}
+      >
         {sshTabs.map((item) => (
           <Box
             role="tabpanel"

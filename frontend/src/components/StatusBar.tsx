@@ -72,7 +72,6 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
             bgcolor: "background.default",
             borderTop: 1,
             borderColor: "divider",
-            boxShadow: 4,
           }}
         >
           <Box

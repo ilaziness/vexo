@@ -9,13 +9,14 @@ import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
 import Loading from "./Loading";
-import StatusBar from "./StatusBar";
 import { parseCallServiceError } from "../func/service";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 
 interface SSHContainerProps {
   tabIndex: string;
 }
+
+const tabHeight = "30px";
 
 // SSH 连接容器组件，管理连接状态和错误处理
 const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
@@ -153,8 +154,8 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         aria-label="ssh tabs"
         sx={{
           "&.MuiTabs-root": {
-            minHeight: 30,
-            height: 30,
+            minHeight: tabHeight,
+            height: tabHeight,
             borderBottom: 1,
             borderColor: "divider",
           },
@@ -166,8 +167,8 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
             label={item.label}
             sx={{
               "&.MuiTab-root": {
-                height: 30,
-                minHeight: 30,
+                height: tabHeight,
+                minHeight: tabHeight,
                 fontSize: 12,
                 minWidth: 80,
                 width: 80,
@@ -178,41 +179,26 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         ))}
       </Tabs>
 
-      <Box sx={{ height: "calc(100% - 30px)", position: "relative" }}>
+      <Box sx={{ height: `calc(100% - ${tabHeight})`, position: "relative" }}>
         {/*ssh sftp*/}
-        <Box sx={{ height: "calc(100% - 25px)" }}>
-          {tabItems.map(
-            (item, index) =>
-              (index != sftpIndex || sftpLoaded) && (
-                <Box
-                  key={index}
-                  sx={{
-                    height: "100%",
-                    display: "block",
-                    position: "absolute",
-                    top: 0,
-                    left: activeTab === index ? 0 : "-9999rem",
-                  }}
-                >
-                  {item.component}
-                </Box>
-              ),
-          )}
-        </Box>
-        {/*status bar*/}
-        <Box
-          sx={{
-            height: 25,
-            px: 2,
-            fontSize: 8,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            direction: "row",
-          }}
-        >
-          <StatusBar sessionID={linkID} />
-        </Box>
+        {tabItems.map(
+          (item, index) =>
+            (index != sftpIndex || sftpLoaded) && (
+              <Box
+                key={index}
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  display: "block",
+                  position: "absolute",
+                  top: 0,
+                  left: activeTab === index ? 0 : "-9999rem",
+                }}
+              >
+                {item.component}
+              </Box>
+            ),
+        )}
       </Box>
     </Box>
   );
