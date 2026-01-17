@@ -28,6 +28,10 @@ var (
 		"'Ubuntu Mono'",
 		"'Liberation Mono'",
 		"'Courier New'",
+		"'Microsoft YaHei'",
+		"'PingFang SC'",
+		"'Heiti SC'",
+		"'WenQuanYi Micro Hei'",
 		"monospace",
 	}
 )

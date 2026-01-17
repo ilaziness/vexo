@@ -68,7 +68,7 @@ func (s *SSHService) Connect(host string, port int, user, password, key, keyPass
 		return "", fmt.Errorf("empty password and key")
 	}
 	var client *ssh.Client
-	clientKey := fmt.Sprintf("%s:%d", host, port)
+	clientKey := fmt.Sprintf("%s@%s:%d", user, host, port)
 	clientVal, ok := s.clients.Load(clientKey)
 	if ok {
 		Logger.Debug("Using existing SSH client", zap.String("clientKey", clientKey))
