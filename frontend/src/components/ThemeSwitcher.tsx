@@ -13,17 +13,16 @@ import React, { useState } from "react";
 import useTerminalStore from "../stores/terminal";
 
 // 主题类型定义
-type ThemeOption = "system" | "light" | "dark" | "blueDark" | "atom" | "deep" | "eyeCare";
+type ThemeOption = "light" | "dark" | "blueDark" | "atom" | "deep" | "eyeCare";
 
 // 主题选项配置
-const THEME_OPTIONS: { value: ThemeOption; label: string }[] = [
-  { value: "system", label: "系统" },
-  { value: "light", label: "明亮" },
-  { value: "dark", label: "经典暗色" },
-  { value: "blueDark", label: "蓝色暗色" },
-  { value: "atom", label: "代码风格" },
-  { value: "deep", label: "深色主题" },
-  { value: "eyeCare", label: "护眼模式" },
+const THEME_OPTIONS: { value: ThemeOption; label: string; mode: "light" | "dark" }[] = [
+  { value: "light", label: "明亮", mode: "light" },
+  { value: "dark", label: "经典暗色", mode: "dark" },
+  { value: "blueDark", label: "蓝色暗色", mode: "dark" },
+  { value: "atom", label: "代码风格", mode: "dark" },
+  { value: "deep", label: "深色主题", mode: "dark" },
+  { value: "eyeCare", label: "护眼模式", mode: "light" },
 ];
 
 export default function ThemeSwitcher() {
@@ -53,19 +52,15 @@ export default function ThemeSwitcher() {
     // 同步终端主题
     useTerminalStore.getState().syncWithGlobalTheme(val);
 
-    if (val === "system") {
-      setMode("system");
-      return;
-    }
+    const themeConfig = THEME_OPTIONS.find((t) => t.value === val);
+    if (!themeConfig) return;
 
-    if (val === "light" || val === "eyeCare") {
-      setMode("light");
+    setMode(themeConfig.mode);
+    if (themeConfig.mode === "light") {
       setColorScheme({ light: val });
-      return;
+    } else {
+      setColorScheme({ dark: val });
     }
-
-    setMode("dark");
-    setColorScheme({ dark: val });
   };
 
   const handleColorModeSelect = (val: ThemeOption) => {
@@ -97,13 +92,11 @@ export default function ThemeSwitcher() {
       >
         <RadioGroup
           value={
-            mode === "system"
-              ? "system"
-              : mode === "dark" && !colorScheme
-                ? "dark"
-                : mode === "dark"
-                  ? darkColorScheme
-                  : lightColorScheme
+            mode === "dark" && !colorScheme
+              ? "dark"
+              : mode === "dark"
+                ? darkColorScheme
+                : lightColorScheme
           }
           onChange={(e) => handleColorModeSelect(e.target.value as ThemeOption)}
         >
@@ -114,9 +107,7 @@ export default function ThemeSwitcher() {
                 control={
                   <Radio
                     checked={
-                      option.value === "system"
-                        ? mode === "system"
-                        : mode !== "system" && colorScheme === option.value
+                      mode !== "system" && colorScheme === option.value
                     }
                     size="small"
                   />

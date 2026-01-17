@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box } from "@mui/material";
 import "@xterm/xterm/css/xterm.css";
-import "../styles/terminal.css";
+import styles from "../styles/Terminal.module.css";
 import { Terminal as TerminalLib } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -10,7 +10,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
 import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { SearchAddon } from "@xterm/addon-search";
-import { Events } from "@wailsio/runtime";
+import { Events, Browser } from "@wailsio/runtime";
 import {
   LogService,
   SSHService,
@@ -48,6 +48,12 @@ export default function Terminal(props: { linkID: string }) {
   const termSerach = React.useRef<SearchAddon>(null);
   const resizeTimeout = React.useRef<number | null>(null);
   const sshOutputHandler = React.useRef<(event: any) => void>(null);
+  const applyThemeVars = (theme: any) => {
+    if (termRef.current) {
+      termRef.current.style.setProperty("--term-bg", theme.background);
+      termRef.current.style.setProperty("--term-fg", theme.foreground);
+    }
+  };
 
   // 使用 useCallback 确保 onData 回调函数的引用保持稳定
   const handleInputData = React.useCallback(
@@ -65,7 +71,12 @@ export default function Terminal(props: { linkID: string }) {
     LogService.Debug("loadAddonBeforeOpen");
     termFit.current = new FitAddon();
     term.current?.loadAddon(termFit.current);
-    term.current?.loadAddon(new WebLinksAddon());
+    term.current?.loadAddon(
+      new WebLinksAddon((event, uri) => {
+        event.preventDefault();
+        Browser.OpenURL(uri);
+      }),
+    );
     termSerach.current = new SearchAddon();
     term.current?.loadAddon(termSerach.current);
   };
@@ -105,6 +116,7 @@ export default function Terminal(props: { linkID: string }) {
     if (term.current) return;
     // 获取当前终端主题
     const terminalTheme = useTerminalStore.getState().getCurrentTheme();
+    applyThemeVars(terminalTheme);
     term.current = new TerminalLib({
       allowProposedApi: true,
       cursorBlink: true,
@@ -162,6 +174,7 @@ export default function Terminal(props: { linkID: string }) {
       if (state.theme !== prevState.theme && term.current) {
         const newTheme = state.getCurrentTheme();
         term.current.options.theme = newTheme;
+        applyThemeVars(newTheme);
         term.current.refresh(0, term.current.rows - 1);
         LogService.Debug(`Terminal theme updated to: ${state.theme}`);
       }
@@ -225,6 +238,7 @@ export default function Terminal(props: { linkID: string }) {
     >
       <Box
         ref={termRef}
+        className={styles.terminalWrapper}
         sx={{
           width: "100%",
           height: `calc(100% - ${statusBarHeigth})`,
@@ -233,20 +247,7 @@ export default function Terminal(props: { linkID: string }) {
         }}
       />
       {/*status bar*/}
-      <Box
-        sx={{
-          height: statusBarHeigth,
-          px: 2,
-          fontSize: 8,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          direction: "row",
-          bgcolor: "background.default",
-        }}
-      >
-        <StatusBar sessionID={props.linkID} />
-      </Box>
+      <StatusBar sessionID={props.linkID} height={statusBarHeigth} />
       {isInitializing && (
         <Box
           sx={{

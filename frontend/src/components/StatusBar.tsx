@@ -1,34 +1,36 @@
 import React from "react";
-import {
-  Box,
-  IconButton,
-  Slide,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Box, Stack, Tooltip } from "@mui/material";
 import MobiledataOffIcon from "@mui/icons-material/MobiledataOff";
 import SignalCellularAltIcon from "@mui/icons-material/SignalCellularAlt";
-import CloseIcon from "@mui/icons-material/Close";
 import TransferList from "./TransferList";
 
 interface StatusBarProps {
   sessionID: string;
+  height: string;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
   const [open, setOpen] = React.useState(false);
-
   const toggleOpen = () => {
     setOpen((prev) => !prev);
   };
-
   const handleClose = () => {
     setOpen(false);
   };
 
   return (
-    <>
+    <Box
+      sx={{
+        height: height,
+        px: 2,
+        fontSize: 8,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        direction: "row",
+        bgcolor: "background.default",
+      }}
+    >
       <Stack direction="row" spacing={2}>
         <Tooltip title="传输列表">
           <MobiledataOffIcon
@@ -58,55 +60,13 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID }) => {
         </Tooltip>
       </Stack>
 
-      <Slide in={open} direction="up" mountOnEnter unmountOnExit>
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: "25px",
-            left: 0,
-            right: 0,
-            height: "50%",
-            zIndex: 10,
-            display: "flex",
-            flexDirection: "column",
-            bgcolor: "background.default",
-            borderTop: 1,
-            borderColor: "divider",
-          }}
-        >
-          <Box
-            sx={{
-              p: 1,
-              px: 2,
-              borderBottom: 1,
-              borderColor: "divider",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              height: "40px",
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-              传输列表
-            </Typography>
-            <IconButton onClick={handleClose} size="small">
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              p: 0,
-            }}
-          >
-            <TransferList sessionID={sessionID} />
-          </Box>
-        </Box>
-      </Slide>
-    </>
+      <TransferList
+        sessionID={sessionID}
+        open={open}
+        statusBarHeight={height}
+        onClose={handleClose}
+      />
+    </Box>
   );
 };
 
