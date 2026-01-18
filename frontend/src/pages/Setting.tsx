@@ -246,7 +246,7 @@ const Setting: React.FC = () => {
               sx={{
                 flex: 1,
                 overflowY: "auto",
-                p: 3,
+                p: 2,
               }}
             >
               {activeTab === "general" && config && (
@@ -297,8 +297,8 @@ const Setting: React.FC = () => {
                   >
                     终端设置
                   </Typography>
-                  <Paper sx={{ p: 3 }} elevation={1}>
-                    <Stack spacing={2}>
+                  <Paper sx={{ p: 2 }} elevation={1}>
+                    <Stack spacing={1.5}>
                       <FormRow label="字体">
                         <TextField
                           required
@@ -376,9 +376,7 @@ const Setting: React.FC = () => {
                       <Typography variant="h4" sx={{ fontWeight: 800 }}>
                         Vexo
                       </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        v0.0.1
-                      </Typography>
+
                       <Box
                         sx={{
                           display: "flex",
@@ -386,26 +384,24 @@ const Setting: React.FC = () => {
                           justifyContent: "center",
                         }}
                       >
-                        <GitHubIcon />
-                        <Typography
-                          variant="body1"
-                          component="a"
-                          href="https://github.com/ilaziness/vexo"
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <GitHubIcon
                           sx={{
-                            ml: 0.8,
-                            fontWeight: 500,
-                            color: "primary.main",
-                            textDecoration: "none",
+                            "&:hover": {
+                              cursor: "pointer",
+                            },
                           }}
                           onClick={() => {
                             Browser.OpenURL(
                               "https://github.com/ilaziness/vexo",
                             );
                           }}
+                        />
+                        <Typography
+                          component="span"
+                          variant="body1"
+                          sx={{ fontWeight: 500, ml: 1 }}
                         >
-                          https://github.com/ilaziness/vexo
+                          v0.0.1
                         </Typography>
                       </Box>
                     </Stack>

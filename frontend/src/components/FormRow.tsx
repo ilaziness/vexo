@@ -16,8 +16,6 @@ const FormRow: React.FC<FormRowProps> = ({
     sx={{
       display: "flex",
       alignItems: "center",
-      mb: 2,
-      "&:last-child": { mb: 0 },
     }}
   >
     <Typography

@@ -6,7 +6,6 @@ import {
   Typography,
   Paper,
   Stack,
-  Divider,
   MenuItem,
   Select,
   FormControl,
@@ -212,7 +211,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
               >
                 基本信息
               </Typography>
-              <Stack spacing={2}>
+              <Stack spacing={1}>
                 <FormRow label="书签名称" labelWidth={120}>
                   <TextField
                     fullWidth
@@ -243,8 +242,6 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 </FormRow>
               </Stack>
             </Box>
-
-            <Divider />
 
             {/* 连接信息 */}
             <Box>
@@ -288,8 +285,6 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 </FormRow>
               </Stack>
             </Box>
-
-            <Divider />
 
             {/* 认证信息 */}
             <Box>
@@ -350,8 +345,6 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 </FormRow>
               </Stack>
             </Box>
-
-            <Divider />
 
             {/* 操作按钮 */}
             <Box

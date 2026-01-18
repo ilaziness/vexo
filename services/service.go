@@ -4,6 +4,15 @@ import "github.com/wailsapp/wails/v3/pkg/application"
 
 var app *application.App
 
+type AppInfo struct {
+	Version string
+	HomeURL string
+	RunMode string
+}
+
+type NewVersion struct {
+}
+
 func RegisterServices(a *application.App, mainWindow *application.WebviewWindow) {
 	app = a
 	commonService := &WindowService{
@@ -57,4 +66,16 @@ func (cs *WindowService) SelectFile() (string, error) {
 		CanChooseDirectories(false).
 		CanChooseFiles(true).
 		PromptForSingleSelection()
+}
+
+func (cs *WindowService) GetAppInfo() AppInfo {
+	return AppInfo{
+		Version: Version,
+		HomeURL: "https://github.com/ilaziness/vexo",
+		RunMode: Mode,
+	}
+}
+
+func (cs *WindowService) CheckUpdate() (hasNew bool, newVersion NewVersion) {
+	return false, NewVersion{}
 }
