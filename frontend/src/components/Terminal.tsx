@@ -9,6 +9,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
 import { LigaturesAddon } from "@xterm/addon-ligatures";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { SearchAddon } from "@xterm/addon-search";
 import { Events, Browser } from "@wailsio/runtime";
 import {
@@ -21,6 +22,8 @@ import { decodeBase64, encodeBase64 } from "../func/decode";
 import Loading from "./Loading";
 import { parseCallServiceError, sleep } from "../func/service";
 import StatusBar from "./StatusBar";
+import TerminalContextMenu from "./TerminalContextMenu";
+import { terminalInstances } from "../stores/terminalInstances";
 
 const isWebgl2Supported = (() => {
   let isSupported = window.WebGL2RenderingContext ? undefined : false;
@@ -48,6 +51,27 @@ export default function Terminal(props: { linkID: string }) {
   const termSerach = React.useRef<SearchAddon>(null);
   const resizeTimeout = React.useRef<number | null>(null);
   const sshOutputHandler = React.useRef<(event: any) => void>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+  } | null>(null);
+
+  const handleContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenu(
+      contextMenu === null
+        ? {
+            mouseX: event.clientX + 2,
+            mouseY: event.clientY - 6,
+          }
+        : null,
+    );
+  };
+
+  const handleClose = () => {
+    setContextMenu(null);
+  };
+
   const applyThemeVars = (theme: any) => {
     if (termRef.current) {
       termRef.current.style.setProperty("--term-bg", theme.background);
@@ -86,6 +110,7 @@ export default function Terminal(props: { linkID: string }) {
     term.current?.loadAddon(new Unicode11Addon());
     term.current && (term.current.unicode.activeVersion = "11");
     term.current?.loadAddon(new ImageAddon());
+    term.current?.loadAddon(new ClipboardAddon());
 
     if (isWebgl2Supported()) {
       const webglAddon = new WebglAddon();
@@ -124,11 +149,13 @@ export default function Terminal(props: { linkID: string }) {
       fontFamily: settings.fontFamily,
       fontSize: settings.fontSize,
       lineHeight: settings.lineHeight,
+      rightClickSelectsWord: true,
       theme: terminalTheme,
     });
     if (termRef.current) {
       loadAddonBeforeOpen();
       term.current.open(termRef.current);
+      terminalInstances.set(props.linkID, term.current);
       loadAddonAfterOpen();
       if (!mountedRef.current) return;
       await sleep(100);
@@ -211,6 +238,7 @@ export default function Terminal(props: { linkID: string }) {
       mountedRef.current = false;
       LogService.Info(`Terminal component unmounting ${props.linkID}`);
       unsubscribe();
+      terminalInstances.remove(props.linkID);
       try {
         term.current?.dispose();
         term.current = null;
@@ -239,6 +267,7 @@ export default function Terminal(props: { linkID: string }) {
       <Box
         ref={termRef}
         className={styles.terminalWrapper}
+        onContextMenu={handleContextMenu}
         sx={{
           width: "100%",
           height: `calc(100% - ${statusBarHeigth})`,
@@ -248,6 +277,11 @@ export default function Terminal(props: { linkID: string }) {
       />
       {/*status bar*/}
       <StatusBar sessionID={props.linkID} height={statusBarHeigth} />
+      <TerminalContextMenu
+        contextMenu={contextMenu}
+        onClose={handleClose}
+        linkID={props.linkID}
+      />
       {isInitializing && (
         <Box
           sx={{
