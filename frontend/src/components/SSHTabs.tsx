@@ -26,6 +26,7 @@ export default function SSHTabs() {
 
   React.useEffect(() => {
     const unsubscribe = Events.On("eventProgress", (event: any) => {
+      LogService.Debug(`SSHTabs eventProgress: ${JSON.stringify(event)}`);
       const eventData = event.data as ProgressData;
       LogService.Debug(`eventProgress: ${JSON.stringify(event)}`);
       addProgress(eventData);

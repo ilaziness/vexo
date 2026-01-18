@@ -1,7 +1,6 @@
 import React from "react";
 import { Box, Stack, Tooltip } from "@mui/material";
 import MobiledataOffIcon from "@mui/icons-material/MobiledataOff";
-import SignalCellularAltIcon from "@mui/icons-material/SignalCellularAlt";
 import TransferList from "./TransferList";
 
 interface StatusBarProps {
@@ -34,19 +33,6 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
       <Stack direction="row" spacing={2}>
         <Tooltip title="传输列表">
           <MobiledataOffIcon
-            fontSize="small"
-            onClick={toggleOpen}
-            sx={{
-              color: "text.secondary",
-              "&:hover": {
-                color: "primary.main",
-                cursor: "pointer",
-              },
-            }}
-          />
-        </Tooltip>
-        <Tooltip title="传输列表">
-          <SignalCellularAltIcon
             fontSize="small"
             onClick={toggleOpen}
             sx={{
