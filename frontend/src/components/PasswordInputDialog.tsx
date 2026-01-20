@@ -25,15 +25,25 @@ const PasswordInputDialog: React.FC = () => {
       setPassword("");
     });
 
+    const unsubscribe2 = Events.On("eventInputPasswordClose", (event: any) => {
+      close();
+    });
+
     return () => {
       unsubscribe();
+      unsubscribe2();
     };
   }, []);
 
-  const handleClose = () => {
+  const close = () => {
     setOpen(false);
     setPassword("");
     setMessage("");
+  };
+
+  const handleClose = () => {
+    close();
+    BookmarkService.SetUserPassword("").then(() => {});
   };
 
   const handleSubmit = async () => {
@@ -46,7 +56,7 @@ const PasswordInputDialog: React.FC = () => {
       // 调用SetUserPassword保存密码，这也会通过channel通知后端
       await BookmarkService.SetUserPassword(password);
       console.log("Password set successfully");
-      handleClose();
+      close();
     } catch (error) {
       console.error("Failed to set password:", error);
       setMessage("设置密码失败: " + error);

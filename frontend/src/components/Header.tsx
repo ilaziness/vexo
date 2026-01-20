@@ -27,6 +27,7 @@ import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import React, { useState, useEffect } from "react";
 import { useMessageStore } from "../stores/message";
 import ThemeSwitcher from "./ThemeSwitcher";
+import { Events } from "@wailsio/runtime";
 
 interface BookmarkGroup {
   name: string;
@@ -62,6 +63,13 @@ export default function Header() {
 
   useEffect(() => {
     loadBookmarks();
+    const unsubscribe = Events.On("eventBookmarkUpdate", (e) => {
+      loadBookmarks();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const loadBookmarks = async () => {

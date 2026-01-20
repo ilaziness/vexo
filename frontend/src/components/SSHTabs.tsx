@@ -10,7 +10,7 @@ import OpBar from "./OpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
 import { genTabIndex } from "../func/service.ts";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
-import { LogService } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
+import { LogService, BookmarkService } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 
 const tabHeight = "40px";
 
@@ -25,17 +25,51 @@ export default function SSHTabs() {
   const [menuTabIndex, setMenuTabIndex] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const unsubscribe = Events.On("eventProgress", (event: any) => {
+    const unsubscribeProgress = Events.On("eventProgress", (event: any) => {
       LogService.Debug(`SSHTabs eventProgress: ${JSON.stringify(event)}`);
       const eventData = event.data as ProgressData;
       LogService.Debug(`eventProgress: ${JSON.stringify(event)}`);
       addProgress(eventData);
     });
 
+    const unsubscribeConnectBookmark = Events.On("eventConnectBookmark", async (event: any) => {
+      try {
+        const bookmarkID = event.data as string;
+        LogService.Debug(`Connecting to bookmark: ${bookmarkID}`);
+
+        // 获取书签信息
+        const bookmark = await BookmarkService.GetBookmarkByID(bookmarkID);
+        if (!bookmark) {
+          LogService.Warn(`Bookmark not found: ${bookmarkID}`);
+          return;
+        }
+
+        // 创建新标签页
+        const newTab = {
+          index: genTabIndex(),
+          name: bookmark.title,
+          sshInfo: {
+            host: bookmark.host,
+            port: bookmark.port,
+            user: bookmark.user,
+            password: await BookmarkService.DecryptPassword(bookmark.password),
+            key: bookmark.private_key,
+            keyPassword: await BookmarkService.DecryptPassword(bookmark.private_key_password),
+          },
+        };
+
+        pushTab(newTab);
+        setCurrentTab(newTab.index);
+      } catch (error) {
+        LogService.Warn(`Failed to connect bookmark: ${error}`);
+      }
+    });
+
     return () => {
-      unsubscribe();
+      unsubscribeProgress();
+      unsubscribeConnectBookmark();
     };
-  }, [addProgress]);
+  }, [addProgress, pushTab, setCurrentTab]);
 
   const handleContextMenu = (
     e: React.MouseEvent<HTMLElement>,

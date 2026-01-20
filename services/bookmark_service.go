@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,11 +15,17 @@ import (
 )
 
 const (
-	EventInputPasswort = "eventInputPassword"
+	EventInputPasswort      = "eventInputPassword"
+	EventInputPasswortClose = "eventInputPasswordClose"
+	EventBookmarkUpdate     = "eventBookmarkUpdate"
+	EventConnectBookmark    = "eventConnectBookmark"
 )
 
 func init() {
 	application.RegisterEvent[string](EventInputPasswort)
+	application.RegisterEvent[string](EventInputPasswortClose)
+	application.RegisterEvent[string](EventBookmarkUpdate)
+	application.RegisterEvent[string](EventConnectBookmark)
 }
 
 // SSHBookmark 书签连接信息结构
@@ -88,13 +95,16 @@ func (bs *BookmarkService) waitForPassword(reason string) error {
 	// 等待密码输入完成，超时60秒
 	select {
 	case <-bs.passwordChan:
-		// 密码已经设置完成
+		if bs.userPassword == "" {
+			return errors.New("未输入密码")
+		}
+		app.Event.Emit(EventInputPasswortClose, "")
 		return nil
 	case <-time.After(60 * time.Second):
 		// 超时，关闭channel
 		close(bs.passwordChan)
 		bs.passwordChan = nil
-		return fmt.Errorf("密码输入超时")
+		return errors.New("密码输入超时")
 	}
 }
 
@@ -111,6 +121,11 @@ func (bs *BookmarkService) initializeDefaultBookmarks() error {
 	bs.bookmarks = bookmarkGroups
 
 	return bs.saveBookmarks()
+}
+
+// ConnectBookmark 连接书签，通过书签ID触发连接事件
+func (bs *BookmarkService) ConnectBookmark(bookmarkID string) {
+	app.Event.Emit(EventConnectBookmark, bookmarkID)
 }
 
 // encryptBookmark 对书签中的敏感字段进行加密
@@ -148,14 +163,11 @@ func (bs *BookmarkService) encryptBookmark(bookmark SSHBookmark) (SSHBookmark, e
 
 // processBookmarkForSave 处理书签保存逻辑，包括条件加密
 func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existingBookmark *SSHBookmark) (SSHBookmark, error) {
-	// 处理私钥密码更新逻辑
 	if existingBookmark != nil {
-		// 更新现有书签
-		if bookmark.PrivateKeyPassword == "" {
-			// 如果前端没有传递私钥密码，保持原有的加密密码
+		// 处理私钥密码
+		if bookmark.PrivateKeyPassword == "" || bookmark.PrivateKeyPassword == existingBookmark.PrivateKeyPassword {
 			bookmark.PrivateKeyPassword = existingBookmark.PrivateKeyPassword
 		} else {
-			// 如果前端传递了私钥密码，加密保存
 			if bs.userPassword == "" {
 				if err := bs.waitForPassword("需要密码来加密私钥密码"); err != nil {
 					return bookmark, err
@@ -168,12 +180,10 @@ func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existing
 			bookmark.PrivateKeyPassword = encryptedPassword
 		}
 
-		// 处理登录密码更新逻辑
-		if bookmark.Password == "" {
-			// 如果前端没有传递登录密码，保持原有的加密密码
+		// 处理登录密码
+		if bookmark.Password == "" || bookmark.Password == existingBookmark.Password {
 			bookmark.Password = existingBookmark.Password
 		} else {
-			// 如果前端传递了登录密码，加密保存
 			if bs.userPassword == "" {
 				if err := bs.waitForPassword("需要密码来加密登录密码"); err != nil {
 					return bookmark, err
@@ -186,7 +196,6 @@ func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existing
 			bookmark.Password = encryptedPassword
 		}
 	} else {
-		// 新增书签，直接加密所有敏感字段
 		return bs.encryptBookmark(bookmark)
 	}
 
@@ -355,6 +364,8 @@ func (bs *BookmarkService) saveBookmarks() error {
 	if err != nil {
 		return err
 	}
+
+	app.Event.Emit(EventBookmarkUpdate, "bookmark update")
 
 	return os.WriteFile(bs.bookmarkFile, data, 0644)
 }

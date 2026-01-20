@@ -9,9 +9,8 @@ import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import BookmarkTree from "../components/BookmarkTree";
 import BookmarkForm from "../components/BookmarkForm";
 import { useMessageStore } from "../stores/message";
-import { useSSHTabsStore } from "../stores/ssh";
 import Message from "../components/Message";
-import { parseCallServiceError, genTabIndex } from "../func/service";
+import { parseCallServiceError } from "../func/service";
 import { generateRandomId } from "../func/id";
 import PasswordInputDialog from "../components/PasswordInputDialog";
 
@@ -25,7 +24,6 @@ const Bookmark: React.FC = () => {
   const [selectedBookmark, setSelectedBookmark] = useState<SSHBookmark | null>(
     null,
   );
-  const { pushTab, setCurrentTab } = useSSHTabsStore();
   const { errorMessage, successMessage } = useMessageStore();
 
   useEffect(() => {
@@ -185,24 +183,8 @@ const Bookmark: React.FC = () => {
       successMessage("书签保存成功");
       await loadBookmarks();
 
-      // 创建新标签页并设置为当前标签
-      const newTab = {
-        index: genTabIndex(),
-        name: bookmark.title,
-        sshInfo: {
-          host: bookmark.host,
-          port: bookmark.port,
-          user: bookmark.user,
-          password: await BookmarkService.DecryptPassword(bookmark.password),
-          key: bookmark.private_key,
-          keyPassword: await BookmarkService.DecryptPassword(
-            bookmark.private_key_password,
-          ),
-        },
-      };
-
-      pushTab(newTab);
-      setCurrentTab(newTab.index);
+      // 调用ConnectBookmark触发事件，让SSHTabs处理创建tab
+      await BookmarkService.ConnectBookmark(bookmark.id);
       BookmarkService.CloseWindow();
     } catch (error) {
       LogService.Warn(`Failed to save and connect: ${error}`);
