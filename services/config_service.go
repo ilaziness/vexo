@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ilaziness/vexo/internal/system"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -65,15 +66,8 @@ type ConfigService struct {
 
 // GetDefaultConfig 获取默认配置
 func GetDefaultConfig() *Config {
-	// 获取可执行文件路径
-	execPath, err := os.Executable()
-	if err != nil {
-		// 如果获取失败，使用当前工作目录
-		execPath, _ = os.Getwd()
-	}
-
 	// 获取可执行文件所在目录
-	execDir := filepath.Dir(execPath)
+	execDir := system.GetExecutableDir()
 	defaultUserDataDir := filepath.Join(execDir, "data")
 
 	return &Config{
@@ -115,15 +109,8 @@ func mergeConfig(defaultConfig, userConfig *Config) *Config {
 }
 
 func NewConfigService() *ConfigService {
-	// 获取可执行文件路径
-	execPath, err := os.Executable()
-	if err != nil {
-		// 如果获取失败，使用当前工作目录
-		execPath, _ = os.Getwd()
-	}
-
 	// 获取可执行文件所在目录
-	execDir := filepath.Dir(execPath)
+	execDir := system.GetExecutableDir()
 
 	// 应用配置文件路径：可执行目录/config.toml
 	appConfigPath := filepath.Join(execDir, "config.toml")

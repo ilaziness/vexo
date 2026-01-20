@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"log"
 
+	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/services"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -45,6 +46,9 @@ func main() {
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+		Windows: application.WindowsOptions{
+			WebviewUserDataPath: system.GetExecutableDir(),
 		},
 	})
 
