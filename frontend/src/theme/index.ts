@@ -4,6 +4,7 @@ import blueDark from "./blueDark";
 import atom from "./atom";
 import deep from "./deep";
 import eyeCare from "./eyeCare";
+import terminal from "./terminal";
 
 declare module "@mui/material/styles" {
   interface ColorSchemeOverrides {
@@ -11,6 +12,7 @@ declare module "@mui/material/styles" {
     atom: true;
     deep: true;
     eyeCare: true;
+    terminal: true;
   }
 }
 
@@ -33,6 +35,8 @@ const theme = createTheme({
     deep: createColorScheme(deep),
     // 护眼模式
     eyeCare: createColorScheme(eyeCare),
+    // 终端CLI模式
+    terminal: createColorScheme(terminal),
   },
 
   // 字体排版

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { TerminalTheme, TerminalThemeMode } from "../types/ssh";
+import { ITheme, TerminalThemeMode, AppTheme } from "../types/ssh";
 import terminalThemes from "../theme/terminalThemes";
 
 export interface TerminalSettings {
@@ -11,8 +11,8 @@ export interface TerminalSettings {
   setFontSize: (s: number) => void;
   setLineHeight: (l: number) => void;
   setTheme: (theme: TerminalThemeMode) => void;
-  getCurrentTheme: () => TerminalTheme;
-  syncWithGlobalTheme: (globalTheme: string) => void;
+  getCurrentTheme: () => ITheme;
+  syncWithGlobalTheme: (globalTheme: AppTheme) => void;
 }
 
 export const useTerminalStore = create<TerminalSettings>((set, get) => ({
@@ -25,37 +25,13 @@ export const useTerminalStore = create<TerminalSettings>((set, get) => ({
   setFontSize: (s: number) => set(() => ({ fontSize: s })),
   setLineHeight: (l: number) => set(() => ({ lineHeight: l })),
   setTheme: (theme: TerminalThemeMode) => set(() => ({ theme })),
-  getCurrentTheme: (): TerminalTheme => {
+  getCurrentTheme: (): ITheme => {
     const { theme } = get();
     return terminalThemes[theme];
   },
   // 根据总体主题模式自动切换终端主题
-  syncWithGlobalTheme: (globalTheme: string) => {
-    let terminalTheme: TerminalThemeMode = "dark"; // 默认
-
-    // 根据全局主题名称映射到终端主题
-    switch (globalTheme) {
-      case "light":
-        terminalTheme = "light";
-        break;
-      case "blueDark":
-        terminalTheme = "blueDark";
-        break;
-      case "atom":
-        terminalTheme = "atom";
-        break;
-      case "deep":
-        terminalTheme = "deep";
-        break;
-      case "eyeCare":
-        terminalTheme = "eyeCare";
-        break;
-      default:
-        terminalTheme = "dark";
-        break;
-    }
-
-    set(() => ({ theme: terminalTheme }));
+  syncWithGlobalTheme: (globalTheme: AppTheme) => {
+    set(() => ({ theme: globalTheme }));
   },
 }));
 

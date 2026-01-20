@@ -11,18 +11,17 @@ import { useColorScheme } from "@mui/material/styles";
 import PaletteIcon from "@mui/icons-material/Palette";
 import React, { useState } from "react";
 import useTerminalStore from "../stores/terminal";
-
-// 主题类型定义
-type ThemeOption = "light" | "dark" | "blueDark" | "atom" | "deep" | "eyeCare";
+import { AppTheme } from "../types/ssh";
 
 // 主题选项配置
-const THEME_OPTIONS: { value: ThemeOption; label: string; mode: "light" | "dark" }[] = [
+const THEME_OPTIONS: { value: AppTheme; label: string; mode: "light" | "dark" }[] = [
   { value: "light", label: "明亮", mode: "light" },
   { value: "dark", label: "经典暗色", mode: "dark" },
   { value: "blueDark", label: "蓝色暗色", mode: "dark" },
   { value: "atom", label: "代码风格", mode: "dark" },
   { value: "deep", label: "深色主题", mode: "dark" },
   { value: "eyeCare", label: "护眼模式", mode: "light" },
+  { value: "terminal", label: "终端风格", mode: "dark" },
 ];
 
 export default function ThemeSwitcher() {
@@ -46,7 +45,7 @@ export default function ThemeSwitcher() {
     setAnchorEl(null);
   };
 
-  const changeColorMode = (val: ThemeOption) => {
+  const changeColorMode = (val: AppTheme) => {
     console.log("changeColorMode", val);
 
     // 同步终端主题
@@ -63,7 +62,7 @@ export default function ThemeSwitcher() {
     }
   };
 
-  const handleColorModeSelect = (val: ThemeOption) => {
+  const handleColorModeSelect = (val: AppTheme) => {
     changeColorMode(val);
     handleColorModeMenuClose();
   };
@@ -98,7 +97,7 @@ export default function ThemeSwitcher() {
                 ? darkColorScheme
                 : lightColorScheme
           }
-          onChange={(e) => handleColorModeSelect(e.target.value as ThemeOption)}
+          onChange={(e) => handleColorModeSelect(e.target.value as AppTheme)}
         >
           {THEME_OPTIONS.map((option) => (
             <MenuItem key={option.value}>
