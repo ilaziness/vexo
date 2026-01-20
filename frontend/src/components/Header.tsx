@@ -17,6 +17,7 @@ import BookmarksIcon from "@mui/icons-material/Bookmarks";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+
 import {
   BookmarkService,
   ConfigService,
@@ -143,11 +144,20 @@ export default function Header() {
       component={"header"}
       sx={(theme) => ({
         width: "42px",
+        overflow: "hidden",
         backgroundColor: theme.palette.background.paper,
         borderRight: `1px solid ${theme.palette.divider}`,
       })}
     >
       <Stack direction="column" spacing={1} alignItems="center" padding={0.5}>
+        <Box sx={{ "--wails-draggable": "drag", cursor: "move" }}>
+          <img
+            src="/appicon.png"
+            alt="Logo"
+            style={{ width: "32px", height: "32px" }}
+          />
+        </Box>
+
         <Tooltip title="新连接">
           <IconButton size="small" onClick={handleAddTab}>
             <NoteAddIcon />
