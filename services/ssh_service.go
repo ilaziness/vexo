@@ -78,7 +78,7 @@ func (s *SSHService) Connect(host string, port int, user, password, key, keyPass
 			User:            user,
 			Auth:            []ssh.AuthMethod{},
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Timeout:         time.Second * 60,
+			Timeout:         time.Second * 30,
 		}
 		if key != "" {
 			keyContent, err := os.ReadFile(key)

@@ -171,13 +171,14 @@ func (cs *ConfigService) ShowWindow() {
 		return
 	}
 	cs.window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "设置",
-		URL:              "/setting",
-		Width:            1200,
-		Height:           700,
-		MinWidth:         1200,
-		MinHeight:        700,
-		BackgroundColour: application.NewRGB(27, 38, 54),
+		Title:                      "设置",
+		URL:                        "/setting",
+		Width:                      1200,
+		Height:                     700,
+		MinWidth:                   1200,
+		MinHeight:                  700,
+		BackgroundColour:           application.NewRGB(27, 38, 54),
+		DefaultContextMenuDisabled: true,
 	})
 	cs.window.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
 		cs.window = nil

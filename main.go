@@ -64,11 +64,11 @@ func main() {
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
-		URL:       "/",
-		Width:     1600,
-		Height:    900,
-		Frameless: true,
-		//BackgroundType: application.BackgroundTypeTransparent,
+		URL:                        "/",
+		Width:                      1600,
+		Height:                     900,
+		Frameless:                  true,
+		DefaultContextMenuDisabled: true,
 	})
 	mainWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		for _, window := range app.Window.GetAll() {

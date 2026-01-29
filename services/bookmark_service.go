@@ -273,11 +273,12 @@ func (bs *BookmarkService) ShowWindow() {
 		return
 	}
 	bs.window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "书签",
-		URL:              "/bookmark",
-		Width:            1200,
-		Height:           800,
-		BackgroundColour: application.NewRGB(27, 38, 54),
+		Title:                      "书签",
+		URL:                        "/bookmark",
+		Width:                      1200,
+		Height:                     800,
+		BackgroundColour:           application.NewRGB(27, 38, 54),
+		DefaultContextMenuDisabled: true,
 	})
 	bs.window.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
 		bs.window = nil
