@@ -9,6 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"go.uber.org/zap"
 )
 
 var (
@@ -149,7 +150,7 @@ func NewConfigService() *ConfigService {
 
 	if data, err := os.ReadFile(userConfigPath); err == nil {
 		userConfig := &Config{}
-		if err := toml.Unmarshal(data, userConfig); err == nil {
+		if err = toml.Unmarshal(data, userConfig); err == nil {
 			// 用户配置覆盖默认配置（不包括 UserDataDir，UserDataDir 由应用配置管理）
 			finalConfig = mergeConfig(defaultConfig, userConfig)
 			finalConfig.General.UserDataDir = userDataDir
@@ -193,6 +194,12 @@ func (cs *ConfigService) CloseWindow() {
 		cs.window.Close()
 		cs.window = nil
 	}
+}
+
+// SetTheme 设置主题
+func (cs *ConfigService) SetTheme(theme string) {
+	cs.Config.General.Theme = theme
+	cs.saveToFile()
 }
 
 // ReadConfig 读取配置方法，返回当前配置
@@ -246,4 +253,17 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 	cs.Config = &config
 
 	return nil
+}
+
+// saveToFile 保存配置到文件
+func (cs *ConfigService) saveToFile() {
+	data, err := toml.Marshal(cs.Config)
+	if err != nil {
+		Logger.Error("save config to file failed", zap.Error(err))
+		return
+	}
+	if err := os.WriteFile(cs.userConfig, data, 0644); err != nil {
+		Logger.Error("save config to file failed", zap.Error(err))
+		return
+	}
 }

@@ -12,7 +12,7 @@
 | 桌面框架    | Wails             | v3.x    |
 | 前端 UI 库 | Material UI (MUI) | v7.3.x  |
 | 前端路由    | React Router      | v7.11.x |
-| 终端模拟器   | XTerm.js          | v5.5.x  |
+| 终端模拟器   | XTerm.js          | v6.x.x  |
 | 构建工具    | Wails CLI + Vite  | 默认集成    |
 
 ---
@@ -48,6 +48,10 @@
 
 模块化，可复用，减少重复模块代码
 
+### 1. 日志记录
+- 前端记录日志使用go绑定到前端的`LogService`里面的方法。
+- go里面记录日志使用`LogService`里面的方法。
+
 ---
 
 ## 4. 前端集成规范
@@ -58,13 +62,19 @@ Go绑定到前端的方法和数据类型在`frontend\bindings\github.com\ilazin
 
 ### 4.1 XTerm.js 集成
 
-- 使用 `@xterm/xterm@5.5` 及 `@xterm/addon-fit@0.10`、`@xterm/addon-web-links@0.12` 等官方插件。
+- 使用 `@xterm/xterm` 及 `@xterm/addon-fit`、`@xterm/addon-web-links` 等官方插件。
 - 每个终端实例封装为 React 组件 `<Terminal sessionID={id} />`。
 - 输入通过 `term.onData()` 捕获并转发至 Go 后端。
 - 输出通过监听 `session.output` 事件写入 `term.write()`。
 
 ### 4.2 路由设计（React Router v7.11）
 
+路由渲染页面组件在`frontend\src\pages`。
+
+- 主路由 `/` 渲染 `<App />`，主界面。
+- 子路由：
+  - `/bookmark` 对应 `<Bookmark />` 组件，书签管理。
+  - `/config` 对应 `<Config />` 组件，配置应用参数。
 
 ### 4.3 UI 规范（Material UI v7.3）
 
@@ -84,10 +94,22 @@ Go绑定到前端的方法和数据类型在`frontend\bindings\github.com\ilazin
 
 ## 6. 开发与调试
 
-- 启动开发模式：
-  ```bash
-  wails3 dev
-  ```
+### 1. 前端编译调试
+
+`frontend`执行下面命令编译调试：
+
+```bash
+npm run build:dev
+```
+
+### 2. Go编译调试
+
+项目根目录执行下面命令编译调试：
+
+```bash
+go build -o {name} .
+```
+`{name}` 为平台对应的可执行文件名，如 `vexo.exe`（Windows）、`vexo`（macOS/Linux）。
 
 ---
 

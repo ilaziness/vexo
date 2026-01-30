@@ -21,7 +21,6 @@ import useTerminalStore from "../stores/terminal";
 import { decodeBase64, encodeBase64 } from "../func/decode";
 import Loading from "./Loading";
 import { parseCallServiceError, sleep } from "../func/service";
-import StatusBar from "./StatusBar";
 import TerminalContextMenu from "./TerminalContextMenu";
 import { terminalInstances } from "../stores/terminalInstances";
 
@@ -39,8 +38,6 @@ const isWebgl2Supported = (() => {
     return isSupported;
   };
 })();
-
-const statusBarHeigth = "25px";
 
 // Terminal 组件，封装 xterm.js
 export default function Terminal(props: { linkID: string }) {
@@ -158,8 +155,6 @@ export default function Terminal(props: { linkID: string }) {
       terminalInstances.set(props.linkID, term.current);
       loadAddonAfterOpen();
       if (!mountedRef.current) return;
-      await sleep(100);
-      if (!mountedRef.current) return;
       termFit.current?.fit();
 
       try {
@@ -182,7 +177,6 @@ export default function Terminal(props: { linkID: string }) {
           `Connection error: ${parseCallServiceError(err)}\r\n`,
         );
       }
-      if (mountedRef.current) setIsInitializing(false);
 
       // Handle user input
       term.current?.onData(handleInputData);
@@ -191,6 +185,7 @@ export default function Terminal(props: { linkID: string }) {
 
       // 再次 fit 以确保在连接建立期间如果有布局变化能及时更新，并触发 onResize 同步给后端
       // 此时 onResize 已注册，如果尺寸有变化会自动通知后端
+      await sleep(200);
       termFit.current?.fit();
     }
   };
@@ -220,7 +215,10 @@ export default function Terminal(props: { linkID: string }) {
     };
     const unsubscribe = Events.On("sshOutput", sshOutputHandler.current);
 
-    initTerminal(mountedRef);
+    initTerminal(mountedRef).then(() => {
+      if (!mountedRef.current) return;
+      setIsInitializing(false);
+    });
 
     const observer = new ResizeObserver(() => {
       if (resizeTimeout.current) {
@@ -270,13 +268,11 @@ export default function Terminal(props: { linkID: string }) {
         onContextMenu={handleContextMenu}
         sx={{
           width: "100%",
-          height: `calc(100% - ${statusBarHeigth})`,
+          height: "100%",
           minWidth: "100%",
-          minHeight: `calc(100% - ${statusBarHeigth})`,
+          minHeight: "100%",
         }}
       />
-      {/*status bar*/}
-      <StatusBar sessionID={props.linkID} height={statusBarHeigth} />
       <TerminalContextMenu
         contextMenu={contextMenu}
         onClose={handleClose}

@@ -12,6 +12,8 @@ import PaletteIcon from "@mui/icons-material/Palette";
 import React, { useState } from "react";
 import useTerminalStore from "../stores/terminal";
 import { AppTheme } from "../types/ssh";
+import { SetTheme } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
+import { LogService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 // 主题选项配置
 const THEME_OPTIONS: { value: AppTheme; label: string; mode: "light" | "dark" }[] = [
@@ -47,6 +49,11 @@ export default function ThemeSwitcher() {
 
   const changeColorMode = (val: AppTheme) => {
     console.log("changeColorMode", val);
+
+    // 保存主题配置
+    SetTheme(val).catch((err) => {
+      LogService.Error("Failed to save theme:" + err.message);
+    });
 
     // 同步终端主题
     useTerminalStore.getState().syncWithGlobalTheme(val);

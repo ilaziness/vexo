@@ -11,12 +11,14 @@ import ConnectionForm from "./ConnectionForm";
 import Loading from "./Loading";
 import { parseCallServiceError } from "../func/service";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
+import StatusBar from "./StatusBar";
 
 interface SSHContainerProps {
   tabIndex: string;
 }
 
 const tabHeight = "30px";
+const statusBarHeight = "25px";
 
 // SSH 连接容器组件，管理连接状态和错误处理
 const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
@@ -179,7 +181,12 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         ))}
       </Tabs>
 
-      <Box sx={{ height: `calc(100% - ${tabHeight})`, position: "relative" }}>
+      <Box
+        sx={{
+          height: `calc(100% - ${tabHeight} - ${statusBarHeight})`,
+          position: "relative",
+        }}
+      >
         {/*ssh sftp*/}
         {tabItems.map(
           (item, index) =>
@@ -200,6 +207,8 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
             ),
         )}
       </Box>
+      {/*status bar*/}
+      <StatusBar sessionID={linkID} height={statusBarHeight} />
     </Box>
   );
 };

@@ -1,6 +1,7 @@
 import { Box, Menu, MenuItem, Tab, Tabs } from "@mui/material";
 import { tabsClasses } from "@mui/material/Tabs";
 import React from "react";
+import CloseIcon from "@mui/icons-material/Close";
 import SSHContainer from "./SSHContainer.tsx";
 import { Events } from "@wailsio/runtime";
 import TerminalIcon from "@mui/icons-material/Terminal";
@@ -176,7 +177,15 @@ export default function SSHTabs() {
             <Tab
               key={item.index}
               value={item.index}
-              label={<SSHTabText text={item.name} />}
+              label={
+                <SSHTabText
+                  text={item.name}
+                  onClose={(e) => {
+                    e.stopPropagation();
+                    delTab(item.index, currentTab);
+                  }}
+                />
+              }
               icon={<TerminalIcon sx={{ fontSize: 14 }} />}
               iconPosition="start"
               onContextMenu={(e) => handleContextMenu(e, item.index)}

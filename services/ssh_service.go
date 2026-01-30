@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -60,13 +60,68 @@ func NewSSHService() *SSHService {
 	}
 }
 
+// dialSSH establishes an SSH connection with the provided credentials and timeout.
+func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPassword string, timeout time.Duration) (*ssh.Client, error) {
+	if password == "" && key == "" {
+		return nil, fmt.Errorf("empty password and key")
+	}
+	cfg := &ssh.ClientConfig{
+		User:            user,
+		Auth:            []ssh.AuthMethod{},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         timeout,
+	}
+	if key != "" {
+		keyContent, err := os.ReadFile(key)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read private key: %v", err)
+		}
+		var signer ssh.Signer
+		if keyPassword == "" {
+			signer, err = ssh.ParsePrivateKey(keyContent)
+		} else {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(keyContent, []byte(keyPassword))
+		}
+		if err != nil {
+			return nil, err
+		}
+		cfg.Auth = []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		}
+	}
+	if password != "" {
+		cfg.Auth = append(cfg.Auth, ssh.Password(password))
+	}
+
+	Logger.Debug("ssh key", zap.String("file", key))
+	addr := fmt.Sprintf("%s:%d", host, port)
+	conn, err := net.DialTimeout("tcp", addr, cfg.Timeout)
+	if err != nil {
+		Logger.Debug("tcp connect error", zap.Error(err))
+		return nil, err
+	}
+	if err = conn.SetDeadline(time.Now().Add(cfg.Timeout)); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	c, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
+	if err != nil {
+		conn.Close()
+		Logger.Debug("ssh handshake error", zap.Error(err))
+		return nil, err
+	}
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		c.Close()
+		return nil, err
+	}
+	return ssh.NewClient(c, chans, reqs), nil
+}
+
 // Connect establishes an SSH connection to the specified host using the provided credentials.
 // return session ID if success
 func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword string) (ID string, err error) {
 	Logger.Debug("Connecting to SSH server", zap.String("host", host), zap.Int("port", port))
-	if password == "" && key == "" {
-		return "", fmt.Errorf("empty password and key")
-	}
+
 	var client *ssh.Client
 	clientKey := fmt.Sprintf("%s@%s:%d", user, host, port)
 	clientVal, ok := s.clients.Load(clientKey)
@@ -74,41 +129,8 @@ func (s *SSHService) Connect(host string, port int, user, password, key, keyPass
 		Logger.Debug("Using existing SSH client", zap.String("clientKey", clientKey))
 		client = clientVal.(*ssh.Client)
 	} else {
-		cfg := &ssh.ClientConfig{
-			User:            user,
-			Auth:            []ssh.AuthMethod{},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Timeout:         time.Second * 30,
-		}
-		if key != "" {
-			keyContent, err := os.ReadFile(key)
-			if err != nil {
-				log.Fatalf("unable to read private key: %v", err)
-				return "", err
-			}
-			var signer ssh.Signer
-			if keyPassword == "" {
-				signer, err = ssh.ParsePrivateKey(keyContent)
-				if err != nil {
-					return "", err
-				}
-			} else {
-				signer, err = ssh.ParsePrivateKeyWithPassphrase(keyContent, []byte(keyPassword))
-				if err != nil {
-					return "", err
-				}
-			}
-			cfg.Auth = []ssh.AuthMethod{
-				ssh.PublicKeys(signer),
-			}
-		}
-		if password != "" {
-			cfg.Auth = append(cfg.Auth, ssh.Password(password))
-		}
-		Logger.Debug("ssh key", zap.String("file", key))
-		client, err = ssh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), cfg)
+		client, err = s.dialSSH(host, port, user, password, key, keyPassword, time.Second*30)
 		if err != nil {
-			Logger.Debug("ssh connect error", zap.Error(err))
 			return "", err
 		}
 		// Store the new client for reuse
@@ -127,7 +149,7 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 
 	conn, ok := s.SSHConnects.Load(ID)
 	if !ok {
-		return fmt.Errorf("SSH connection with ID %s not found", ID)
+		return errors.New("ssh connect not found")
 	}
 	err := conn.(*SSHConnect).Start(cols, rows)
 	if err != nil {
@@ -139,42 +161,8 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 // TestConnectInfo tests SSH connection information without establishing a persistent connection.
 func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword string) error {
 	Logger.Debug("Testing SSH connection", zap.String("host", host), zap.Int("port", port))
-	if password == "" && key == "" {
-		return fmt.Errorf("empty password and key")
-	}
-	cfg := &ssh.ClientConfig{
-		User:            user,
-		Auth:            []ssh.AuthMethod{},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         time.Second * 20, // Reduced timeout for testing
-	}
-	if key != "" {
-		keyContent, err := os.ReadFile(key)
-		if err != nil {
-			return fmt.Errorf("unable to read private key: %v", err)
-		}
-		var signer ssh.Signer
-		if keyPassword == "" {
-			signer, err = ssh.ParsePrivateKey(keyContent)
-			if err != nil {
-				return err
-			}
-		} else {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase(keyContent, []byte(keyPassword))
-			if err != nil {
-				return err
-			}
-		}
-		cfg.Auth = []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		}
-	}
-	if password != "" {
-		cfg.Auth = append(cfg.Auth, ssh.Password(password))
-	}
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", host, port), cfg)
+	client, err := s.dialSSH(host, port, user, password, key, keyPassword, time.Second*20)
 	if err != nil {
-		Logger.Debug("Test SSH connect error", zap.Error(err))
 		return err
 	}
 	// Immediately close the test connection
@@ -299,7 +287,8 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 	var err error
 	sc.session, err = sc.client.NewSession()
 	if err != nil {
-		return err
+		Logger.Error("Failed to create SSH session", zap.Error(err), zap.String("id", sc.ID))
+		return errors.New("Start session fail")
 	}
 	err = sc.session.RequestPty("xterm-256color", rows, cols, ssh.TerminalModes{
 		ssh.ECHO:          1,
