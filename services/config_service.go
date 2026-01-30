@@ -44,6 +44,7 @@ type Config struct {
 
 type GeneralConfig struct {
 	UserDataDir string `toml:"user_data_dir"`
+	Theme       string `toml:"theme"`
 }
 
 type TerminalConfig struct {
@@ -73,6 +74,7 @@ func GetDefaultConfig() *Config {
 	return &Config{
 		General: GeneralConfig{
 			UserDataDir: defaultUserDataDir,
+			Theme:       "dark",
 		},
 		Terminal: TerminalConfig{
 			Font:       strings.Join(defaultFontFamily, ","),
