@@ -94,7 +94,7 @@ func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPass
 	}
 
 	Logger.Debug("ssh key", zap.String("file", key))
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	conn, err := net.DialTimeout("tcp", addr, cfg.Timeout)
 	if err != nil {
 		Logger.Debug("tcp connect error", zap.Error(err))

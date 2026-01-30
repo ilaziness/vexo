@@ -1,7 +1,6 @@
 import { Box, Menu, MenuItem, Tab, Tabs } from "@mui/material";
 import { tabsClasses } from "@mui/material/Tabs";
 import React from "react";
-import CloseIcon from "@mui/icons-material/Close";
 import SSHContainer from "./SSHContainer.tsx";
 import { Events } from "@wailsio/runtime";
 import TerminalIcon from "@mui/icons-material/Terminal";

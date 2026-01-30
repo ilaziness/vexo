@@ -49,10 +49,17 @@
    go mod tidy
    npm install
    ```
-4. 构建并运行：
+4. 构建：
    ```bash
-   wails build
-   ./build/vexo  # Windows 上为 vexo.exe
+   # Build for Windows (from any OS)
+   wails3 build -platform windows/amd64
+
+   # Build for macOS
+   wails3 build -platform darwin/amd64
+   wails3 build -platform darwin/arm64
+
+   # Build for Linux
+   wails3 build -platform linux/amd64
    ```
 
 #### 预编译版本
