@@ -372,7 +372,18 @@ const Setting: React.FC = () => {
                     关于
                   </Typography>
                   <Paper sx={{ p: 3 }} elevation={1}>
-                    <Stack spacing={2} sx={{ textAlign: "center" }}>
+                    <Stack
+                      spacing={2}
+                      sx={{
+                        textAlign: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <img
+                        src="/appicon.png"
+                        alt="Logo"
+                        style={{ width: "64px", height: "64px" }}
+                      />
                       <Typography variant="h4" sx={{ fontWeight: 800 }}>
                         Vexo
                       </Typography>
@@ -404,6 +415,14 @@ const Setting: React.FC = () => {
                           v0.0.1
                         </Typography>
                       </Box>
+
+                      <Typography
+                        color="text.secondary"
+                        variant="body2"
+                        sx={{ fontWeight: 500, ml: 1 }}
+                      >
+                        SSH桌面客户端，支持Window、Linux和MacOS
+                      </Typography>
                     </Stack>
                   </Paper>
                 </Box>
