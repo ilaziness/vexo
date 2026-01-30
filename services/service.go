@@ -15,7 +15,7 @@ type NewVersion struct {
 
 func RegisterServices(a *application.App, mainWindow *application.WebviewWindow) {
 	app = a
-	commonService := &WindowService{
+	appService := &AppService{
 		mainWindow: mainWindow,
 	}
 	sshService := NewSSHService()
@@ -23,7 +23,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	configService := NewConfigService()
 	bookmarkService := NewBookmarkService(configService)
 
-	app.RegisterService(application.NewService(commonService))
+	app.RegisterService(application.NewService(appService))
 	app.RegisterService(application.NewService(sshService))
 	app.RegisterService(application.NewService(sftpService))
 	app.RegisterService(application.NewService(configService))
@@ -35,25 +35,25 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	})
 }
 
-type WindowService struct {
+type AppService struct {
 	mainWindow *application.WebviewWindow
 }
 
-func (cs *WindowService) MainWindowMin() {
+func (cs *AppService) MainWindowMin() {
 	cs.mainWindow.Minimise()
 }
-func (cs *WindowService) MainWindowMax() {
+func (cs *AppService) MainWindowMax() {
 	if cs.mainWindow.IsMaximised() {
 		cs.mainWindow.UnMaximise()
 		return
 	}
 	cs.mainWindow.Maximise()
 }
-func (cs *WindowService) MainWindowClose() {
+func (cs *AppService) MainWindowClose() {
 	cs.mainWindow.Close()
 }
 
-func (cs *WindowService) SelectDirectory() (string, error) {
+func (cs *AppService) SelectDirectory() (string, error) {
 	return app.Dialog.OpenFile().SetTitle("选择目录").
 		CanChooseDirectories(true).
 		CanChooseFiles(false).
@@ -61,14 +61,14 @@ func (cs *WindowService) SelectDirectory() (string, error) {
 		PromptForSingleSelection()
 }
 
-func (cs *WindowService) SelectFile() (string, error) {
+func (cs *AppService) SelectFile() (string, error) {
 	return app.Dialog.OpenFile().SetTitle("选择文件").
 		CanChooseDirectories(false).
 		CanChooseFiles(true).
 		PromptForSingleSelection()
 }
 
-func (cs *WindowService) GetAppInfo() AppInfo {
+func (cs *AppService) GetAppInfo() AppInfo {
 	return AppInfo{
 		Version: Version,
 		HomeURL: "https://github.com/ilaziness/vexo",
@@ -76,6 +76,6 @@ func (cs *WindowService) GetAppInfo() AppInfo {
 	}
 }
 
-func (cs *WindowService) CheckUpdate() (hasNew bool, newVersion NewVersion) {
+func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion) {
 	return false, NewVersion{}
 }

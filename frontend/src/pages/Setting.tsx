@@ -23,7 +23,11 @@ import {
   IconButton,
 } from "@mui/material";
 import { MoreHoriz, GitHub as GitHubIcon } from "@mui/icons-material";
-import { SelectDirectory } from "../../bindings/github.com/ilaziness/vexo/services/windowservice";
+import {
+  SelectDirectory,
+  GetAppInfo,
+} from "../../bindings/github.com/ilaziness/vexo/services/appservice";
+import { AppInfo } from "../../bindings/github.com/ilaziness/vexo/services";
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/message.ts";
@@ -36,9 +40,13 @@ const Setting: React.FC = () => {
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const { errorMessage } = useMessageStore();
+  const appInfo: AppInfo = {} as AppInfo;
 
   useEffect(() => {
     loadConfig();
+    GetAppInfo().then((info) => {
+      Object.assign(appInfo, info);
+    });
   }, []);
 
   const loadConfig = async () => {
@@ -402,9 +410,7 @@ const Setting: React.FC = () => {
                             },
                           }}
                           onClick={() => {
-                            Browser.OpenURL(
-                              "https://github.com/ilaziness/vexo",
-                            );
+                            Browser.OpenURL(appInfo.HomeURL);
                           }}
                         />
                         <Typography
@@ -412,7 +418,7 @@ const Setting: React.FC = () => {
                           variant="body1"
                           sx={{ fontWeight: 500, ml: 1 }}
                         >
-                          v0.0.1
+                          {appInfo.Version || "版本信息获取中..."}
                         </Typography>
                       </Box>
 

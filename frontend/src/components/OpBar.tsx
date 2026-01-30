@@ -2,16 +2,16 @@ import { Window } from "@wailsio/runtime";
 import { Box, IconButton, Stack } from "@mui/material";
 import { Close, CropSquare, FilterNone, Remove } from "@mui/icons-material";
 import { useState } from "react";
-import { WindowService } from "../../bindings/github.com/ilaziness/vexo/services";
+import { AppService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 const OpBar = () => {
   const [isMaximised, setIsMaximised] = useState(false);
   const handleMinimize = () => {
-    WindowService.MainWindowMin().then(() => {});
+    AppService.MainWindowMin().then(() => {});
   };
 
   const handleMaximize = () => {
-    WindowService.MainWindowMax().then(() => {
+    AppService.MainWindowMax().then(() => {
       Window.IsMaximised().then((val: boolean) => {
         setIsMaximised(val);
       });
@@ -19,7 +19,7 @@ const OpBar = () => {
   };
 
   const handleClose = () => {
-    WindowService.MainWindowClose().then(() => {});
+    AppService.MainWindowClose().then(() => {});
   };
 
   return (
