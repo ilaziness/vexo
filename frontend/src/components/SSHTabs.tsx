@@ -6,7 +6,7 @@ import { Events } from "@wailsio/runtime";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh.ts";
 import { useTransferStore } from "../stores/transfer.ts";
-import OpBar from "./OpBar.tsx";
+import MainOpBar from "./MainOpBar.tsx";
 import SSHTabText from "./SSHTabText.tsx";
 import { genTabIndex } from "../func/service.ts";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
@@ -204,7 +204,7 @@ export default function SSHTabs() {
             />
           ))}
         </Tabs>
-        <OpBar />
+        <MainOpBar />
         <Menu
           open={Boolean(menuAnchorEl)}
           anchorEl={menuAnchorEl}

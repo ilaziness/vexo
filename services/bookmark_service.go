@@ -11,7 +11,6 @@ import (
 
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 const (
@@ -269,29 +268,13 @@ func (bs *BookmarkService) DecryptPassword(password string) string {
 
 // ShowWindow show bookmark manage window
 func (bs *BookmarkService) ShowWindow() {
-	if bs.window != nil {
-		return
-	}
-	bs.window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:                      "书签",
-		URL:                        "/bookmark",
-		Width:                      1200,
-		Height:                     800,
-		BackgroundColour:           application.NewRGB(27, 38, 54),
-		DefaultContextMenuDisabled: true,
-	})
-	bs.window.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		bs.window = nil
-	})
-	bs.window.Show()
+	AppInstance.BookmarkWindow.Show()
+	AppInstance.BookmarkWindow.Focus()
 }
 
 // CloseWindow 关闭窗口
 func (bs *BookmarkService) CloseWindow() {
-	if bs.window != nil {
-		bs.window.Close()
-		bs.window = nil
-	}
+	AppInstance.BookmarkWindow.Hide()
 }
 
 // loadBookmarksToMemory 从文件加载书签数据到内存

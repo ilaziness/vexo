@@ -60,6 +60,8 @@ React开发时启用了严格模式StrictMode。
 
 Go绑定到前端的方法和数据类型在`frontend\bindings\github.com\ilaziness\vexo\services`。
 
+搜索代码应该排除`dist`目录。
+
 ### 4.1 XTerm.js 集成
 
 - 使用 `@xterm/xterm` 及 `@xterm/addon-fit`、`@xterm/addon-web-links` 等官方插件。

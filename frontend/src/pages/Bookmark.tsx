@@ -13,6 +13,7 @@ import Message from "../components/Message";
 import { parseCallServiceError } from "../func/service";
 import { generateRandomId } from "../func/id";
 import PasswordInputDialog from "../components/PasswordInputDialog";
+import OpBar from "../components/OpBar";
 
 interface BookmarkGroup {
   name: string;
@@ -194,7 +195,16 @@ const Bookmark: React.FC = () => {
 
   return (
     <>
-      <Box sx={{ height: "100%", display: "flex", overflow: "hidden" }}>
+      <Box sx={{ height: 40 }}>
+        <OpBar />
+      </Box>
+      <Box
+        sx={{
+          height: "calc(100% - 40px)",
+          display: "flex",
+          overflow: "hidden",
+        }}
+      >
         {/* 左侧树形列表 */}
         <Paper
           sx={{

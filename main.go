@@ -8,7 +8,6 @@ import (
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/services"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -70,12 +69,8 @@ func main() {
 		Frameless:                  true,
 		DefaultContextMenuDisabled: true,
 	})
-	mainWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		for _, window := range app.Window.GetAll() {
-			window.Close()
-		}
-	})
 
+	services.NewApp(app, mainWindow)
 	services.RegisterServices(app, mainWindow)
 
 	// Run the application. This blocks until the application has been exited.

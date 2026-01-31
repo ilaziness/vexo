@@ -8,7 +8,6 @@ import (
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 	"go.uber.org/zap"
 )
 
@@ -170,30 +169,12 @@ func NewConfigService() *ConfigService {
 }
 
 func (cs *ConfigService) ShowWindow() {
-	if cs.window != nil {
-		return
-	}
-	cs.window = app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:                      "设置",
-		URL:                        "/setting",
-		Width:                      1200,
-		Height:                     700,
-		MinWidth:                   1200,
-		MinHeight:                  700,
-		BackgroundColour:           application.NewRGB(27, 38, 54),
-		DefaultContextMenuDisabled: true,
-	})
-	cs.window.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		cs.window = nil
-	})
-	cs.window.Show()
+	AppInstance.SettingWindow.Show()
+	AppInstance.SettingWindow.Focus()
 }
 
 func (cs *ConfigService) CloseWindow() {
-	if cs.window != nil {
-		cs.window.Close()
-		cs.window = nil
-	}
+	AppInstance.SettingWindow.Hide()
 }
 
 // SetTheme 设置主题

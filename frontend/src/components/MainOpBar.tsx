@@ -3,15 +3,16 @@ import { Box, IconButton, Stack } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { Close, CropSquare, FilterNone, Remove } from "@mui/icons-material";
 import { useState } from "react";
+import { AppService } from "../../bindings/github.com/ilaziness/vexo/services";
 
-const OpBar = () => {
+const MainOpBar = () => {
   const [isMaximised, setIsMaximised] = useState(false);
   const handleMinimize = () => {
-    Window.Minimise().then(() => {});
+    AppService.MainWindowMin().then(() => {});
   };
 
   const handleMaximize = () => {
-    Window.ToggleMaximise().then(() => {
+    AppService.MainWindowMax().then(() => {
       Window.IsMaximised().then((val: boolean) => {
         setIsMaximised(val);
       });
@@ -19,28 +20,12 @@ const OpBar = () => {
   };
 
   const handleClose = () => {
-    Window.Hide().then(() => {});
+    AppService.MainWindowClose().then(() => {});
   };
 
   return (
-    <Box
-      sx={{
-        "--wails-draggable": "drag",
-        height: "100%",
-        width: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        pr: 1,
-        borderBottom: 1,
-        borderColor: "divider",
-      }}
-    >
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ "--wails-draggable": "no-drag" }}
-      >
+    <Box sx={{ "--wails-draggable": "no-drag" }}>
+      <Stack direction="row" spacing={1}>
         <IconButton
           size="small"
           onClick={handleMinimize}
@@ -80,4 +65,4 @@ const OpBar = () => {
   );
 };
 
-export default OpBar;
+export default MainOpBar;

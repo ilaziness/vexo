@@ -32,6 +32,7 @@ import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/message.ts";
 import FormRow from "../components/FormRow";
+import OpBar from "../components/OpBar.tsx";
 
 const Setting: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"general" | "terminal" | "about">(
@@ -156,7 +157,16 @@ const Setting: React.FC = () => {
 
   return (
     <>
-      <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Box sx={{ height: 40 }}>
+        <OpBar />
+      </Box>
+      <Box
+        sx={{
+          height: "calc(100% - 40px)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
           {/* 左侧导航 */}
           <Paper

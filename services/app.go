@@ -1,0 +1,62 @@
+package services
+
+import (
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
+)
+
+var AppInstance *App
+
+type App struct {
+	app            *application.App
+	MainWindow     *application.WebviewWindow
+	SettingWindow  *application.WebviewWindow
+	BookmarkWindow *application.WebviewWindow
+}
+
+func NewApp(a *application.App, mainWindow *application.WebviewWindow) {
+	AppInstance = &App{
+		app:        a,
+		MainWindow: mainWindow,
+	}
+	AppInstance.SettingWindow = newSettingWindow()
+	AppInstance.BookmarkWindow = newBookmarkWindow()
+}
+
+func newSettingWindow() *application.WebviewWindow {
+	window := AppInstance.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:                      "设置",
+		URL:                        "/setting",
+		Width:                      1200,
+		Height:                     800,
+		MinWidth:                   1200,
+		MinHeight:                  800,
+		DefaultContextMenuDisabled: true,
+		Hidden:                     true,
+		Frameless:                  true,
+	})
+	window.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		event.Cancel() // 取消关闭事件
+		window.Hide()
+	})
+	return window
+}
+
+func newBookmarkWindow() *application.WebviewWindow {
+	window := AppInstance.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:                      "书签管理",
+		URL:                        "/bookmark",
+		Width:                      1200,
+		Height:                     800,
+		MinWidth:                   1200,
+		MinHeight:                  800,
+		DefaultContextMenuDisabled: true,
+		Hidden:                     true,
+		Frameless:                  true,
+	})
+	window.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		event.Cancel()
+		window.Hide()
+	})
+	return window
+}
