@@ -19,6 +19,11 @@ func NewApp(a *application.App, mainWindow *application.WebviewWindow) {
 		app:        a,
 		MainWindow: mainWindow,
 	}
+	mainWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		for _, window := range app.Window.GetAll() {
+			window.Close()
+		}
+	})
 	AppInstance.SettingWindow = newSettingWindow()
 	AppInstance.BookmarkWindow = newBookmarkWindow()
 }
