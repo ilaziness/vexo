@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	Version       = "0.0.1"
-	versionNumber = 1
+	Version       = "v1.0.0"
+	versionNumber = 100
 	Mode          = "debug"
 	ModeDebug     = "debug"
 	ModeRelease   = "release"

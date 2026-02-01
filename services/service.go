@@ -1,6 +1,9 @@
 package services
 
-import "github.com/wailsapp/wails/v3/pkg/application"
+import (
+	"github.com/ilaziness/vexo/internal/updater"
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
 
 var app *application.App
 
@@ -11,6 +14,9 @@ type AppInfo struct {
 }
 
 type NewVersion struct {
+	Version string
+	Notes   string
+	URL     string
 }
 
 func RegisterServices(a *application.App, mainWindow *application.WebviewWindow) {
@@ -77,5 +83,16 @@ func (cs *AppService) GetAppInfo() AppInfo {
 }
 
 func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion) {
+	ok, rel, err := updater.CheckUpdate("ilaziness/vexo", Version)
+	if err != nil {
+		return false, NewVersion{}
+	}
+	if ok {
+		return true, NewVersion{
+			Version: rel.Tag,
+			Notes:   rel.Body,
+			URL:     rel.HTMLURL,
+		}
+	}
 	return false, NewVersion{}
 }

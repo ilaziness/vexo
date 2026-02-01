@@ -16,14 +16,17 @@ import { SetTheme } from "../../bindings/github.com/ilaziness/vexo/services/conf
 import { LogService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 // 主题选项配置
-const THEME_OPTIONS: { value: AppTheme; label: string; mode: "light" | "dark" }[] = [
-  { value: "light", label: "明亮", mode: "light" },
-  { value: "dark", label: "经典暗色", mode: "dark" },
-  { value: "blueDark", label: "蓝色暗色", mode: "dark" },
-  { value: "atom", label: "代码风格", mode: "dark" },
-  { value: "deep", label: "深色主题", mode: "dark" },
-  { value: "eyeCare", label: "护眼模式", mode: "light" },
-  { value: "terminal", label: "终端风格", mode: "dark" },
+const THEME_OPTIONS: {
+  value: AppTheme;
+  label: string;
+  mode: "light" | "dark";
+}[] = [
+  { value: "light", label: "亮白", mode: "light" },
+  { value: "dark", label: "暗色", mode: "dark" },
+  { value: "blueDark", label: "蓝夜", mode: "dark" },
+  { value: "atom", label: "极黑", mode: "dark" },
+  { value: "deep", label: "深邃", mode: "dark" },
+  { value: "eyeCare", label: "暖棕", mode: "light" },
 ];
 
 export default function ThemeSwitcher() {
@@ -112,9 +115,7 @@ export default function ThemeSwitcher() {
                 value={option.value}
                 control={
                   <Radio
-                    checked={
-                      mode !== "system" && colorScheme === option.value
-                    }
+                    checked={mode !== "system" && colorScheme === option.value}
                     size="small"
                   />
                 }

@@ -27,6 +27,7 @@ export interface MessageStore {
   setClose: () => void;
   errorMessage: (message: string) => void;
   successMessage: (message: string) => void;
+  infoMessage: (message: string) => void;
 }
 
 // 终端主题配置映射
@@ -37,7 +38,6 @@ export type TerminalThemes = {
   atom: ITheme;
   deep: ITheme;
   eyeCare: ITheme;
-  terminal: ITheme;
 };
 
 // 应用主题类型定义
@@ -47,7 +47,6 @@ export type AppTheme =
   | "blueDark"
   | "atom"
   | "deep"
-  | "eyeCare"
-  | "terminal";
+  | "eyeCare";
 
 export type TerminalThemeMode = AppTheme;

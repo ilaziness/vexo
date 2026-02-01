@@ -13,12 +13,12 @@ import { TerminalThemes } from "../types/ssh";
  * - 专业性：采用适合终端应用的配色方案
  *
  * 主题映射关系：
- * - light: 对应总体亮色主题，深色文本，浅色背景
- * - dark: 对应总体默认暗色主题，经典的终端配色
- * - blueDark: 对应总体蓝色深色主题，护眼蓝色系
- * - atom: 对应总体极客黑主题，Atom编辑器风格配色
- * - deep: 对应总体深邃夜主题，纯黑背景高对比度
- * - eyeCare: 对应总体护眼模式，暖色系护眼配色
+ * - light (亮白): 对应总体亮色主题，深色文本，浅色背景
+ * - dark (暗色): 对应总体默认暗色主题，经典的终端配色
+ * - blueDark (蓝夜): 对应总体蓝色深色主题，护眼蓝色系
+ * - atom (极黑): 对应总体极客黑主题，Atom编辑器风格配色
+ * - deep (深邃): 对应总体深邃夜主题，纯黑背景高对比度
+ * - eyeCare (暖棕): 对应总体护眼模式，暖色系护眼配色
  * - terminal: 对应总体终端CLI模式，经典绿色终端配色
  *
  * ANSI颜色说明：
@@ -31,7 +31,7 @@ import { TerminalThemes } from "../types/ssh";
  * - selection: 选中文本的背景色
  */
 const terminalThemes: TerminalThemes = {
-  // 亮色模式 - 使用深色文本，浅色背景，适合白天使用
+  // 亮白 - 使用深色文本，浅色背景，适合白天使用
   light: {
     background: "#ffffff",
     foreground: "#000000",
@@ -56,7 +56,7 @@ const terminalThemes: TerminalThemes = {
     brightCyan: "#00ffff",
     brightWhite: "#ffffff",
   },
-  // 默认暗色模式 - 经典的终端配色方案
+  // 暗色 - 经典的终端配色方案
   dark: {
     background: "#1e1e1e",
     foreground: "#cccccc",
@@ -81,7 +81,7 @@ const terminalThemes: TerminalThemes = {
     brightCyan: "#29b8db",
     brightWhite: "#ffffff",
   },
-  // 蓝色深色模式 - 护眼蓝色系，适合长时间工作
+  // 蓝夜 - 护眼蓝色系，适合长时间工作
   blueDark: {
     background: "#0a0e27",
     foreground: "#e3f2fd",
@@ -106,7 +106,7 @@ const terminalThemes: TerminalThemes = {
     brightCyan: "#4dd0e1",
     brightWhite: "#ffffff",
   },
-  // 极客黑模式 - Atom编辑器风格配色，程序员偏好
+  // 极黑 - Atom编辑器风格配色，程序员偏好
   atom: {
     background: "#282c34",
     foreground: "#abb2bf",
@@ -131,7 +131,7 @@ const terminalThemes: TerminalThemes = {
     brightCyan: "#56b6c2",
     brightWhite: "#ffffff",
   },
-  // 深邃夜模式 - 纯黑背景，高对比度护眼设计
+  // 深邃 - 纯黑背景，高对比度护眼设计
   deep: {
     background: "#000000",
     foreground: "rgba(255, 255, 255, 0.85)",
@@ -156,7 +156,7 @@ const terminalThemes: TerminalThemes = {
     brightCyan: "#36cfc9",
     brightWhite: "#ffffff",
   },
-  // 护眼模式 - 暖色系配色，专门为护眼设计
+  // 暖棕 - 暖色系配色，专门为护眼设计
   eyeCare: {
     background: "#fdf6e3",
     foreground: "#423629",
@@ -180,31 +180,6 @@ const terminalThemes: TerminalThemes = {
     brightMagenta: "#a0522d",
     brightCyan: "#daa520",
     brightWhite: "#000000",
-  },
-  // 终端CLI模式 - 经典绿色终端配色，模仿phosphor monitor
-  terminal: {
-    background: "#0a0a0a",
-    foreground: "#33ff00",
-    cursor: "#33ff00",
-    cursorAccent: "#0a0a0a",
-    selectionBackground: "rgba(51, 255, 0, 0.3)",
-    selectionForeground: "#000000",
-    black: "#000000",
-    red: "#ff3333",
-    green: "#33ff00",
-    yellow: "#ffb000",
-    blue: "#1f521f",
-    magenta: "#ff33ff",
-    cyan: "#33ffff",
-    white: "#1f521f",
-    brightBlack: "#0f290f",
-    brightRed: "#ff6666",
-    brightGreen: "#66ff33",
-    brightYellow: "#ffcc33",
-    brightBlue: "#33ff33",
-    brightMagenta: "#ff66ff",
-    brightCyan: "#66ffff",
-    brightWhite: "#33ff00",
   },
 };
 

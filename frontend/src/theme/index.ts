@@ -4,7 +4,6 @@ import blueDark from "./blueDark";
 import atom from "./atom";
 import deep from "./deep";
 import eyeCare from "./eyeCare";
-import terminal from "./terminal";
 
 declare module "@mui/material/styles" {
   interface ColorSchemeOverrides {
@@ -12,7 +11,6 @@ declare module "@mui/material/styles" {
     atom: true;
     deep: true;
     eyeCare: true;
-    terminal: true;
   }
 }
 
@@ -23,20 +21,18 @@ declare module "@mui/material/styles" {
 const theme = createTheme({
   // 配置颜色方案
   colorSchemes: {
-    // 亮色模式主题（自定义偏灰色调）
+    // 亮白主题（自定义偏灰色调）
     light,
-    // 默认暗色主题（MUI内置）
+    // 暗色（MUI内置）
     dark: true,
-    // 蓝色深色主题
+    // 蓝夜主题
     blueDark: createColorScheme(blueDark),
-    // 极客黑
+    // 极黑
     atom: createColorScheme(atom),
-    // 深邃夜
+    // 深邃
     deep: createColorScheme(deep),
-    // 护眼模式
+    // 暖棕
     eyeCare: createColorScheme(eyeCare),
-    // 终端CLI模式
-    terminal: createColorScheme(terminal),
   },
 
   // 字体排版

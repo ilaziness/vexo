@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Browser } from "@wailsio/runtime";
 import {
   ReadConfig,
   SaveConfig,
@@ -22,11 +21,12 @@ import {
   Stack,
   IconButton,
 } from "@mui/material";
-import { MoreHoriz, GitHub as GitHubIcon } from "@mui/icons-material";
+import { MoreHoriz } from "@mui/icons-material";
 import {
   SelectDirectory,
   GetAppInfo,
 } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
+import About from "../components/About";
 import { AppInfo } from "../../bindings/github.com/ilaziness/vexo/services";
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
@@ -41,12 +41,13 @@ const Setting: React.FC = () => {
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const { errorMessage } = useMessageStore();
-  const appInfo: AppInfo = {} as AppInfo;
+  const [appinfo, setAppInfo] = useState<AppInfo>({} as AppInfo);
 
   useEffect(() => {
     loadConfig();
     GetAppInfo().then((info) => {
-      Object.assign(appInfo, info);
+      console.log("App Info:", info);
+      setAppInfo(info);
     });
   }, []);
 
@@ -381,67 +382,9 @@ const Setting: React.FC = () => {
               )}
 
               {activeTab === "about" && (
-                <Box>
-                  <Typography
-                    variant="h5"
-                    gutterBottom
-                    sx={{ mb: 3, fontWeight: 600 }}
-                  >
-                    关于
-                  </Typography>
-                  <Paper sx={{ p: 3 }} elevation={1}>
-                    <Stack
-                      spacing={2}
-                      sx={{
-                        textAlign: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <img
-                        src="/appicon.png"
-                        alt="Logo"
-                        style={{ width: "64px", height: "64px" }}
-                      />
-                      <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                        Vexo
-                      </Typography>
-
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <GitHubIcon
-                          sx={{
-                            "&:hover": {
-                              cursor: "pointer",
-                            },
-                          }}
-                          onClick={() => {
-                            Browser.OpenURL(appInfo.HomeURL);
-                          }}
-                        />
-                        <Typography
-                          component="span"
-                          variant="body1"
-                          sx={{ fontWeight: 500, ml: 1 }}
-                        >
-                          {appInfo.Version || "版本信息获取中..."}
-                        </Typography>
-                      </Box>
-
-                      <Typography
-                        color="text.secondary"
-                        variant="body2"
-                        sx={{ fontWeight: 500, ml: 1 }}
-                      >
-                        SSH桌面客户端，支持Window、Linux和MacOS
-                      </Typography>
-                    </Stack>
-                  </Paper>
-                </Box>
+                <Paper sx={{ p: 3 }} elevation={1}>
+                  <About appinfo={appinfo} />
+                </Paper>
               )}
             </Box>
           </Box>

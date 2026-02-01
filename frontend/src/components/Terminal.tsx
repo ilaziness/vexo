@@ -186,7 +186,7 @@ export default function Terminal(props: { linkID: string }) {
       // 再次 fit 以确保在连接建立期间如果有布局变化能及时更新，并触发 onResize 同步给后端
       // 此时 onResize 已注册，如果尺寸有变化会自动通知后端
       await sleep(200);
-      termFit.current?.fit();
+      //termFit.current?.fit();
     }
   };
 
@@ -257,9 +257,6 @@ export default function Terminal(props: { linkID: string }) {
         height: "100%",
         minWidth: "100%",
         minHeight: "100%",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
       }}
     >
       <Box

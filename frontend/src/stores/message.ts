@@ -15,4 +15,8 @@ export const useMessageStore = create<MessageStore>((set) => ({
     set((state) => ({
       message: { open: true, text: message, type: "success" },
     })),
+  infoMessage: (message: string) =>
+    set((state) => ({
+      message: { open: true, text: message, type: "info" },
+    })),
 }));

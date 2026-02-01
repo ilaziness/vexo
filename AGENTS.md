@@ -108,6 +108,8 @@ npm run build:dev
 
 项目根目录执行下面命令编译调试：
 
+生成前端绑定：`wails3 generate bindings -ts`
+
 ```bash
 go build -o {name} .
 ```
