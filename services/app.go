@@ -31,7 +31,7 @@ func NewApp(a *application.App, mainWindow *application.WebviewWindow) {
 func newSettingWindow() *application.WebviewWindow {
 	window := AppInstance.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:                      "设置",
-		URL:                        "/setting",
+		URL:                        "/#/setting",
 		Width:                      1200,
 		Height:                     800,
 		MinWidth:                   1200,
@@ -50,7 +50,7 @@ func newSettingWindow() *application.WebviewWindow {
 func newBookmarkWindow() *application.WebviewWindow {
 	window := AppInstance.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:                      "书签管理",
-		URL:                        "/bookmark",
+		URL:                        "/#/bookmark",
 		Width:                      1200,
 		Height:                     800,
 		MinWidth:                   1200,

@@ -1,9 +1,9 @@
-import { createBrowserRouter } from "react-router";
+import { createHashRouter } from "react-router";
 import App from "./pages/App.tsx";
 import Setting from "./pages/Setting";
 import Bookmark from "./pages/Bookmark";
 
-export default createBrowserRouter([
+export default createHashRouter([
   {
     path: "/",
     Component: App,
