@@ -413,7 +413,6 @@ func (sc *SSHConnect) startInput() error {
 		if inData.ID != sc.ID {
 			return
 		}
-		Logger.Debug("Received sshInput event", zap.Any("data", event.Data))
 		_, err = stdin.Write(inData.Data)
 		if err != nil {
 			Logger.Warn("Error writing to stdin:", zap.Error(err))

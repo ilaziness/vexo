@@ -184,6 +184,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       <Box
         sx={{
           height: `calc(100% - ${tabHeight} - ${statusBarHeight})`,
+          width: "100%",
           position: "relative",
         }}
       >
