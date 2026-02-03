@@ -214,6 +214,12 @@ export default function Terminal(props: { linkID: string }) {
       term.current?.write(decodeBase64(dataObj.data));
     };
     const unsubscribe = Events.On("sshOutput", sshOutputHandler.current);
+    const unsbuscribeClose = Events.On("sshClose", (event: any) => {
+      const dataObj = event.data;
+      if (dataObj.id !== props.linkID) return;
+      LogService.Debug(`SSH connection closed for link ID: ${props.linkID}`);
+      term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
+    });
 
     initTerminal(mountedRef).then(() => {
       if (!mountedRef.current) return;
@@ -234,8 +240,9 @@ export default function Terminal(props: { linkID: string }) {
 
     return () => {
       mountedRef.current = false;
-      LogService.Info(`Terminal component unmounting ${props.linkID}`);
+      LogService.Debug(`Terminal component unmounting ${props.linkID}`);
       unsubscribe();
+      unsbuscribeClose();
       terminalInstances.remove(props.linkID);
       try {
         term.current?.dispose();

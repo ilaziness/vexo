@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ilaziness/vexo/internal/system"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -41,6 +42,7 @@ type SSHConnect struct {
 	sshService      *SSHService
 	session         *ssh.Session
 	sftpService     *SftpService
+	isClosed        bool
 	outputChan      chan []byte
 	outputBuffSize  int
 	inputUnregister func()         // 用于取消输入事件监听器的函数
@@ -347,50 +349,52 @@ func (sc *SSHConnect) startOutput() error {
 	sc.sendOutput()
 
 	// 启动 stdout 读取 goroutine
-	sc.outputWg.Add(1)
-	go func() {
-		defer sc.outputWg.Done()
-		buf := make([]byte, sc.outputBuffSize)
-		for {
-			n, err := stdout.Read(buf)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					Logger.Debug("stdout EOF reached", zap.String("id", sc.ID))
+	sc.outputWg.Go(
+		func() {
+			defer system.RecoverFromPanic()
+			buf := make([]byte, sc.outputBuffSize)
+			for {
+				n, err := stdout.Read(buf)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						Logger.Debug("stdout EOF reached", zap.String("id", sc.ID))
+						return
+					}
+					Logger.Error("Error reading from stdout:", zap.Error(err), zap.String("id", sc.ID))
 					return
 				}
-				Logger.Error("Error reading from stdout:", zap.Error(err), zap.String("id", sc.ID))
-				return
+				if n > 0 {
+					data := make([]byte, n)
+					copy(data, buf[:n])
+					sc.outputChan <- data
+				}
 			}
-			if n > 0 {
-				data := make([]byte, n)
-				copy(data, buf[:n])
-				sc.outputChan <- data
-			}
-		}
-	}()
+		},
+	)
 
 	// 启动 stderr 读取 goroutine
-	sc.outputWg.Add(1)
-	go func() {
-		defer sc.outputWg.Done()
-		buf := make([]byte, sc.outputBuffSize)
-		for {
-			n, err := stderr.Read(buf)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					Logger.Debug("stderr EOF reached", zap.String("id", sc.ID))
+	sc.outputWg.Go(
+		func() {
+			defer system.RecoverFromPanic()
+			buf := make([]byte, sc.outputBuffSize)
+			for {
+				n, err := stderr.Read(buf)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						Logger.Debug("stderr EOF reached", zap.String("id", sc.ID))
+						return
+					}
+					Logger.Error("Error reading from stderr:", zap.Error(err), zap.String("id", sc.ID))
 					return
 				}
-				Logger.Error("Error reading from stderr:", zap.Error(err), zap.String("id", sc.ID))
-				return
+				if n > 0 {
+					data := make([]byte, n)
+					copy(data, buf[:n])
+					sc.outputChan <- data
+				}
 			}
-			if n > 0 {
-				data := make([]byte, n)
-				copy(data, buf[:n])
-				sc.outputChan <- data
-			}
-		}
-	}()
+		},
+	)
 	return nil
 }
 
@@ -426,6 +430,9 @@ func (sc *SSHConnect) startInput() error {
 // Close terminates the SSH connection and session.
 func (sc *SSHConnect) Close() error {
 	Logger.Debug("Closing SSH connection", zap.String("ID", sc.ID))
+	if sc.isClosed {
+		return nil
+	}
 
 	// 取消输入事件监听器，防止重复注册导致的输入重复问题
 	if sc.inputUnregister != nil {
@@ -457,7 +464,8 @@ func (sc *SSHConnect) Close() error {
 	}()
 
 	sc.sendCloseEvent()
-	sc.sshService.SSHConnects.Delete(sc.ID)
+	sc.sshService.CloseByID(sc.ID)
+	sc.isClosed = true
 	Logger.Info("SSH connection closed", zap.String("ID", sc.ID))
 	return nil
 }
