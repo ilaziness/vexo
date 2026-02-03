@@ -88,8 +88,8 @@ export default function Terminal(props: { linkID: string }) {
     [props.linkID],
   );
 
-  const loadAddonBeforeOpen = () => {
-    LogService.Debug("loadAddonBeforeOpen");
+  const loadAddon = () => {
+    LogService.Debug("loadAddon");
     termFit.current = new FitAddon();
     term.current?.loadAddon(termFit.current);
     term.current?.loadAddon(
@@ -100,10 +100,6 @@ export default function Terminal(props: { linkID: string }) {
     );
     termSerach.current = new SearchAddon();
     term.current?.loadAddon(termSerach.current);
-  };
-
-  const loadAddonAfterOpen = () => {
-    LogService.Debug("loadAddonAfterOpen");
     term.current?.loadAddon(new Unicode11Addon());
     term.current && (term.current.unicode.activeVersion = "11");
     term.current?.loadAddon(new ImageAddon());
@@ -150,11 +146,11 @@ export default function Terminal(props: { linkID: string }) {
       theme: terminalTheme,
     });
     if (termRef.current) {
-      loadAddonBeforeOpen();
+      loadAddon();
       term.current.open(termRef.current);
       terminalInstances.set(props.linkID, term.current);
-      loadAddonAfterOpen();
-      if (!mountedRef.current) return;
+      await sleep(50); // 等待 xterm.js 完全初始化
+      termFit.current?.fit();
 
       try {
         // 启动 SSH 连接
@@ -259,8 +255,6 @@ export default function Terminal(props: { linkID: string }) {
       sx={{
         width: "100%",
         height: "100%",
-        minWidth: "100%",
-        minHeight: "100%",
       }}
     >
       <Box
@@ -270,8 +264,6 @@ export default function Terminal(props: { linkID: string }) {
         sx={{
           width: "100%",
           height: "100%",
-          minWidth: "100%",
-          minHeight: "100%",
         }}
       />
       <TerminalContextMenu
