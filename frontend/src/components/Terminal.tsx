@@ -155,11 +155,12 @@ export default function Terminal(props: { linkID: string }) {
       terminalInstances.set(props.linkID, term.current);
       loadAddonAfterOpen();
       if (!mountedRef.current) return;
-      termFit.current?.fit();
 
       try {
         // 启动 SSH 连接
-        LogService.Debug("start ssh session");
+        LogService.Debug(
+          `start ssh session ${term.current?.cols}x${term.current?.rows}`,
+        );
         await SSHService.Start(
           props.linkID,
           term.current?.cols || 80,
@@ -182,11 +183,7 @@ export default function Terminal(props: { linkID: string }) {
       term.current?.onData(handleInputData);
       // Handle terminal resize
       term.current?.onResize(onResize);
-
-      // 再次 fit 以确保在连接建立期间如果有布局变化能及时更新，并触发 onResize 同步给后端
-      // 此时 onResize 已注册，如果尺寸有变化会自动通知后端
-      await sleep(200);
-      //termFit.current?.fit();
+      termFit.current?.fit();
     }
   };
 
@@ -232,7 +229,7 @@ export default function Terminal(props: { linkID: string }) {
       }
       resizeTimeout.current = window.setTimeout(() => {
         termFit.current?.fit();
-      }, 200);
+      }, 100);
     });
     if (termRef.current) {
       observer.observe(termRef.current);
