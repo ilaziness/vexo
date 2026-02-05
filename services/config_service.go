@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	Version       = "v1.0.0"
-	versionNumber = 100
-	Mode          = "debug"
-	ModeDebug     = "debug"
-	ModeRelease   = "release"
+	Version     = "v1.0.0"
+	Mode        = "debug"
+	ModeDebug   = "debug"
+	ModeRelease = "release"
+	ConfigFile  = "config.toml"
 
 	defaultFontFamily = []string{
 		"'Noto Sans Mono'",
@@ -115,7 +115,7 @@ func NewConfigService() *ConfigService {
 	execDir := system.GetExecutableDir()
 
 	// 应用配置文件路径：可执行目录/config.toml
-	appConfigPath := filepath.Join(execDir, "config.toml")
+	appConfigPath := filepath.Join(execDir, ConfigFile)
 
 	// 1. 获取默认配置
 	defaultConfig := GetDefaultConfig()
@@ -143,7 +143,7 @@ func NewConfigService() *ConfigService {
 	}
 
 	// 3. 读取用户配置（如果存在）
-	userConfigPath := filepath.Join(userDataDir, "config.toml")
+	userConfigPath := filepath.Join(userDataDir, ConfigFile)
 	finalConfig := defaultConfig
 	finalConfig.General.UserDataDir = userDataDir
 
@@ -210,7 +210,7 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 		}
 
 		// 更新用户配置文件路径
-		cs.userConfig = filepath.Join(config.General.UserDataDir, "config.toml")
+		cs.userConfig = filepath.Join(config.General.UserDataDir, ConfigFile)
 	}
 
 	// 2. 保存完整配置到用户配置文件
