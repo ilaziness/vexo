@@ -77,6 +77,13 @@ export default function ThemeSwitcher() {
     handleColorModeMenuClose();
   };
 
+  const getCurrentThemeValue = () => {
+    if (mode === "dark" && !colorScheme) {
+      return "dark";
+    }
+    return mode === "dark" ? darkColorScheme : lightColorScheme;
+  };
+
   return (
     <>
       <Tooltip title="颜色模式">
@@ -100,13 +107,7 @@ export default function ThemeSwitcher() {
         }}
       >
         <RadioGroup
-          value={
-            mode === "dark" && !colorScheme
-              ? "dark"
-              : mode === "dark"
-                ? darkColorScheme
-                : lightColorScheme
-          }
+          value={getCurrentThemeValue()}
           onChange={(e) => handleColorModeSelect(e.target.value as AppTheme)}
         >
           {THEME_OPTIONS.map((option) => (
