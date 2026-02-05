@@ -25,7 +25,7 @@ import TerminalContextMenu from "./TerminalContextMenu";
 import { terminalInstances } from "../stores/terminalInstances";
 
 const isWebgl2Supported = (() => {
-  let isSupported = window.WebGL2RenderingContext ? undefined : false;
+  let isSupported = globalThis.WebGL2RenderingContext ? undefined : false;
   return () => {
     if (isSupported === undefined) {
       const canvas = document.createElement("canvas");
@@ -33,20 +33,20 @@ const isWebgl2Supported = (() => {
         depth: false,
         antialias: false,
       });
-      isSupported = gl instanceof window.WebGL2RenderingContext;
+      isSupported = gl instanceof globalThis.WebGL2RenderingContext;
     }
     return isSupported;
   };
 })();
 
 // Terminal 组件，封装 xterm.js
-export default function Terminal(props: { linkID: string }) {
+export default function Terminal(props: { readonly linkID: string }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const termRef = React.useRef<HTMLDivElement>(null);
   const term = React.useRef<TerminalLib>(null);
   const termFit = React.useRef<FitAddon>(null);
   const termSerach = React.useRef<SearchAddon>(null);
-  const resizeTimeout = React.useRef<number | null>(null);
+  const resizeTimeout = React.useRef<number | NodeJS.Timeout | null>(null);
   const sshOutputHandler = React.useRef<(event: any) => void>(null);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -223,7 +223,7 @@ export default function Terminal(props: { linkID: string }) {
       if (resizeTimeout.current) {
         clearTimeout(resizeTimeout.current);
       }
-      resizeTimeout.current = window.setTimeout(() => {
+      resizeTimeout.current = globalThis.setTimeout(() => {
         termFit.current?.fit();
       }, 100);
     });
