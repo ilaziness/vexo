@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// LogLevel 可由外部修改以调整运行时日志级别
-var LogLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
+// defaultLogLevel 全局默认日志级别
+var defaultLogLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
 
 // Logger 包级别 logger 供全局使用
 var Logger *zap.Logger
@@ -62,14 +62,18 @@ func InitLogger(logPath string, level zap.AtomicLevel) error {
 
 	// 替换全局 logger 与 LogLevel
 	Logger = zlogger
-	LogLevel = level
+	defaultLogLevel = level
 	return nil
 }
 
 func NewLogService() *LogService {
+	logLevel := defaultLogLevel
+	if Mode == ModeRelease {
+		logLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
+	}
 	if Logger == nil {
 		// 若未显式初始化，则使用默认路径和默认级别进行初始化（忽略错误）
-		_ = InitLogger("logs/vexo.log", LogLevel)
+		_ = InitLogger("logs/vexo.log", logLevel)
 	}
 	return &LogService{
 		logger: Logger,
