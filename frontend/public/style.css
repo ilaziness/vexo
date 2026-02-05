@@ -1,42 +1,52 @@
-@font-face {
-    font-family: "Noto Sans Mono";
-    src: url("./fonts/NotoSansMono-Regular.ttf") format("truetype");
-    font-weight: normal;
-    font-style: normal;
-}
-
-body {
-    margin: 0;
-    padding: 0;
-    width: 100vw;
-    height: 100vh;
-    --wails-resize: all;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-}
-
-#root {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-}
-
 /* 全局滚动条样式 */
+:root {
+  --scrollbar-width: 10px;
+  --scrollbar-track-bg: #1a1a1a;
+  --scrollbar-thumb-bg: #555;
+  --scrollbar-thumb-hover-bg: #888;
+}
+
 ::-webkit-scrollbar {
-    width: 8px;
+  width: var(--scrollbar-width);
 }
 
 ::-webkit-scrollbar-track {
-    background: #1a1a1a;
-    border-radius: 10px;
+  background: var(--scrollbar-track-bg);
+  border-radius: var(--scrollbar-width);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 10px;
+  background: var(--scrollbar-thumb-bg);
+  border-radius: var(--scrollbar-width);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #888;
+  background: var(--scrollbar-thumb-hover-bg);
+}
+
+@font-face {
+  font-family: "Noto Sans Mono";
+  src: url("./fonts/NotoSansMono-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  --wails-resize: all;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue",
+    "Arial", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol";
+}
+
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }

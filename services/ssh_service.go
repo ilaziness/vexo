@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	SSHEventInput  = "sshInput"
-	SSHEventOutput = "sshOutput"
-	SSHEventClose  = "sshClose"
-	SFTPEventClose = "sftpClose"
+	SSHEventInput            = "sshInput"
+	SSHEventOutput           = "sshOutput"
+	SSHEventClose            = "sshClose"
+	SFTPEventClose           = "sftpClose"
+	ErrSSHConnectionNotFound = "SSH connection with ID %s not found"
 )
 
 func init() {
@@ -32,6 +33,7 @@ func init() {
 // SSHEventData exchange data struct
 type SSHEventData struct {
 	ID   string `json:"id"`
+	SN   int    `json:"sn,omitempty"`
 	Data []byte `json:"data"`
 }
 
@@ -178,7 +180,7 @@ func (s *SSHService) StartSftp(ID string) error {
 	Logger.Debug("Starting SFTP service", zap.String("id", ID))
 	connAny, ok := s.SSHConnects.Load(ID)
 	if !ok {
-		return fmt.Errorf("SSH connection with ID %s not found", ID)
+		return fmt.Errorf(ErrSSHConnectionNotFound, ID)
 	}
 	conn := connAny.(*SSHConnect)
 	// If SFTP service already exists, return without error
@@ -201,7 +203,7 @@ func (s *SSHService) StartSftp(ID string) error {
 func (s *SSHService) Resize(ID string, cols int, rows int) error {
 	conn, ok := s.SSHConnects.Load(ID)
 	if !ok {
-		return fmt.Errorf("SSH connection with ID %s not found", ID)
+		return fmt.Errorf(ErrSSHConnectionNotFound, ID)
 	}
 	return conn.(*SSHConnect).Resize(cols, rows)
 }
@@ -223,7 +225,7 @@ func (s *SSHService) CloseByID(ID string) error {
 	Logger.Debug("CloseByID", zap.String("ID", ID))
 	connAny, ok := s.SSHConnects.Load(ID)
 	if !ok {
-		return fmt.Errorf("SSH connection with ID %s not found", ID)
+		return fmt.Errorf(ErrSSHConnectionNotFound, ID)
 	}
 	conn := connAny.(*SSHConnect)
 	clientKey := conn.clientKey
@@ -326,12 +328,16 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 
 func (sc *SSHConnect) sendOutput() {
 	go func() {
+		defer system.RecoverFromPanic()
+		startSN := 1
 		for data := range sc.outputChan {
 			//Logger.Debug("SSH session output:", zap.ByteString("msg", data), zap.String("id", sc.ID))
 			app.Event.Emit(SSHEventOutput, SSHEventData{
 				ID:   sc.ID,
+				SN:   startSN,
 				Data: data,
 			})
+			startSN++
 		}
 	}()
 }
@@ -349,53 +355,35 @@ func (sc *SSHConnect) startOutput() error {
 	sc.sendOutput()
 
 	// 启动 stdout 读取 goroutine
-	sc.outputWg.Go(
-		func() {
-			defer system.RecoverFromPanic()
-			buf := make([]byte, sc.outputBuffSize)
-			for {
-				n, err := stdout.Read(buf)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						Logger.Debug("stdout EOF reached", zap.String("id", sc.ID))
-						return
-					}
-					Logger.Error("Error reading from stdout:", zap.Error(err), zap.String("id", sc.ID))
-					return
-				}
-				if n > 0 {
-					data := make([]byte, n)
-					copy(data, buf[:n])
-					sc.outputChan <- data
-				}
-			}
-		},
-	)
+	sc.outputWg.Go(sc.readFromPipe(stdout, "stdout"))
 
 	// 启动 stderr 读取 goroutine
-	sc.outputWg.Go(
-		func() {
-			defer system.RecoverFromPanic()
-			buf := make([]byte, sc.outputBuffSize)
-			for {
-				n, err := stderr.Read(buf)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						Logger.Debug("stderr EOF reached", zap.String("id", sc.ID))
-						return
-					}
-					Logger.Error("Error reading from stderr:", zap.Error(err), zap.String("id", sc.ID))
+	sc.outputWg.Go(sc.readFromPipe(stderr, "stderr"))
+	return nil
+}
+
+// readFromPipe 从管道读取数据的通用方法
+func (sc *SSHConnect) readFromPipe(pipe io.Reader, pipeName string) func() {
+	return func() {
+		defer system.RecoverFromPanic()
+		buf := make([]byte, sc.outputBuffSize)
+		for {
+			n, err := pipe.Read(buf)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					Logger.Debug(fmt.Sprintf("%s EOF reached", pipeName), zap.String("id", sc.ID))
 					return
 				}
-				if n > 0 {
-					data := make([]byte, n)
-					copy(data, buf[:n])
-					sc.outputChan <- data
-				}
+				Logger.Error(fmt.Sprintf("Error reading from %s:", pipeName), zap.Error(err), zap.String("id", sc.ID))
+				return
 			}
-		},
-	)
-	return nil
+			if n > 0 {
+				data := make([]byte, n)
+				copy(data, buf[:n])
+				sc.outputChan <- data
+			}
+		}
+	}
 }
 
 // closeOutputChan 安全地关闭输出 channel（只关闭一次）
@@ -463,8 +451,8 @@ func (sc *SSHConnect) Close() error {
 	}()
 
 	sc.sendCloseEvent()
-	sc.sshService.CloseByID(sc.ID)
 	sc.isClosed = true
+	sc.sshService.CloseByID(sc.ID)
 	Logger.Info("SSH connection closed", zap.String("ID", sc.ID))
 	return nil
 }
