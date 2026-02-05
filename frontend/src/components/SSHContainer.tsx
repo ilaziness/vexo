@@ -163,9 +163,9 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
           },
         }}
       >
-        {tabItems.map((item, index) => (
+        {tabItems.map((item) => (
           <Tab
-            key={index}
+            key={item.label}
             label={item.label}
             sx={{
               "&.MuiTab-root": {
@@ -193,7 +193,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
           (item, index) =>
             (index != sftpIndex || sftpLoaded) && (
               <Box
-                key={index}
+                key={item.label}
                 sx={{
                   width: "100%",
                   height: "100%",
