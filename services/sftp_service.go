@@ -14,6 +14,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const (
+	ErrTrackerRequired = "tracker is required"
+)
+
 var sftpClient = new(sync.Map)
 
 // FileInfo represents file information for SFTP operations
@@ -161,7 +165,7 @@ func (sft *SftpService) uploadFile(sessionID string, localPathFile, remoteDir st
 	defer remoteFile.Close()
 
 	if tracker == nil {
-		return fmt.Errorf("tracker is required")
+		return fmt.Errorf(ErrTrackerRequired)
 	}
 
 	progressWriter := &progressWriter{writer: remoteFile, tracker: tracker}
@@ -222,7 +226,7 @@ func (sft *SftpService) downloadFile(sessionID string, localPathFile, remotePath
 	defer localFile.Close()
 
 	if tracker == nil {
-		return fmt.Errorf("tracker is required")
+		return fmt.Errorf(ErrTrackerRequired)
 	}
 
 	progressWriter := &progressWriter{writer: localFile, tracker: tracker}
@@ -287,39 +291,50 @@ func (sft *SftpService) UploadDirectoryDialog(sessionID, remotePath string) erro
 // uploadDirectory recursively uploads a local directory to the specified remote path
 func (sft *SftpService) uploadDirectory(sessionID string, localPath, remotePath string, tracker *transferTracker) error {
 	Logger.Debug("uploadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
-	var err error
+	
+	// Validate inputs and get clients
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
 	}
-
-	// Stat the local directory
+	
+	if tracker == nil {
+		return fmt.Errorf(ErrTrackerRequired)
+	}
+	
+	// Validate local directory
 	info, err := os.Stat(localPath)
 	if err != nil {
 		return err
 	}
-
 	if !info.IsDir() {
 		return fmt.Errorf("path is not a directory")
 	}
 
+	// Create remote directory
 	remoteDir := joinRemotePath(remotePath, filepath.Base(localPath))
-	// Create the remote directory if it doesn't exist
-	info, err = ftpClient.Stat(remoteDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = ftpClient.MkdirAll(remoteDir)
-			if err != nil {
-				return err
-			}
-		}
+	if err := sft.ensureRemoteDirExists(ftpClient, remoteDir); err != nil {
+		return err
 	}
 
-	if tracker == nil {
-		return fmt.Errorf("tracker is required")
-	}
+	// Process directory contents
+	return sft.processDirectoryEntries(sessionID, localPath, remoteDir, tracker)
+}
 
-	// Read the directory contents
+// ensureRemoteDirExists creates the remote directory if it doesn't exist
+func (sft *SftpService) ensureRemoteDirExists(ftpClient *sftp.Client, remoteDir string) error {
+	_, err := ftpClient.Stat(remoteDir)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if os.IsNotExist(err) {
+		return ftpClient.MkdirAll(remoteDir)
+	}
+	return nil
+}
+
+// processDirectoryEntries processes all entries in a directory
+func (sft *SftpService) processDirectoryEntries(sessionID, localPath, remoteDir string, tracker *transferTracker) error {
 	entries, err := os.ReadDir(localPath)
 	if err != nil {
 		return err
@@ -342,7 +357,6 @@ func (sft *SftpService) uploadDirectory(sessionID string, localPath, remotePath 
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -368,32 +382,48 @@ func (sft *SftpService) DownloadDirectoryDialog(sessionID, remotePath string) er
 // downloadDirectory recursively downloads a remote directory to the specified local path
 func (sft *SftpService) downloadDirectory(sessionID string, localPath, remotePath string, tracker *transferTracker) error {
 	Logger.Debug("downloadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
+	
+	// Validate inputs and get clients
+	ftpClient, err := sft.getSftpClient(sessionID)
+	if err != nil {
+		return err
+	}
+	
+	if tracker == nil {
+		return fmt.Errorf(ErrTrackerRequired)
+	}
+	
+	// Validate remote directory
+	info, err := ftpClient.Stat(remotePath)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path is not a directory")
+	}
+
+	// Create local directory
+	localDir := filepath.Join(localPath, filepath.Base(remotePath))
+	if err := sft.ensureLocalDirExists(localDir); err != nil {
+		return err
+	}
+
+	// Process directory contents
+	return sft.processRemoteDirectoryEntries(sessionID, localDir, remotePath, tracker)
+}
+
+// ensureLocalDirExists creates the local directory if it doesn't exist
+func (sft *SftpService) ensureLocalDirExists(localDir string) error {
+	return os.MkdirAll(localDir, 0755)
+}
+
+// processRemoteDirectoryEntries processes all entries in a remote directory
+func (sft *SftpService) processRemoteDirectoryEntries(sessionID, localDir, remotePath string, tracker *transferTracker) error {
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
 	}
 
-	// Stat the remote directory
-	info, err := ftpClient.Stat(remotePath)
-	if err != nil {
-		return err
-	}
-
-	if !info.IsDir() {
-		return fmt.Errorf("path is not a directory")
-	}
-
-	localDir := filepath.Join(localPath, filepath.Base(remotePath))
-	// Create the local directory if it doesn't exist
-	if err := os.MkdirAll(localDir, 0755); err != nil {
-		return err
-	}
-
-	if tracker == nil {
-		return fmt.Errorf("tracker is required")
-	}
-
-	// Read the directory contents
 	entries, err := ftpClient.ReadDir(remotePath)
 	if err != nil {
 		return err
@@ -417,7 +447,6 @@ func (sft *SftpService) downloadDirectory(sessionID string, localPath, remotePat
 			}
 		}
 	}
-
 	return nil
 }
 
