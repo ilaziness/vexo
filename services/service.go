@@ -59,6 +59,7 @@ func (cs *AppService) MainWindowClose() {
 	cs.mainWindow.Close()
 }
 
+// SelectDirectory 打开目录选择对话框，返回选择的目录路径
 func (cs *AppService) SelectDirectory() (string, error) {
 	return app.Dialog.OpenFile().SetTitle("选择目录").
 		CanChooseDirectories(true).
@@ -67,6 +68,7 @@ func (cs *AppService) SelectDirectory() (string, error) {
 		PromptForSingleSelection()
 }
 
+// SelectFile 打开文件选择对话框，返回选择的文件路径
 func (cs *AppService) SelectFile() (string, error) {
 	return app.Dialog.OpenFile().SetTitle("选择文件").
 		CanChooseDirectories(false).

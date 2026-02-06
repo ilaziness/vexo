@@ -76,10 +76,17 @@ export default function Terminal(props: { readonly linkID: string }) {
     }
   };
 
+  // 处理来自后端的终端输出数据
+  const handleOutputData = (event: any) => {
+    LogService.Debug(`Received sshOutput event: ${JSON.stringify(event)}`);
+    const dataObj = event.data;
+    if (dataObj.id !== props.linkID) return;
+    term.current?.write(decodeBase64(dataObj.data));
+  };
+
   // 使用 useCallback 确保 onData 回调函数的引用保持稳定
   const handleInputData = React.useCallback(
     (data: string) => {
-      LogService.Debug(`Terminal input data: ${data}`);
       Events.Emit("sshInput", {
         id: props.linkID,
         data: encodeBase64(data),
@@ -201,11 +208,7 @@ export default function Terminal(props: { readonly linkID: string }) {
   useEffect(() => {
     const mountedRef = { current: true };
     // 注册事件监听器
-    sshOutputHandler.current = (event: any) => {
-      const dataObj = event.data;
-      if (dataObj.id !== props.linkID) return;
-      term.current?.write(decodeBase64(dataObj.data));
-    };
+    sshOutputHandler.current = handleOutputData;
     const unsubscribe = Events.On("sshOutput", sshOutputHandler.current);
     const unsbuscribeClose = Events.On("sshClose", (event: any) => {
       const dataObj = event.data;

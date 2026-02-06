@@ -6,11 +6,13 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/xiwh/zmodem/zmodem"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )
@@ -50,6 +52,7 @@ type SSHConnect struct {
 	inputUnregister func()         // 用于取消输入事件监听器的函数
 	outputWg        sync.WaitGroup // 等待输出 goroutine 结束
 	outputOnce      sync.Once      // 确保 outputChan 只被关闭一次
+	stdin           io.WriteCloser // SSH stdin pipe
 }
 
 type SSHService struct {
@@ -302,11 +305,11 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 	if err != nil {
 		return err
 	}
-	err = sc.startOutput()
+	err = sc.startInput()
 	if err != nil {
 		return err
 	}
-	err = sc.startInput()
+	err = sc.startOutput()
 	if err != nil {
 		return err
 	}
@@ -342,20 +345,34 @@ func (sc *SSHConnect) sendOutput() {
 	}()
 }
 
-// startOutput 启动读取远程输出的协程
+// startOutput 启动读取远程输出的协程，并集成 ZModem 支持
 func (sc *SSHConnect) startOutput() error {
-	stdout, err := sc.session.StdoutPipe()
-	if err != nil {
-		return err
+	if sc.stdin == nil {
+		return fmt.Errorf("stdin not initialized; call startInput() before startOutput()")
 	}
+	// stdout, err := sc.session.StdoutPipe()
+	// if err != nil {
+	// 	return err
+	// }
 	stderr, err := sc.session.StderrPipe()
 	if err != nil {
 		return err
 	}
 	sc.sendOutput()
 
+	zc := &ZModemConsumer{sshConnect: sc}
+	zm := zmodem.New(zmodem.ZModemConsumer{
+		OnUploadSkip:    zc.OnUploadSkip,
+		OnUpload:        zc.OnUpload,
+		OnCheckDownload: zc.OnCheckDownload,
+		OnDownload:      zc.OnDownload,
+		Writer:          sc.stdin,
+		EchoWriter:      &ZModemEchoWriter{sshConnect: sc},
+	})
+	sc.session.Stdout = zm
+
 	// 启动 stdout 读取 goroutine
-	sc.outputWg.Go(sc.readFromPipe(stdout, "stdout"))
+	//sc.outputWg.Go(sc.readFromPipe(stdout, "stdout"))
 
 	// 启动 stderr 读取 goroutine
 	sc.outputWg.Go(sc.readFromPipe(stderr, "stderr"))
@@ -399,6 +416,8 @@ func (sc *SSHConnect) startInput() error {
 	if err != nil {
 		return err
 	}
+	sc.stdin = stdin
+
 	// 保存取消注册函数，以便在连接关闭时取消监听器
 	sc.inputUnregister = app.Event.On(SSHEventInput, func(event *application.CustomEvent) {
 		inData := event.Data.(SSHEventData)
@@ -470,4 +489,127 @@ func (sc *SSHConnect) Resize(cols int, rows int) error {
 	}
 	// WindowChange takes height, width
 	return sc.session.WindowChange(rows, cols)
+}
+
+// outputZModemMessage 通过 outputChan 发送消息到前端
+func (sc *SSHConnect) outputZModemMessage(message string) {
+	var (
+		Reset  = "\033[0m"
+		Yellow = "\033[33m"
+	)
+	colored := Yellow + "[ZMODEM] " + message + Reset
+	data := []byte(colored + "\r\n")
+	sc.outputChan <- data
+}
+
+// -----------------------------------------------------------------------------
+
+// ZModemConsumer 实现 zmodem.ZModemConsumer 接口
+type ZModemConsumer struct {
+	sshConnect  *SSHConnect
+	downloadDir string
+}
+
+// OnUploadSkip 处理跳过上传文件
+func (c *ZModemConsumer) OnUploadSkip(file *zmodem.ZModemFile) {
+	c.sshConnect.outputZModemMessage(fmt.Sprintf("文件已存在，跳过: %s", file.Filename))
+}
+
+// OnUpload 处理文件上传请求
+func (c *ZModemConsumer) OnUpload() *zmodem.ZModemFile {
+	filePath, err := AppInstance.SelectFile()
+	if err != nil || filePath == "" {
+		c.sshConnect.outputZModemMessage("文件选择已取消")
+		return nil
+	}
+
+	fileName := filepath.Base(filePath)
+	c.sshConnect.outputZModemMessage(fmt.Sprintf("开始上传文件: %s", fileName))
+
+	// 创建 ZModem 文件对象
+	uploadFile, err := zmodem.NewZModemLocalFile(filePath)
+	if err != nil {
+		c.sshConnect.outputZModemMessage(fmt.Sprintf("创建文件对象失败: %v", err))
+		return nil
+	}
+	return uploadFile
+}
+
+// OnCheckDownload 检查下载文件是否已存在
+func (c *ZModemConsumer) OnCheckDownload(file *zmodem.ZModemFile) {
+	downloadDir, err := AppInstance.SelectDirectory()
+	if err != nil {
+		c.sshConnect.outputZModemMessage(fmt.Sprintf("选择下载目录失败: %v", err))
+		file.Skip()
+		return
+	}
+	// 检查文件是否已存在，如果存在则跳过
+	targetPath := filepath.Join(downloadDir, file.Filename)
+	if _, err := os.Stat(targetPath); err == nil {
+		c.sshConnect.outputZModemMessage(fmt.Sprintf("文件已存在，跳过: %s", file.Filename))
+		file.Skip()
+		return
+	}
+	c.downloadDir = downloadDir
+}
+
+// OnDownload 处理文件下载
+func (c *ZModemConsumer) OnDownload(file *zmodem.ZModemFile, reader io.ReadCloser) error {
+	fileName := file.Filename
+	c.sshConnect.outputZModemMessage(fmt.Sprintf("开始下载文件: %s", fileName))
+
+	// 创建下载目录
+	downloadDir := c.downloadDir
+	if err := os.MkdirAll(downloadDir, os.ModePerm); err != nil {
+		c.sshConnect.outputZModemMessage(fmt.Sprintf("创建下载目录失败: %v", err))
+		return err
+	}
+
+	// 打开目标文件
+	targetPath := filepath.Join(downloadDir, fileName)
+	f, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		c.sshConnect.outputZModemMessage(fmt.Sprintf("创建目标文件失败: %v", err))
+		return err
+	}
+	defer f.Close()
+
+	// 复制数据并显示进度
+	copied := int64(0)
+	buffer := make([]byte, 100*1024) // 32KB buffer
+
+	for {
+		n, err := reader.Read(buffer)
+		if n > 0 {
+			_, writeErr := f.Write(buffer[:n])
+			if writeErr != nil {
+				c.sshConnect.outputZModemMessage(fmt.Sprintf("写入文件失败: %v", writeErr))
+				return writeErr
+			}
+
+			copied += int64(n)
+			c.sshConnect.outputZModemMessage(fmt.Sprintf("已接收: %d bytes", copied))
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			c.sshConnect.outputZModemMessage(fmt.Sprintf("读取数据失败: %v", err))
+			return err
+		}
+	}
+
+	c.sshConnect.outputZModemMessage(fmt.Sprintf("文件下载完成: %s (%d bytes)", targetPath, copied))
+	return nil
+}
+
+// ZModemEchoWriter 实现 zmodem.EchoWriter 接口
+type ZModemEchoWriter struct {
+	sshConnect *SSHConnect
+}
+
+func (w *ZModemEchoWriter) Write(p []byte) (n int, err error) {
+	w.sshConnect.outputChan <- p
+	return len(p), nil
 }

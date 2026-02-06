@@ -65,3 +65,20 @@ func newBookmarkWindow() *application.WebviewWindow {
 	})
 	return window
 }
+
+// SelectDirectory 打开目录选择对话框，返回选择的目录路径
+func (cs *App) SelectDirectory() (string, error) {
+	return app.Dialog.OpenFile().SetTitle("选择目录").
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		CanCreateDirectories(true).
+		PromptForSingleSelection()
+}
+
+// SelectFile 打开文件选择对话框，返回选择的文件路径
+func (cs *App) SelectFile() (string, error) {
+	return app.Dialog.OpenFile().SetTitle("选择文件").
+		CanChooseDirectories(false).
+		CanChooseFiles(true).
+		PromptForSingleSelection()
+}
