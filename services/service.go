@@ -8,9 +8,11 @@ import (
 var app *application.App
 
 type AppInfo struct {
-	Version string
-	HomeURL string
-	RunMode string
+	Version   string
+	HomeURL   string
+	RunMode   string
+	GitInfo   string
+	BuildTime string
 }
 
 type NewVersion struct {
@@ -78,9 +80,11 @@ func (cs *AppService) SelectFile() (string, error) {
 
 func (cs *AppService) GetAppInfo() AppInfo {
 	return AppInfo{
-		Version: Version,
-		HomeURL: "https://github.com/ilaziness/vexo",
-		RunMode: Mode,
+		Version:   Version,
+		HomeURL:   "https://github.com/ilaziness/vexo",
+		RunMode:   Mode,
+		GitInfo:   GitInfo,
+		BuildTime: BuildTime,
 	}
 }
 

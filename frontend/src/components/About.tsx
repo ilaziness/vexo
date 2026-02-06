@@ -9,11 +9,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress,
 } from "@mui/material";
 import { GitHub as GitHubIcon } from "@mui/icons-material";
 import { CheckUpdate } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
-import { AppInfo } from "../../bindings/github.com/ilaziness/vexo/services";
+import {
+  AppInfo,
+  NewVersion,
+} from "../../bindings/github.com/ilaziness/vexo/services";
 import { useMessageStore } from "../stores/message";
 
 interface Props {
@@ -23,7 +25,7 @@ interface Props {
 const About: React.FC<Props> = ({ appinfo }) => {
   const { errorMessage, infoMessage } = useMessageStore();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
-  const [newVersion, setNewVersion] = useState<any | null>(null);
+  const [newVersion, setNewVersion] = useState<NewVersion | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
   const handleCheckUpdate = async () => {
@@ -50,7 +52,7 @@ const About: React.FC<Props> = ({ appinfo }) => {
         关于
       </Typography>
       <Box>
-        <Stack spacing={2} sx={{ textAlign: "center", alignItems: "center" }}>
+        <Stack spacing={1} sx={{ textAlign: "center", alignItems: "center" }}>
           <img
             src="/appicon.png"
             alt="Logo"
@@ -84,10 +86,10 @@ const About: React.FC<Props> = ({ appinfo }) => {
               size="small"
               sx={{ ml: 1 }}
               onClick={handleCheckUpdate}
-              disabled={checkingUpdate}
+              loading={checkingUpdate}
               variant="outlined"
             >
-              {checkingUpdate ? <CircularProgress size={16} /> : "检查更新"}
+              检查更新
             </Button>
           </Box>
 
@@ -123,7 +125,23 @@ const About: React.FC<Props> = ({ appinfo }) => {
             variant="body2"
             sx={{ fontWeight: 500, ml: 1 }}
           >
-            SSH桌面客户端，支持Window、Linux和MacOS
+            跨平台SSH/SFTP桌面客户端，支持Windows、Linux和MacOS
+          </Typography>
+
+          <Typography
+            color="text.secondary"
+            variant="body2"
+            sx={{ fontSize: "12px", ml: 1 }}
+          >
+            Build Time: {appinfo.BuildTime}
+          </Typography>
+
+          <Typography
+            color="text.secondary"
+            variant="body2"
+            sx={{ fontSize: "12px", ml: 1 }}
+          >
+            Git: {appinfo.GitInfo}
           </Typography>
         </Stack>
       </Box>

@@ -12,11 +12,14 @@ import (
 )
 
 var (
-	Version     = "v1.0.0"
 	Mode        = "debug"
 	ModeDebug   = "debug"
 	ModeRelease = "release"
 	ConfigFile  = "config.toml"
+
+	Version   = "v1.0.0"
+	GitInfo   = "2026-02-06 14:53:25 4cc46033541fe7927208fedf8edea6bf3efafce7"
+	BuildTime = "2026-02-06 07:02:20 AM"
 
 	defaultFontFamily = []string{
 		"'Noto Sans Mono'",

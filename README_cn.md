@@ -62,6 +62,10 @@
    wails3 build -platform linux/amd64
    ```
 
+   ```bash
+   make build-windows VERSION=v1.0.1
+   ```
+
 #### 预编译版本
 
 即将发布！请关注本仓库的 Release 页面。

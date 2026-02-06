@@ -9,9 +9,13 @@ includes:
   android: ./build/android/Taskfile.yml
 
 vars:
-  APP_NAME: "vexo"
+  APP_NAME: "Vexo"
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  VERSION: "v1.0.0"
+  GIT_INFO: "2026-02-06 14:53:25 4cc46033541fe7927208fedf8edea6bf3efafce7"
+  BUILD_TIME: "2026-02-06 07:02:20 AM"
+  MODE : "release" # or "debug"
 
 tasks:
   build:
