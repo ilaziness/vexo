@@ -21,10 +21,10 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   BookmarkService,
   ConfigService,
+  SSHBookmark,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../stores/ssh";
 import { genTabIndex, parseCallServiceError } from "../func/service";
-import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import React, { useState, useEffect } from "react";
 import { useMessageStore } from "../stores/message";
 import ThemeSwitcher from "./ThemeSwitcher";
