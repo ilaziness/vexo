@@ -56,7 +56,8 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   const [fileList, setFileList] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showHiddenFiles, setShowHiddenFiles] = useState<boolean>(false);
-  const { errorMessage: showMessageError } = useMessageStore();
+  const { errorMessage: showMessageError, infoMessage: showInfoMessage } =
+    useMessageStore();
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -187,7 +188,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         await SftpService.DownloadFileDialog(linkID, remotePath);
       }
 
-      LogService.Info(`Downloaded: ${fileName}`);
+      LogService.Debug(`Downloaded: ${fileName}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to download: ${err.message || err}`);
@@ -201,13 +202,15 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       const remotePath = currentPath;
 
       if (type === "file") {
-        await SftpService.UploadFileDialog(linkID, remotePath);
+        SftpService.UploadFileDialog(linkID, remotePath).then(() => {
+          refreshFileList();
+        });
       } else {
-        await SftpService.UploadDirectoryDialog(linkID, remotePath);
+        SftpService.UploadDirectoryDialog(linkID, remotePath).then(() => {
+          refreshFileList();
+        });
       }
-
-      await refreshFileList();
-      LogService.Info(`Upload ${type} completed`);
+      showInfoMessage("已添加到传输列表");
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to upload ${type}: ${err.message || err}`);
@@ -218,6 +221,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     if (!fileToDelete) return;
 
     try {
+      setDeleteConfirmOpen(false);
       setFullScreenLoading(true);
       const path =
         currentPath === "/"
@@ -225,13 +229,12 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
           : `${currentPath}/${fileToDelete.name}`;
       await SftpService.DeleteFile(linkID, path);
       await refreshFileList();
-      LogService.Info(`Deleted: ${fileToDelete.name}`);
+      LogService.Debug(`Deleted: ${fileToDelete.name}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to delete: ${err.message || err}`);
     } finally {
       setFullScreenLoading(false);
-      setDeleteConfirmOpen(false);
       setFileToDelete(null);
     }
   };
@@ -263,7 +266,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       }
       await SftpService.RenameFile(linkID, oldPath, newPath);
       await refreshFileList();
-      LogService.Info(
+      LogService.Debug(
         `Renamed: ${renamingItem.name} to ${renamingName.trim()}`,
       );
     } catch (err: any) {
@@ -296,7 +299,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
           : `${currentPath}/${newFileName.trim()}`;
       await SftpService.CreateFile(linkID, filePath);
       await refreshFileList();
-      LogService.Info(`Created file: ${newFileName.trim()}`);
+      LogService.Debug(`Created file: ${newFileName.trim()}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to create file: ${err.message || err}`);
@@ -326,7 +329,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
           : `${currentPath}/${newFileName.trim()}`;
       await SftpService.CreateDirectory(linkID, dirPath);
       await refreshFileList();
-      LogService.Info(`Created directory: ${newFileName.trim()}`);
+      LogService.Debug(`Created directory: ${newFileName.trim()}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to create directory: ${err.message || err}`);
@@ -344,8 +347,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       setFullScreenLoading(true);
       await refreshFileList(newPath);
       setCurrentPath(newPath);
-    } catch (err: any) {
-      // 错误已在refreshFileList中处理
     } finally {
       setFullScreenLoading(false);
     }
@@ -384,8 +385,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
             await refreshFileList(path);
             // 只有加载成功才更新路径
             setCurrentPath(path);
-          } catch (err: any) {
-            // 错误已在refreshFileList中处理,这里不需要额外处理
           } finally {
             setFullScreenLoading(false);
           }
