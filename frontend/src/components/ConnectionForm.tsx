@@ -39,10 +39,10 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   error,
   connecting,
 }) => {
-  const [host, setHost] = useState("172.20.10.4");
+  const [host, setHost] = useState("");
   const [port, setPort] = useState<string>("22");
-  const [user, setUser] = useState("test");
-  const [password, setPassword] = useState("test");
+  const [user, setUser] = useState("");
+  const [password, setPassword] = useState("");
   const [key, setKey] = useState("");
   const [keyPassword, setKeyPassword] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
