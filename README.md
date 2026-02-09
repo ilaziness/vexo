@@ -1,75 +1,75 @@
-# Vexo — Cross-Platform SSH & FTP GUI Client
+# Vexo — 跨平台 SSH & SFTP GUI 客户端
 
-[![Go Version](https://img.shields.io/badge/Go-1.22%2B-blue)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue)](https://golang.org)
 [![Wails Version](https://img.shields.io/badge/Wails-v3-8A2BE2)](https://wails.io)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
-> A modern, cross-platform GUI client for SSH and FTP/SFTP built with Go and Wails v3.
+> 一款基于 Go 和 Wails v3 构建的现代化、跨平台 SSH 和 SFTP 桌面 GUI 应用。
 
 ---
 
-## 🚀 Overview
+## 📖 简介
 
-**Vexo** is a sleek, responsive desktop application that brings the power of SSH and FTP/SFTP to your fingertips—without leaving a native GUI. Built with [Wails v3](https://wails.io) and Go, Vexo runs natively on Windows, macOS, and Linux, offering developers and system administrators a unified tool for remote access and file management.
+**Vexo** 是一个简洁、响应迅速的桌面应用程序，将 SSH 和 SFTP 的强大功能带到您的指尖——无需离开原生 GUI 环境。使用 [Wails v3](https://wails.io) 和 Go 构建，Vexo 原生运行于 Windows、macOS 和 Linux，为开发人员和系统管理员提供统一的远程访问和文件管理工具。
 
-### ✨ Features
+设计理念：清爽简洁、专业可靠、护眼舒适
 
-- **SSH Terminal**: Embedded terminal with multi-tab support
-- **Authentication**: Password or private key (RSA, Ed25519, ECDSA)
-- **SFTP File Browser**: Upload, download, delete, rename, and preview files
-- **Session Manager**: Save, organize, and quickly connect to your servers
-- **Port Forwarding**: Local and remote port forwarding (TCP tunneling)
-- **Dark/Light Theme**: Auto-switch or manual toggle
-- **Cross-Platform**: Single codebase, native experience everywhere
-- **Secure**: All credentials encrypted at rest (optional OS keychain integration)
+---
 
-### 🛠 Tech Stack
+## ✨ 特性
 
-- **Frontend**: Vue 3 + TypeScript + Tailwind CSS (via Wails v3 template)
-- **Backend**: Go 1.22+
-- **Core Libraries**:
-  - `golang.org/x/crypto/ssh` – Robust SSH implementation
-  - `github.com/pkg/sftp` – SFTP protocol support
-  - `github.com/go-ftp/ftp` – FTP client functionality
-  - `github.com/atotto/clipboard` – Clipboard integration
-- **Packaging**: Wails v3 native bundling (with auto-updater support planned)
+- 嵌入式 SSH 终端，支持多标签页
+- 基于 XTerm.js，提供流畅的终端体验
+- 支持多种终端配色方案
+- SFTP 文件浏览器，支持上传、下载、删除、重命名文件
+- 文件传输任务管理
+- 密码认证和私钥认证（支持 RSA、Ed25519、ECDSA）
+- 敏感信息安全存储
+- 会话书签管理，快速连接常用服务器
+- 支持文件夹分类管理书签
+- 多种主题方案：亮色模式、暗色模式、蓝夜模式、护眼模式
+- 敏感信息加密存储，支持系统集成
+- 支持 Zmodem 文件传输协议（rz/sz）
 
-### 📦 Installation
+---
 
-#### From Source
+## 📸 截图
 
-1. Ensure you have [Go 1.22+](https://go.dev/dl/) and [Node.js 18+](https://nodejs.org/) installed.
-2. Clone the repo:
-   ```bash
-   git clone https://github.com/your-username/vexo.git
-   cd vexo
-   ```
-3. Install dependencies:
-   ```bash
-   go mod tidy
-   npm install
-   ```
-4. Build & run:
-   ```bash
-   wails build
-   ./build/vexo  # or vexo.exe on Windows
-   ```
+> 以下截图展示了 Vexo 的主要界面：
 
-#### Pre-built Binaries
+### 主界面 - SSH 终端
+![主界面](screenshots/main.png)
+*多标签 SSH 终端界面*
 
-Coming soon! Watch this repo for releases.
+![主界面](screenshots/terminal.png)
+*多标签 SSH 终端界面*
 
-### 🖼️ Screenshots
+### SFTP 文件浏览器
+![SFTP](screenshots/sftp.png)
+*直观的文件管理界面*
 
-*(Add screenshots after first release)*  
-- Terminal tab with syntax-colored output  
-- SFTP file browser with drag-and-drop  
-- Session management panel  
+### 书签管理
+![书签](screenshots/bookmark.png)
+*服务器连接配置管理*
 
-### 🤝 Contributing
+---
 
-Contributions are welcome! Please open an issue or submit a PR.
+## 📄 许可证
 
-### 📄 License
+本项目采用 [Apache License 2.0](LICENSE) 许可证。
 
-MIT © [Your Name/Org] – see [LICENSE](LICENSE) for details.
+```
+Copyright 2024 Vexo Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
