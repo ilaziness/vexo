@@ -104,9 +104,8 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   }, [linkID]);
 
   const refreshFileList = async (path?: string, showHidden?: boolean) => {
-    const targetPath = path || currentPath;
-    const showHiddenAll =
-      showHidden !== undefined ? showHidden : showHiddenFiles;
+    const targetPath = path ?? currentPath;
+    const showHiddenAll = showHidden ?? showHiddenFiles;
     setLoading(true);
     try {
       const files = await SftpService.ListFiles(
@@ -132,8 +131,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         setFullScreenLoading(true);
         await refreshFileList(newPath);
         setCurrentPath(newPath);
-      } catch (err: any) {
-        // 错误已在refreshFileList中处理
       } finally {
         setFullScreenLoading(false);
       }
@@ -529,9 +526,9 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         onClose={handleCloseBlankMenu}
         anchorReference="anchorPosition"
         anchorPosition={
-          blankContextMenu !== null
-            ? { top: blankContextMenu.mouseY, left: blankContextMenu.mouseX }
-            : undefined
+          blankContextMenu === null
+            ? undefined
+            : { top: blankContextMenu.mouseY, left: blankContextMenu.mouseX }
         }
       >
         <MenuItem onClick={handleCreateFile}>
