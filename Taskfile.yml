@@ -12,10 +12,13 @@ vars:
   APP_NAME: "Vexo"
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
-  VERSION: "v1.0.0"
-  GIT_INFO: "2026-02-06 14:53:25 4cc46033541fe7927208fedf8edea6bf3efafce7"
-  BUILD_TIME: "2026-02-06 07:02:20 AM"
+  VERSION: '{{.VERSION | default "v1.0.0"}}'
+  GIT_HASH:
+    sh: git rev-parse HEAD
+  BUILD_TIME:
+    sh: date +"%FT%T%z"
   MODE : "release" # or "debug"
+  GLOBAL_BUILD_FLAGS: '-ldflags="-X github.com/ilaziness/vexo/services.Version={{.VERSION}} -X github.com/ilaziness/vexo/services.GitInfo={{.GIT_HASH}} -X github.com/ilaziness/vexo/services.BuildTime={{.BUILD_TIME}}"'
 
 tasks:
   build:

@@ -435,7 +435,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
               {fileList.map((file, index) => (
                 <TableRow
                   hover
-                  key={index}
+                  key={file.name + index}
                   sx={{
                     cursor: file.isDir ? "pointer" : "default",
                   }}
@@ -487,9 +487,9 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         onClose={handleCloseMenu}
         anchorReference="anchorPosition"
         anchorPosition={
-          contextMenu !== null
-            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
-            : undefined
+          contextMenu === null
+            ? undefined
+            : { top: contextMenu.mouseY, left: contextMenu.mouseX }
         }
       >
         <MenuItem onClick={handleDownload}>

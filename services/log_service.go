@@ -57,8 +57,20 @@ func InitLogger(logPath string, level zap.AtomicLevel) error {
 		level,
 	)
 
-	core := zapcore.NewTee(fileCore, consoleCore)
-	zlogger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	// debug模式才输出到控制台，release模式只输出到文件
+	var core zapcore.Core
+	if Mode == ModeRelease {
+		core = fileCore
+	} else {
+		core = zapcore.NewTee(fileCore, consoleCore)
+	}
+	// release模式添加调用者和堆栈跟踪
+	var zlogger *zap.Logger
+	if Mode == ModeRelease {
+		zlogger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	} else {
+		zlogger = zap.New(core)
+	}
 
 	// 替换全局 logger 与 LogLevel
 	Logger = zlogger
@@ -75,6 +87,7 @@ func NewLogService() *LogService {
 		// 若未显式初始化，则使用默认路径和默认级别进行初始化（忽略错误）
 		_ = InitLogger("logs/vexo.log", logLevel)
 	}
+	Logger.Info("Logger initialized", zap.String("mode", Mode), zap.String("logPath", "logs/vexo.log"), zap.String("logLevel", logLevel.String()))
 	return &LogService{
 		logger: Logger,
 	}
