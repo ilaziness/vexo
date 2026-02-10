@@ -64,12 +64,12 @@ func InitLogger(logPath string, level zap.AtomicLevel) error {
 	} else {
 		core = zapcore.NewTee(fileCore, consoleCore)
 	}
-	// release模式添加调用者和堆栈跟踪
+	// debug模式添加调用者和堆栈跟踪
 	var zlogger *zap.Logger
 	if Mode == ModeRelease {
-		zlogger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
-	} else {
 		zlogger = zap.New(core)
+	} else {
+		zlogger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 	}
 
 	// 替换全局 logger 与 LogLevel
