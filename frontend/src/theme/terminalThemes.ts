@@ -20,6 +20,7 @@ import { TerminalThemes } from "../types/ssh";
  * - deep (深邃): 对应总体深邃夜主题，纯黑背景高对比度
  * - eyeCare (暖棕): 对应总体护眼模式，暖色系护眼配色
  * - terminal: 对应总体终端CLI模式，经典绿色终端配色
+ * - cyberpunk (赛博朋克): 霓虹紫粉色调，未来科技感
  *
  * ANSI颜色说明：
  * - black/red/green/yellow/blue/magenta/cyan/white: 基础ANSI颜色
@@ -180,6 +181,32 @@ const terminalThemes: TerminalThemes = {
     brightMagenta: "#a0522d",
     brightCyan: "#daa520",
     brightWhite: "#000000",
+  },
+  // 赛博朋克 - 霓虹电光蓝与紫粉色调，未来科技感
+  // 参考 Tech Innovation 与 Midnight Galaxy 配色方案
+  cyberpunk: {
+    background: "#0f0f1a", // 深蓝紫黑色主背景
+    foreground: "#e8f4f8", // 荧光蓝白色
+    cursor: "#00d4ff", // 霓虹青色光标
+    cursorAccent: "#0f0f1a", // 光标反色
+    selectionBackground: "rgba(0, 212, 255, 0.3)", // 主色透明
+    selectionForeground: "#000000",
+    black: "#0f0f1a",
+    red: "#ff3366", // 霓虹红色
+    green: "#00ff88", // 霓虹绿色
+    yellow: "#ffcc00", // 霓虹黄色
+    blue: "#00d4ff", // 霓虹青色（主色）
+    magenta: "#ff00a0", // 霓虹紫粉色（次要色）
+    cyan: "#00ffff", // 青色
+    white: "#e8f4f8",
+    brightBlack: "#4a5060",
+    brightRed: "#ff6699", // 亮霓虹红
+    brightGreen: "#5cFFB5", // 亮霓虹绿
+    brightYellow: "#ffe066", // 亮霓虹黄
+    brightBlue: "#5ce1ff", // 亮霓虹青
+    brightMagenta: "#ff5cc8", // 亮霓虹紫粉
+    brightCyan: "#5cffff", // 亮青色
+    brightWhite: "#ffffff",
   },
 };
 

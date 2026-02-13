@@ -78,10 +78,18 @@ export default function Terminal(props: { readonly linkID: string }) {
 
   // 处理来自后端的终端输出数据
   const handleOutputData = (event: any) => {
-    LogService.Debug(`Received sshOutput event: ${JSON.stringify(event)}`);
     const dataObj = event.data;
     if (dataObj.id !== props.linkID) return;
-    term.current?.write(decodeBase64(dataObj.data));
+    LogService.Debug(
+      `Received SSH output for link ID: ${dataObj.id}, data sn: ${dataObj.sn}, data: ${dataObj.data}`,
+    );
+    term.current?.write(decodeBase64(dataObj.data), () => {
+      // 发送输出确认事件，通知后端可以继续发送下一条数据
+      Events.Emit("sshOutputAck", {
+        id: props.linkID,
+        data: "",
+      });
+    });
   };
 
   // 使用 useCallback 确保 onData 回调函数的引用保持稳定

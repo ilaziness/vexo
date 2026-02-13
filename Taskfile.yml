@@ -14,9 +14,9 @@ vars:
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   VERSION: '{{.VERSION | default "v1.0.0"}}'
   GIT_HASH:
-    sh: git rev-parse HEAD
+    # sh: git rev-parse HEAD
   BUILD_TIME:
-    sh: date +"%FT%T%z"
+    # sh: date +"%FT%T%z"
   MODE : "release" # or "debug"
   GLOBAL_BUILD_FLAGS: '-ldflags="-X github.com/ilaziness/vexo/services.Version={{.VERSION}} -X github.com/ilaziness/vexo/services.GitInfo={{.GIT_HASH}} -X github.com/ilaziness/vexo/services.BuildTime={{.BUILD_TIME}}"'
 

@@ -1,6 +1,5 @@
 import type { ITheme } from "@xterm/xterm";
 
-export type { ITheme };
 export interface SSHLinkInfo {
   host: string;
   port: number;
@@ -38,6 +37,7 @@ export type TerminalThemes = {
   atom: ITheme;
   deep: ITheme;
   eyeCare: ITheme;
+  cyberpunk: ITheme;
 };
 
 // 应用主题类型定义
@@ -47,6 +47,5 @@ export type AppTheme =
   | "blueDark"
   | "atom"
   | "deep"
-  | "eyeCare";
-
-export type TerminalThemeMode = AppTheme;
+  | "eyeCare"
+  | "cyberpunk";

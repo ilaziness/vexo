@@ -1,16 +1,17 @@
 import { create } from "zustand";
-import { ITheme, TerminalThemeMode, AppTheme } from "../types/ssh";
+import type { ITheme } from "@xterm/xterm";
+import { AppTheme } from "../types/ssh";
 import terminalThemes from "../theme/terminalThemes";
 
 export interface TerminalSettings {
   fontFamily: string;
   fontSize: number;
   lineHeight: number;
-  theme: TerminalThemeMode;
+  theme: AppTheme;
   setFontFamily: (f: string) => void;
   setFontSize: (s: number) => void;
   setLineHeight: (l: number) => void;
-  setTheme: (theme: TerminalThemeMode) => void;
+  setTheme: (theme: AppTheme) => void;
   getCurrentTheme: () => ITheme;
   syncWithGlobalTheme: (globalTheme: AppTheme) => void;
 }
@@ -24,7 +25,7 @@ export const useTerminalStore = create<TerminalSettings>((set, get) => ({
   setFontFamily: (f: string) => set(() => ({ fontFamily: f })),
   setFontSize: (s: number) => set(() => ({ fontSize: s })),
   setLineHeight: (l: number) => set(() => ({ lineHeight: l })),
-  setTheme: (theme: TerminalThemeMode) => set(() => ({ theme })),
+  setTheme: (theme: AppTheme) => set(() => ({ theme })),
   getCurrentTheme: (): ITheme => {
     const { theme } = get();
     return terminalThemes[theme];

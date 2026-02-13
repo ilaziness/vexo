@@ -12,22 +12,9 @@ import PaletteIcon from "@mui/icons-material/Palette";
 import React, { useState } from "react";
 import useTerminalStore from "../stores/terminal";
 import { AppTheme } from "../types/ssh";
+import { ThemeOptions } from "../theme";
 import { SetTheme } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 import { LogService } from "../../bindings/github.com/ilaziness/vexo/services";
-
-// 主题选项配置
-const THEME_OPTIONS: {
-  value: AppTheme;
-  label: string;
-  mode: "light" | "dark";
-}[] = [
-  { value: "light", label: "亮白", mode: "light" },
-  { value: "dark", label: "暗色", mode: "dark" },
-  { value: "blueDark", label: "蓝夜", mode: "dark" },
-  { value: "atom", label: "极黑", mode: "dark" },
-  { value: "deep", label: "深邃", mode: "dark" },
-  { value: "eyeCare", label: "暖棕", mode: "light" },
-];
 
 export default function ThemeSwitcher() {
   const {
@@ -61,7 +48,7 @@ export default function ThemeSwitcher() {
     // 同步终端主题
     useTerminalStore.getState().syncWithGlobalTheme(val);
 
-    const themeConfig = THEME_OPTIONS.find((t) => t.value === val);
+    const themeConfig = ThemeOptions.find((t) => t.value === val);
     if (!themeConfig) return;
 
     setMode(themeConfig.mode);
@@ -110,7 +97,7 @@ export default function ThemeSwitcher() {
           value={getCurrentThemeValue()}
           onChange={(e) => handleColorModeSelect(e.target.value as AppTheme)}
         >
-          {THEME_OPTIONS.map((option) => (
+          {ThemeOptions.map((option) => (
             <MenuItem key={option.value}>
               <FormControlLabel
                 value={option.value}

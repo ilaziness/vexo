@@ -20,6 +20,7 @@ import (
 const (
 	SSHEventInput            = "sshInput"
 	SSHEventOutput           = "sshOutput"
+	SSHEventOutPutAck        = "sshOutputAck"
 	SSHEventClose            = "sshClose"
 	SFTPEventClose           = "sftpClose"
 	ErrSSHConnectionNotFound = "SSH connection with ID %s not found"
@@ -28,6 +29,7 @@ const (
 func init() {
 	application.RegisterEvent[SSHEventData](SSHEventInput)
 	application.RegisterEvent[SSHEventData](SSHEventOutput)
+	application.RegisterEvent[SSHEventData](SSHEventOutPutAck)
 	application.RegisterEvent[SSHEventData](SSHEventClose)
 	application.RegisterEvent[SSHEventData](SFTPEventClose)
 }
@@ -40,19 +42,21 @@ type SSHEventData struct {
 }
 
 type SSHConnect struct {
-	ID              string
-	clientKey       string
-	client          *ssh.Client
-	sshService      *SSHService
-	session         *ssh.Session
-	sftpService     *SftpService
-	isClosed        bool
-	outputChan      chan []byte
-	outputBuffSize  int
-	inputUnregister func()         // 用于取消输入事件监听器的函数
-	outputWg        sync.WaitGroup // 等待输出 goroutine 结束
-	outputOnce      sync.Once      // 确保 outputChan 只被关闭一次
-	stdin           io.WriteCloser // SSH stdin pipe
+	ID                     string
+	clientKey              string
+	client                 *ssh.Client
+	sshService             *SSHService
+	session                *ssh.Session
+	sftpService            *SftpService
+	isClosed               bool
+	outputChan             chan []byte
+	outputSignal           chan struct{} // 用于通知输出 goroutine 输出数据的信号
+	outputSignalUnregister func()        // 用于取消输出事件监听器的函数
+	outputBuffSize         int
+	inputUnregister        func()         // 用于取消输入事件监听器的函数
+	outputWg               sync.WaitGroup // 等待输出 goroutine 结束
+	outputOnce             sync.Once      // 确保 outputChan 只被关闭一次
+	stdin                  io.WriteCloser // SSH stdin pipe
 }
 
 type SSHService struct {
@@ -285,6 +289,7 @@ func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client)
 		ID:             generateConnectID(),
 		outputChan:     make(chan []byte, 10),
 		outputBuffSize: 32768, // 32KB
+		outputSignal:   make(chan struct{}, 1),
 	}
 }
 
@@ -332,14 +337,28 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 func (sc *SSHConnect) sendOutput() {
 	go func() {
 		defer system.RecoverFromPanic()
+		sc.outputSignalUnregister = app.Event.On(SSHEventOutPutAck, func(event *application.CustomEvent) {
+			ackData := event.Data.(SSHEventData)
+			if ackData.ID != sc.ID {
+				return
+			}
+			// 收到前端的输出确认消息，通知输出 goroutine 可以继续发送下一条消息
+			select {
+			case sc.outputSignal <- struct{}{}:
+			default:
+			}
+		})
 		startSN := 1
+
 		for data := range sc.outputChan {
-			//Logger.Debug("SSH session output:", zap.ByteString("msg", data), zap.String("id", sc.ID))
+			Logger.Debug("SSH session output:", zap.String("id", sc.ID), zap.Int("sn", startSN))
 			app.Event.Emit(SSHEventOutput, SSHEventData{
 				ID:   sc.ID,
 				SN:   startSN,
 				Data: data,
 			})
+			<-sc.outputSignal // 等待前端确认上一条消息已处理
+			Logger.Debug("Received SSH output ack", zap.String("id", sc.ID), zap.Int("sn", startSN))
 			startSN++
 		}
 	}()
@@ -445,6 +464,12 @@ func (sc *SSHConnect) Close() error {
 		sc.inputUnregister()
 		sc.inputUnregister = nil
 		Logger.Debug("Input event listener unregistered", zap.String("ID", sc.ID))
+	}
+	// 取消输出事件监听器，防止重复注册导致的输出重复问题
+	if sc.outputSignalUnregister != nil {
+		sc.outputSignalUnregister()
+		sc.outputSignalUnregister = nil
+		Logger.Debug("Output event listener unregistered", zap.String("ID", sc.ID))
 	}
 
 	// Close SFTP service if exists

@@ -4,6 +4,8 @@ import blueDark from "./blueDark";
 import atom from "./atom";
 import deep from "./deep";
 import eyeCare from "./eyeCare";
+import cyberpunk from "./cyberpunk";
+import { AppTheme } from "../types/ssh";
 
 declare module "@mui/material/styles" {
   interface ColorSchemeOverrides {
@@ -11,8 +13,26 @@ declare module "@mui/material/styles" {
     atom: true;
     deep: true;
     eyeCare: true;
+    cyberpunk: true;
   }
 }
+
+/**
+ * 主题选项配置
+ */
+export const ThemeOptions: {
+  value: AppTheme;
+  label: string;
+  mode: "light" | "dark";
+}[] = [
+  { value: "light", label: "亮白", mode: "light" },
+  { value: "dark", label: "暗色", mode: "dark" },
+  { value: "blueDark", label: "蓝夜", mode: "dark" },
+  { value: "atom", label: "极黑", mode: "dark" },
+  { value: "deep", label: "深邃", mode: "dark" },
+  { value: "eyeCare", label: "暖棕", mode: "light" },
+  { value: "cyberpunk", label: "赛博朋克", mode: "dark" },
+];
 
 /**
  * SSH GUI 客户端主题配置
@@ -33,6 +53,8 @@ const theme = createTheme({
     deep: createColorScheme(deep),
     // 暖棕
     eyeCare: createColorScheme(eyeCare),
+    // 赛博朋克
+    cyberpunk: createColorScheme(cyberpunk),
   },
 
   // 字体排版
