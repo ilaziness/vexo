@@ -37,8 +37,12 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	app.RegisterService(application.NewService(configService))
 	app.RegisterService(application.NewService(bookmarkService))
 
+	wsService := NewWebSocketService(app, sshService)
+	wsService.Start(":9288")
+
 	app.OnShutdown(func() {
 		Logger.Sugar().Debugln("run app OnShutdown...")
+		wsService.Stop()
 		sshService.Close()
 	})
 }

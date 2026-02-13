@@ -11,18 +11,18 @@ import { ImageAddon } from "@xterm/addon-image";
 import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { SearchAddon } from "@xterm/addon-search";
-import { Events, Browser } from "@wailsio/runtime";
+import { AttachAddon } from "@xterm/addon-attach";
+import { Browser } from "@wailsio/runtime";
 import {
   LogService,
   SSHService,
   ConfigService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import useTerminalStore from "../stores/terminal";
-import { decodeBase64, encodeBase64 } from "../func/decode";
 import Loading from "./Loading";
-import { parseCallServiceError, sleep } from "../func/service";
 import TerminalContextMenu from "./TerminalContextMenu";
 import { terminalInstances } from "../stores/terminalInstances";
+import { sleep } from "../func/service";
 
 const isWebgl2Supported = (() => {
   let isSupported = globalThis.WebGL2RenderingContext ? undefined : false;
@@ -45,9 +45,8 @@ export default function Terminal(props: { readonly linkID: string }) {
   const termRef = React.useRef<HTMLDivElement>(null);
   const term = React.useRef<TerminalLib>(null);
   const termFit = React.useRef<FitAddon>(null);
-  const termSerach = React.useRef<SearchAddon>(null);
+  const termSearch = React.useRef<SearchAddon>(null);
   const resizeTimeout = React.useRef<number | NodeJS.Timeout | null>(null);
-  const sshOutputHandler = React.useRef<(event: any) => void>(null);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -76,33 +75,6 @@ export default function Terminal(props: { readonly linkID: string }) {
     }
   };
 
-  // 处理来自后端的终端输出数据
-  const handleOutputData = (event: any) => {
-    const dataObj = event.data;
-    if (dataObj.id !== props.linkID) return;
-    LogService.Debug(
-      `Received SSH output for link ID: ${dataObj.id}, data sn: ${dataObj.sn}, data: ${dataObj.data}`,
-    );
-    term.current?.write(decodeBase64(dataObj.data), () => {
-      // 发送输出确认事件，通知后端可以继续发送下一条数据
-      Events.Emit("sshOutputAck", {
-        id: props.linkID,
-        data: "",
-      });
-    });
-  };
-
-  // 使用 useCallback 确保 onData 回调函数的引用保持稳定
-  const handleInputData = React.useCallback(
-    (data: string) => {
-      Events.Emit("sshInput", {
-        id: props.linkID,
-        data: encodeBase64(data),
-      });
-    },
-    [props.linkID],
-  );
-
   const loadAddon = () => {
     LogService.Debug("loadAddon");
     termFit.current = new FitAddon();
@@ -113,8 +85,8 @@ export default function Terminal(props: { readonly linkID: string }) {
         Browser.OpenURL(uri);
       }),
     );
-    termSerach.current = new SearchAddon();
-    term.current?.loadAddon(termSerach.current);
+    termSearch.current = new SearchAddon();
+    term.current?.loadAddon(termSearch.current);
     term.current?.loadAddon(new Unicode11Addon());
     term.current && (term.current.unicode.activeVersion = "11");
     term.current?.loadAddon(new ImageAddon());
@@ -164,37 +136,44 @@ export default function Terminal(props: { readonly linkID: string }) {
       loadAddon();
       term.current.open(termRef.current);
       terminalInstances.set(props.linkID, term.current);
-      await sleep(50); // 等待 xterm.js 完全初始化
+      await sleep(50);
       termFit.current?.fit();
 
-      try {
-        // 启动 SSH 连接
-        LogService.Debug(
-          `start ssh session ${term.current?.cols}x${term.current?.rows}`,
-        );
-        await SSHService.Start(
-          props.linkID,
-          term.current?.cols || 80,
-          term.current?.rows || 24,
-        );
+      const cols = term.current?.cols || 80;
+      const rows = term.current?.rows || 24;
+      const wsUrl = `ws://localhost:9288/ws/terminal?id=${props.linkID}&cols=${cols}&rows=${rows}`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = async () => {
+        LogService.Debug("WebSocket connected for terminal " + props.linkID);
+
+        // 使用 AttachAddon 连接 WebSocket
+        const attachAddon = new AttachAddon(ws);
+        term.current?.loadAddon(attachAddon);
+
         if (!mountedRef.current) return;
         LogService.Info(`SSH connection started for link ID: ${props.linkID}`);
-
         term.current?.focus();
-      } catch (err) {
-        LogService.Error(
-          `Failed to start SSH connection for link ID: ${props.linkID}, error: ${err}`,
-        );
-        term.current?.write(
-          `Connection error: ${parseCallServiceError(err)}\r\n`,
-        );
-      }
+        term.current?.onResize(onResize);
+        termFit.current?.fit();
+      };
 
-      // Handle user input
-      term.current?.onData(handleInputData);
-      // Handle terminal resize
-      term.current?.onResize(onResize);
-      termFit.current?.fit();
+      ws.onerror = (error) => {
+        // WebSocket error event is an Event object, use message property if available
+        const errorMessage =
+          "message" in error
+            ? (error as any).message
+            : "Unknown WebSocket error";
+        LogService.Error(
+          `WebSocket error for terminal ${props.linkID}: ${errorMessage}`,
+        );
+        term.current?.write(`\r\n*** WebSocket error: ${errorMessage} ***\r\n`);
+      };
+
+      ws.onclose = () => {
+        LogService.Debug(`WebSocket closed for terminal ${props.linkID}`);
+        term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
+      };
     }
   };
 
@@ -215,15 +194,6 @@ export default function Terminal(props: { readonly linkID: string }) {
 
   useEffect(() => {
     const mountedRef = { current: true };
-    // 注册事件监听器
-    sshOutputHandler.current = handleOutputData;
-    const unsubscribe = Events.On("sshOutput", sshOutputHandler.current);
-    const unsbuscribeClose = Events.On("sshClose", (event: any) => {
-      const dataObj = event.data;
-      if (dataObj.id !== props.linkID) return;
-      LogService.Debug(`SSH connection closed for link ID: ${props.linkID}`);
-      term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
-    });
 
     initTerminal(mountedRef).then(() => {
       if (!mountedRef.current) return;
@@ -245,8 +215,6 @@ export default function Terminal(props: { readonly linkID: string }) {
     return () => {
       mountedRef.current = false;
       LogService.Debug(`Terminal component unmounting ${props.linkID}`);
-      unsubscribe();
-      unsbuscribeClose();
       terminalInstances.remove(props.linkID);
       try {
         term.current?.dispose();
