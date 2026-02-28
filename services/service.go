@@ -38,7 +38,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	app.RegisterService(application.NewService(bookmarkService))
 
 	wsService := NewWebSocketService(app, sshService)
-	wsService.Start(":9288")
+	wsService.Start()
 
 	app.OnShutdown(func() {
 		Logger.Sugar().Debugln("run app OnShutdown...")
@@ -105,4 +105,9 @@ func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion) {
 		}
 	}
 	return false, NewVersion{}
+}
+
+// GetWSAddr 获取 WebSocket 服务器地址
+func (cs *AppService) GetWSAddr() string {
+	return wsAddr
 }

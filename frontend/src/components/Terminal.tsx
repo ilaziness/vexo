@@ -17,6 +17,7 @@ import {
   LogService,
   SSHService,
   ConfigService,
+  AppService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import useTerminalStore from "../stores/terminal";
 import Loading from "./Loading";
@@ -46,7 +47,9 @@ export default function Terminal(props: { readonly linkID: string }) {
   const term = React.useRef<TerminalLib>(null);
   const termFit = React.useRef<FitAddon>(null);
   const termSearch = React.useRef<SearchAddon>(null);
+  const webglRef = React.useRef<WebglAddon>(null);
   const resizeTimeout = React.useRef<number | NodeJS.Timeout | null>(null);
+  const wsRef = React.useRef<WebSocket>(null);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -98,6 +101,7 @@ export default function Terminal(props: { readonly linkID: string }) {
         console.warn("WebGL context lost. Falling back to DOM rendering.");
         webglAddon.dispose();
       });
+      webglRef.current = webglAddon;
       term.current?.loadAddon(webglAddon);
     } else {
       term.current?.loadAddon(new LigaturesAddon());
@@ -141,8 +145,13 @@ export default function Terminal(props: { readonly linkID: string }) {
 
       const cols = term.current?.cols || 80;
       const rows = term.current?.rows || 24;
-      const wsUrl = `ws://localhost:9288/ws/terminal?id=${props.linkID}&cols=${cols}&rows=${rows}`;
+      const wsAddr = await AppService.GetWSAddr();
+      const wsUrl = `ws://${wsAddr}/ws/terminal?id=${props.linkID}&cols=${cols}&rows=${rows}`;
       const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      LogService.Debug(
+        `Connecting to WebSocket at ${wsUrl} for terminal ${props.linkID}`,
+      );
 
       ws.onopen = async () => {
         LogService.Debug("WebSocket connected for terminal " + props.linkID);
@@ -150,9 +159,9 @@ export default function Terminal(props: { readonly linkID: string }) {
         // 使用 AttachAddon 连接 WebSocket
         const attachAddon = new AttachAddon(ws);
         term.current?.loadAddon(attachAddon);
+        setIsInitializing(false);
 
         if (!mountedRef.current) return;
-        LogService.Info(`SSH connection started for link ID: ${props.linkID}`);
         term.current?.focus();
         term.current?.onResize(onResize);
         termFit.current?.fit();
@@ -197,7 +206,6 @@ export default function Terminal(props: { readonly linkID: string }) {
 
     initTerminal(mountedRef).then(() => {
       if (!mountedRef.current) return;
-      setIsInitializing(false);
     });
 
     const observer = new ResizeObserver(() => {
@@ -217,6 +225,8 @@ export default function Terminal(props: { readonly linkID: string }) {
       LogService.Debug(`Terminal component unmounting ${props.linkID}`);
       terminalInstances.remove(props.linkID);
       try {
+        wsRef.current?.close();
+        webglRef.current?.dispose();
         term.current?.dispose();
         term.current = null;
       } catch (e) {

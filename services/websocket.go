@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 
@@ -30,6 +31,7 @@ type WebSocketService struct {
 }
 
 var wsService *WebSocketService
+var wsAddr string
 
 // 错误消息常量
 const errFailedToStartSSHSession = "Failed to start SSH session"
@@ -48,15 +50,38 @@ func GetWebSocketService() *WebSocketService {
 	return wsService
 }
 
+// getWsAddr 获取 WebSocket 服务器地址
+func getWsAddr() string {
+	if wsAddr != "" {
+		return wsAddr
+	}
+
+	base := 10697
+	for i := range 100 {
+		port := base + i
+		addr := fmt.Sprintf("127.0.0.1:%d", port)
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			continue
+		}
+		ln.Close()
+		return addr
+	}
+
+	wsAddr = fmt.Sprintf("127.0.0.1:%d", base)
+	return wsAddr
+}
+
 // Start 启动 WebSocket 服务
-func (s *WebSocketService) Start(addr string) {
-	Logger.Info("Starting WebSocket server", zap.String("addr", addr))
+func (s *WebSocketService) Start() {
+	wsAddr = getWsAddr()
+	Logger.Info("Starting WebSocket server", zap.String("addr", wsAddr))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/terminal", s.handleWebSocket)
 
 	s.httpServer = &http.Server{
-		Addr:    addr,
+		Addr:    wsAddr,
 		Handler: mux,
 	}
 
