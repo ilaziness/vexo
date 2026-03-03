@@ -147,18 +147,16 @@ export default function Terminal(props: { readonly linkID: string }) {
       const rows = term.current?.rows || 24;
       const wsAddr = await AppService.GetWSAddr();
       const wsUrl = `ws://${wsAddr}/ws/terminal?id=${props.linkID}&cols=${cols}&rows=${rows}`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
       LogService.Debug(
         `Connecting to WebSocket at ${wsUrl} for terminal ${props.linkID}`,
       );
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      const attachAddon = new AttachAddon(ws);
+      term.current?.loadAddon(attachAddon);
 
       ws.onopen = async () => {
         LogService.Debug("WebSocket connected for terminal " + props.linkID);
-
-        // 使用 AttachAddon 连接 WebSocket
-        const attachAddon = new AttachAddon(ws);
-        term.current?.loadAddon(attachAddon);
         setIsInitializing(false);
 
         if (!mountedRef.current) return;
