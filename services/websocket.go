@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/ilaziness/vexo/internal/system"
@@ -16,11 +17,13 @@ import (
 
 // WSClient WebSocket 客户端连接
 type WSClient struct {
-	conn      *websocket.Conn
-	stdin     io.WriteCloser
-	sessionID string
-	done      chan struct{}
-	closeOnce sync.Once
+	conn       *websocket.Conn
+	stdin      io.WriteCloser
+	sessionID  string
+	done       chan struct{}
+	closeOnce  sync.Once
+	pongMissed int        // 未收到 pong 响应的次数
+	pongMu     sync.Mutex // 保护 pongMissed 的互斥锁
 }
 
 // WebSocketService WebSocket 服务
@@ -28,6 +31,7 @@ type WebSocketService struct {
 	app        *application.App
 	httpServer *http.Server
 	sshService *SSHService
+	clients    sync.Map // map[string]*WSClient，存储所有活跃的客户端连接
 }
 
 var wsService *WebSocketService
@@ -43,6 +47,18 @@ func NewWebSocketService(app *application.App, sshSvc *SSHService) *WebSocketSer
 		sshService: sshSvc,
 	}
 	return wsService
+}
+
+// registerClient 注册客户端连接
+func (s *WebSocketService) registerClient(client *WSClient) {
+	s.clients.Store(client.sessionID, client)
+	Logger.Debug("WebSocket client registered", zap.String("sessionID", client.sessionID))
+}
+
+// unregisterClient 注销客户端连接
+func (s *WebSocketService) unregisterClient(sessionID string) {
+	s.clients.Delete(sessionID)
+	Logger.Debug("WebSocket client unregistered", zap.String("sessionID", sessionID))
 }
 
 // GetWebSocketService 获取 WebSocket 服务实例
@@ -75,7 +91,7 @@ func getWsAddr() string {
 // Start 启动 WebSocket 服务
 func (s *WebSocketService) Start() {
 	wsAddr = getWsAddr()
-	Logger.Info("Starting WebSocket server", zap.String("addr", wsAddr))
+	Logger.Debug("Starting WebSocket server", zap.String("addr", wsAddr))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/terminal", s.handleWebSocket)
@@ -95,7 +111,7 @@ func (s *WebSocketService) Start() {
 
 // Stop 停止 WebSocket 服务
 func (s *WebSocketService) Stop() {
-	Logger.Info("Stopping WebSocket server")
+	Logger.Debug("Stopping WebSocket server")
 	if s.httpServer != nil {
 		s.httpServer.Close()
 	}
@@ -127,16 +143,25 @@ func (s *WebSocketService) handleWebSocket(w http.ResponseWriter, r *http.Reques
 
 	Logger.Debug("New WebSocket connection", zap.String("sessionID", sessionID), zap.Int("cols", cols), zap.Int("rows", rows))
 
+	client := &WSClient{
+		done: make(chan struct{}),
+	}
+
 	connWS, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		CompressionMode:    websocket.CompressionContextTakeover,
 		InsecureSkipVerify: true,
+		OnPongReceived: func(_ context.Context, _ []byte) {
+			client.pongMu.Lock()
+			client.pongMissed = 0
+			client.pongMu.Unlock()
+		},
 	})
 	if err != nil {
 		Logger.Error("Failed to accept WebSocket", zap.Error(err))
 		return
 	}
 
-	// 启动 SSH session（WebSocket 连接建立后再启动）
+	// 启动 SSH session
 	err = s.sshService.Start(sessionID, cols, rows)
 	if err != nil {
 		Logger.Error(errFailedToStartSSHSession, zap.Error(err), zap.String("id", sessionID))
@@ -163,51 +188,78 @@ func (s *WebSocketService) handleWebSocket(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	client := &WSClient{
-		conn:      connWS,
-		stdin:     sshConn.stdin,
-		sessionID: sessionID,
-		done:      make(chan struct{}),
-	}
+	client.conn = connWS
+	client.stdin = sshConn.stdin
+	client.sessionID = sessionID
+
+	// 注册客户端
+	s.registerClient(client)
 
 	// 启动读写协程
-	go s.readLoop(client)
-	go s.writeLoop(client, sshConn.outputChan)
+	go client.readLoop()
+	go client.writeLoop(sshConn.outputChan)
+	client.ping()
 
-	// 等待连接关闭
-	<-client.done
+	// ping结束后执行清理
+	client.closeDone()
+	s.unregisterClient(client.sessionID)
+	s.closeSSHConnection(client.sessionID)
+	client.conn.Close(websocket.StatusNormalClosure, "")
+	Logger.Debug("WebSocket connection closed", zap.String("sessionID", client.sessionID))
 }
 
-// closeDone 安全地关闭 done 通道（确保只关闭一次）
+// closeDone 安全地关闭
 func (c *WSClient) closeDone() {
 	c.closeOnce.Do(func() {
 		close(c.done)
 	})
 }
 
-// readLoop 读取客户端发送的数据（xterm输入）
-func (s *WebSocketService) readLoop(client *WSClient) {
-	defer func() {
-		// 通知连接关闭
-		client.closeDone()
-		// WebSocket 关闭时，关闭对应的 SSH 连接
-		s.closeSSHConnection(client.sessionID)
-		client.conn.Close(websocket.StatusNormalClosure, "")
-	}()
+// ping 发送 ping 消息保持连接活跃，5秒发送一次，累计2次未收到响应则关闭连接
+func (c *WSClient) ping() {
+	ctx := context.Background()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
+	for {
+		select {
+		case <-ticker.C:
+			c.pongMu.Lock()
+			c.pongMissed++
+			if c.pongMissed > 2 {
+				c.pongMu.Unlock()
+				Logger.Warn("WebSocket pong timeout, closing connection", zap.String("sessionID", c.sessionID))
+				return
+			}
+			c.pongMu.Unlock()
+
+			err := c.conn.Ping(ctx)
+			if err != nil {
+				Logger.Error("WebSocket ping error", zap.Error(err), zap.String("sessionID", c.sessionID))
+				return
+			}
+		case <-c.done:
+			return
+		}
+	}
+}
+
+// readLoop 读取客户端发送的数据
+func (c *WSClient) readLoop() {
+	defer c.closeDone()
 	ctx := context.Background()
 	for {
-		_, data, err := client.conn.Read(ctx)
+		_, data, err := c.conn.Read(ctx)
 		if err != nil {
-			Logger.Debug("WebSocket read error", zap.Error(err), zap.String("sessionID", client.sessionID))
+			Logger.Debug("WebSocket read error", zap.Error(err), zap.String("sessionID", c.sessionID))
 			return
 		}
 
 		// 直接写入 SSH stdin
-		if client.stdin != nil {
-			_, err := client.stdin.Write(data)
+		if c.stdin != nil {
+			_, err := c.stdin.Write(data)
 			if err != nil {
-				Logger.Error("Failed to write to stdin", zap.Error(err), zap.String("sessionID", client.sessionID))
+				Logger.Error("Failed to write to stdin", zap.Error(err), zap.String("sessionID", c.sessionID))
 				return
 			}
 		}
@@ -215,26 +267,19 @@ func (s *WebSocketService) readLoop(client *WSClient) {
 }
 
 // writeLoop 将 SSH output 写入客户端
-func (s *WebSocketService) writeLoop(client *WSClient, outputChan chan []byte) {
-	defer func() {
-		// 通知连接关闭
-		client.closeDone()
-		// WebSocket 关闭时，关闭对应的 SSH 连接
-		s.closeSSHConnection(client.sessionID)
-		client.conn.Close(websocket.StatusNormalClosure, "")
-	}()
-
+func (c *WSClient) writeLoop(outputChan chan []byte) {
+	defer c.closeDone()
 	ctx := context.Background()
 	for {
 		select {
 		case data := <-outputChan:
-			err := client.conn.Write(ctx, websocket.MessageBinary, data)
+			err := c.conn.Write(ctx, websocket.MessageBinary, data)
 			if err != nil {
-				Logger.Debug("WebSocket write error", zap.Error(err), zap.String("sessionID", client.sessionID))
+				Logger.Debug("WebSocket write error", zap.Error(err), zap.String("sessionID", c.sessionID))
 				return
 			}
 
-		case <-client.done:
+		case <-c.done:
 			return
 		}
 	}
@@ -244,6 +289,20 @@ func (s *WebSocketService) writeLoop(client *WSClient, outputChan chan []byte) {
 func (s *WebSocketService) closeSSHConnection(sessionID string) {
 	Logger.Debug("Closing SSH connection due to WebSocket close", zap.String("sessionID", sessionID))
 	if err := s.sshService.CloseByID(sessionID); err != nil {
-		Logger.Error("Failed to close SSH connection", zap.Error(err), zap.String("sessionID", sessionID))
+		Logger.Debug("Failed to close SSH connection", zap.Error(err), zap.String("sessionID", sessionID))
 	}
+}
+
+// CloseClient 关闭指定客户端连接
+func (s *WebSocketService) CloseClient(sessionID string) {
+	Logger.Debug("Closing WebSocket client connection", zap.String("sessionID", sessionID))
+
+	clientAny, ok := s.clients.Load(sessionID)
+	if !ok {
+		Logger.Debug("WebSocket client not found", zap.String("sessionID", sessionID))
+		return
+	}
+
+	client := clientAny.(*WSClient)
+	client.closeDone()
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ilaziness/vexo/internal/system"
+	"github.com/ilaziness/vexo/internal/utils"
 	"github.com/xiwh/zmodem/zmodem"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -414,7 +415,8 @@ func (sc *SSHConnect) Close() error {
 
 	sc.isClosed = true
 	sc.sshService.CloseByID(sc.ID)
-	Logger.Info("SSH connection closed", zap.String("ID", sc.ID))
+	GetWebSocketService().CloseClient(sc.ID)
+	Logger.Debug("SSH connection closed", zap.String("ID", sc.ID))
 	return nil
 }
 
@@ -525,19 +527,21 @@ func (c *ZModemConsumer) OnDownload(file *zmodem.ZModemFile, reader io.ReadClose
 			}
 
 			copied += int64(n)
-			c.sshConnect.outputZModemMessage(fmt.Sprintf("已接收: %d bytes", copied))
+			// 使用 \r 回到行首，\033[K 清空本行内容，在同一行更新进度
+			progressMsg := fmt.Sprintf("\r\033[K\033[33m[ZMODEM] 已接收: %s\033[0m", utils.FormatBytes(copied))
+			c.sshConnect.outputChan <- []byte(progressMsg)
 		}
 
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			c.sshConnect.outputZModemMessage(fmt.Sprintf("读取数据失败: %v", err))
+			c.sshConnect.outputZModemMessage(fmt.Sprintf("\r\n读取数据失败: %v", err))
 			return err
 		}
 	}
 
-	c.sshConnect.outputZModemMessage(fmt.Sprintf("文件下载完成: %s (%d bytes)", targetPath, copied))
+	c.sshConnect.outputZModemMessage(fmt.Sprintf("\r\n文件下载完成: %s (%s)", targetPath, utils.FormatBytes(copied)))
 	return nil
 }
 
