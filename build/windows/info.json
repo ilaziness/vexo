@@ -1,15 +1,15 @@
 {
-	"fixed": {
-		"file_version": "0.1.0"
-	},
-	"info": {
-		"0000": {
-			"ProductVersion": "0.1.0",
-			"CompanyName": "My Company",
-			"FileDescription": "A vexo application",
-			"LegalCopyright": "© 2025, My Company",
-			"ProductName": "My Product",
-			"Comments": "This is a comment"
-		}
-	}
+  "fixed": {
+    "file_version": "1.0.0"
+  },
+  "info": {
+    "0000": {
+      "ProductVersion": "1.0.0",
+      "CompanyName": "github.com/ilaziness/vexo",
+      "FileDescription": "Vexo",
+      "LegalCopyright": "© 2026, github.com/ilaziness",
+      "ProductName": "Vexo SSH Desktop Client",
+      "Comments": "Vexo is a web-based SSH desktop client that allows users to access and manage their servers through a web interface. It provides a secure and convenient way to interact with remote servers without the need for traditional SSH clients."
+    }
+  }
 }

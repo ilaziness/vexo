@@ -72,31 +72,8 @@ func compareSemver(a, b string) int {
 		n = len(bs)
 	}
 	for i := 0; i < n; i++ {
-		var ai, bi int
-		if i < len(as) {
-			fmtS := strings.TrimSpace(as[i])
-			for j := 0; j < len(fmtS); j++ {
-				if fmtS[j] < '0' || fmtS[j] > '9' {
-					fmtS = fmtS[:j]
-					break
-				}
-			}
-			if fmtS != "" {
-				ai = atoi(fmtS)
-			}
-		}
-		if i < len(bs) {
-			fmtS := strings.TrimSpace(bs[i])
-			for j := 0; j < len(fmtS); j++ {
-				if fmtS[j] < '0' || fmtS[j] > '9' {
-					fmtS = fmtS[:j]
-					break
-				}
-			}
-			if fmtS != "" {
-				bi = atoi(fmtS)
-			}
-		}
+		ai := parseVersionPart(as, i)
+		bi := parseVersionPart(bs, i)
 		if ai > bi {
 			return 1
 		}
@@ -105,6 +82,29 @@ func compareSemver(a, b string) int {
 		}
 	}
 	return 0
+}
+
+// parseVersionPart extracts and parses the numeric part of a version segment.
+func parseVersionPart(parts []string, index int) int {
+	if index >= len(parts) {
+		return 0
+	}
+	s := strings.TrimSpace(parts[index])
+	s = extractLeadingDigits(s)
+	if s == "" {
+		return 0
+	}
+	return atoi(s)
+}
+
+// extractLeadingDigits returns only the leading numeric characters from a string.
+func extractLeadingDigits(s string) string {
+	for j := 0; j < len(s); j++ {
+		if s[j] < '0' || s[j] > '9' {
+			return s[:j]
+		}
+	}
+	return s
 }
 
 func atoi(s string) int {
