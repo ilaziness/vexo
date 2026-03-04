@@ -19,7 +19,7 @@ const OpBar = () => {
   };
 
   const handleClose = () => {
-    Window.Hide().then(() => {});
+    Window.Close().then(() => {});
   };
 
   return (

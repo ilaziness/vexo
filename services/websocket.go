@@ -143,10 +143,35 @@ func (s *WebSocketService) handleWebSocket(w http.ResponseWriter, r *http.Reques
 
 	Logger.Debug("New WebSocket connection", zap.String("sessionID", sessionID), zap.Int("cols", cols), zap.Int("rows", rows))
 
-	client := &WSClient{
-		done: make(chan struct{}),
+	// 启动 SSH session
+	err := s.sshService.Start(sessionID, cols, rows)
+	if err != nil {
+		Logger.Error(errFailedToStartSSHSession, zap.Error(err), zap.String("id", sessionID))
+		s.sshService.CloseByID(sessionID)
+		http.Error(w, errFailedToStartSSHSession, http.StatusInternalServerError)
+		return
 	}
 
+	// 获取 SSH 连接
+	sshConnAny, ok := s.sshService.SSHConnects.Load(sessionID)
+	if !ok {
+		Logger.Error("SSH connection not found after start", zap.String("id", sessionID))
+		http.Error(w, "SSH connection not found", http.StatusNotFound)
+		return
+	}
+
+	sshConn := sshConnAny.(*SSHConnect)
+	if sshConn.stdin == nil {
+		Logger.Error("SSH not initialized", zap.String("id", sessionID))
+		http.Error(w, "SSH not initialized", http.StatusInternalServerError)
+		return
+	}
+
+	client := &WSClient{
+		done:      make(chan struct{}),
+		stdin:     sshConn.stdin,
+		sessionID: sessionID,
+	}
 	connWS, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		CompressionMode:    websocket.CompressionContextTakeover,
 		InsecureSkipVerify: true,
@@ -160,37 +185,7 @@ func (s *WebSocketService) handleWebSocket(w http.ResponseWriter, r *http.Reques
 		Logger.Error("Failed to accept WebSocket", zap.Error(err))
 		return
 	}
-
-	// 启动 SSH session
-	err = s.sshService.Start(sessionID, cols, rows)
-	if err != nil {
-		Logger.Error(errFailedToStartSSHSession, zap.Error(err), zap.String("id", sessionID))
-		connWS.Close(websocket.StatusNormalClosure, errFailedToStartSSHSession)
-		s.sshService.CloseByID(sessionID)
-		http.Error(w, errFailedToStartSSHSession, http.StatusInternalServerError)
-		return
-	}
-
-	// 获取 SSH 连接
-	sshConnAny, ok := s.sshService.SSHConnects.Load(sessionID)
-	if !ok {
-		Logger.Error("SSH connection not found after start", zap.String("id", sessionID))
-		connWS.Close(websocket.StatusNormalClosure, "SSH connection not found")
-		http.Error(w, "SSH connection not found", http.StatusNotFound)
-		return
-	}
-
-	sshConn := sshConnAny.(*SSHConnect)
-	if sshConn.stdin == nil {
-		Logger.Error("SSH not initialized", zap.String("id", sessionID))
-		connWS.Close(websocket.StatusNormalClosure, "SSH stdin not initialized")
-		http.Error(w, "SSH not initialized", http.StatusInternalServerError)
-		return
-	}
-
 	client.conn = connWS
-	client.stdin = sshConn.stdin
-	client.sessionID = sessionID
 
 	// 注册客户端
 	s.registerClient(client)
@@ -200,7 +195,6 @@ func (s *WebSocketService) handleWebSocket(w http.ResponseWriter, r *http.Reques
 	go client.writeLoop(sshConn.outputChan)
 	client.ping()
 
-	// ping结束后执行清理
 	client.closeDone()
 	s.unregisterClient(client.sessionID)
 	s.closeSSHConnection(client.sessionID)

@@ -6,6 +6,7 @@ import {
 import {
   Config,
   ConfigService,
+  AppInfo,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import {
   Box,
@@ -27,7 +28,6 @@ import {
   GetAppInfo,
 } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
 import About from "../components/About";
-import { AppInfo } from "../../bindings/github.com/ilaziness/vexo/services";
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/message.ts";
@@ -41,7 +41,7 @@ const Setting: React.FC = () => {
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const { errorMessage } = useMessageStore();
-  const [appinfo, setAppInfo] = useState<AppInfo>({} as AppInfo);
+  const [appInfo, setAppInfo] = useState<AppInfo>({} as AppInfo);
 
   useEffect(() => {
     loadConfig();
@@ -97,7 +97,7 @@ const Setting: React.FC = () => {
 
     try {
       await SaveConfig(config);
-      ConfigService.CloseWindow();
+      await ConfigService.CloseWindow();
     } catch (error) {
       console.error("Failed to save config:", error);
       errorMessage("配置保存失败");
@@ -347,7 +347,7 @@ const Setting: React.FC = () => {
                               "fontSize",
                               e.target.value === ""
                                 ? null
-                                : parseInt(e.target.value) || null,
+                                : Number.parseInt(e.target.value) || null,
                             )
                           }
                           placeholder="例如: 14"
@@ -370,7 +370,7 @@ const Setting: React.FC = () => {
                               "lineHeight",
                               e.target.value === ""
                                 ? null
-                                : parseFloat(e.target.value) || null,
+                                : Number.parseFloat(e.target.value) || null,
                             )
                           }
                           placeholder="例如: 1.2"
@@ -383,7 +383,7 @@ const Setting: React.FC = () => {
 
               {activeTab === "about" && (
                 <Paper sx={{ p: 3 }} elevation={1}>
-                  <About appinfo={appinfo} />
+                  <About appinfo={appInfo} />
                 </Paper>
               )}
             </Box>

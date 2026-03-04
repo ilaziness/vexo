@@ -8,6 +8,7 @@ import (
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 	"go.uber.org/zap"
 )
 
@@ -65,7 +66,6 @@ type ConfigService struct {
 	Config     *Config
 	userConfig string // UserDataDir 下的用户配置文件路径
 	appConfig  string // 可执行目录下的应用配置文件路径
-	window     *application.WebviewWindow
 }
 
 // GetDefaultConfig 获取默认配置
@@ -84,6 +84,24 @@ func GetDefaultConfig() *Config {
 			FontSize:   14,
 			LineHeight: 1,
 		},
+	}
+}
+
+func (cs *ConfigService) ShowWindow() {
+	if AppInstance.SettingWindow == nil {
+		AppInstance.SettingWindow = newSettingWindow()
+	}
+	AppInstance.SettingWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		AppInstance.SettingWindow = nil
+	})
+	AppInstance.SettingWindow.Show()
+	AppInstance.SettingWindow.Focus()
+}
+
+func (cs *ConfigService) CloseWindow() {
+	if AppInstance.SettingWindow != nil {
+		AppInstance.SettingWindow.Close()
+		AppInstance.SettingWindow = nil
 	}
 }
 
@@ -169,15 +187,6 @@ func NewConfigService() *ConfigService {
 		userConfig: userConfigPath,
 		appConfig:  appConfigPath,
 	}
-}
-
-func (cs *ConfigService) ShowWindow() {
-	AppInstance.SettingWindow.Show()
-	AppInstance.SettingWindow.Focus()
-}
-
-func (cs *ConfigService) CloseWindow() {
-	AppInstance.SettingWindow.Hide()
 }
 
 // SetTheme 设置主题

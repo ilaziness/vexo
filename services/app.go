@@ -24,8 +24,6 @@ func NewApp(a *application.App, mainWindow *application.WebviewWindow) {
 			window.Close()
 		}
 	})
-	AppInstance.SettingWindow = newSettingWindow()
-	AppInstance.BookmarkWindow = newBookmarkWindow()
 }
 
 func newSettingWindow() *application.WebviewWindow {
@@ -39,10 +37,6 @@ func newSettingWindow() *application.WebviewWindow {
 		DefaultContextMenuDisabled: true,
 		Hidden:                     true,
 		Frameless:                  true,
-	})
-	window.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		event.Cancel() // 取消关闭事件
-		window.Hide()
 	})
 	return window
 }
@@ -58,10 +52,6 @@ func newBookmarkWindow() *application.WebviewWindow {
 		DefaultContextMenuDisabled: true,
 		Hidden:                     true,
 		Frameless:                  true,
-	})
-	window.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		event.Cancel()
-		window.Hide()
 	})
 	return window
 }

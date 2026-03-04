@@ -4,8 +4,8 @@ import {
   BookmarkService,
   LogService,
   SSHService,
+  SSHBookmark,
 } from "../../bindings/github.com/ilaziness/vexo/services";
-import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
 import BookmarkTree from "../components/BookmarkTree";
 import BookmarkForm from "../components/BookmarkForm";
 import { useMessageStore } from "../stores/message";
@@ -100,7 +100,7 @@ const Bookmark: React.FC = () => {
     try {
       await BookmarkService.DeleteGroup(groupName);
       await loadBookmarks();
-      if (selectedBookmark && selectedBookmark.group_name === groupName) {
+      if (selectedBookmark?.group_name === groupName) {
         setSelectedBookmark(null);
       }
     } catch (error) {

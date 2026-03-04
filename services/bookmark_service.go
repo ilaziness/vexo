@@ -11,6 +11,7 @@ import (
 
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 const (
@@ -66,6 +67,25 @@ func NewBookmarkService(cfgs *ConfigService) *BookmarkService {
 	// 初始化时加载书签数据到内存
 	bs.loadBookmarksToMemory()
 	return bs
+}
+
+// ShowWindow show bookmark manage window
+func (bs *BookmarkService) ShowWindow() {
+	if AppInstance.BookmarkWindow == nil {
+		AppInstance.BookmarkWindow = newBookmarkWindow()
+	}
+	AppInstance.BookmarkWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		AppInstance.BookmarkWindow = nil
+	})
+	AppInstance.BookmarkWindow.Show()
+	AppInstance.BookmarkWindow.Focus()
+}
+
+func (cs *BookmarkService) CloseWindow() {
+	if AppInstance.BookmarkWindow != nil {
+		AppInstance.BookmarkWindow.Close()
+		AppInstance.BookmarkWindow = nil
+	}
 }
 
 // SetUserPassword 设置用户密码用于加密/解密私钥密码
@@ -127,112 +147,111 @@ func (bs *BookmarkService) ConnectBookmark(bookmarkID string) {
 	app.Event.Emit(EventConnectBookmark, bookmarkID)
 }
 
+// encryptField 加密单个字段
+func (bs *BookmarkService) encryptField(value, fieldName string) (string, error) {
+	if bs.userPassword == "" {
+		if err := bs.waitForPassword("需要密码来加密" + fieldName); err != nil {
+			return "", err
+		}
+	}
+	encrypted, err := secret.Encrypt(bs.userPassword, value)
+	if err != nil {
+		return "", fmt.Errorf("加密%s失败: %v", fieldName, err)
+	}
+	return encrypted, nil
+}
+
 // encryptBookmark 对书签中的敏感字段进行加密
 func (bs *BookmarkService) encryptBookmark(bookmark SSHBookmark) (SSHBookmark, error) {
-	// 加密私钥密码
 	if bookmark.PrivateKeyPassword != "" {
-		if bs.userPassword == "" {
-			if err := bs.waitForPassword("需要密码来加密私钥密码"); err != nil {
-				return bookmark, err
-			}
-		}
-		encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.PrivateKeyPassword)
+		encrypted, err := bs.encryptField(bookmark.PrivateKeyPassword, "私钥密码")
 		if err != nil {
-			return bookmark, fmt.Errorf("加密私钥密码失败: %v", err)
+			return bookmark, err
 		}
-		bookmark.PrivateKeyPassword = encryptedPassword
+		bookmark.PrivateKeyPassword = encrypted
 	}
 
-	// 加密登录密码
 	if bookmark.Password != "" {
-		if bs.userPassword == "" {
-			if err := bs.waitForPassword("需要密码来加密登录密码"); err != nil {
-				return bookmark, err
-			}
-		}
-		encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.Password)
+		encrypted, err := bs.encryptField(bookmark.Password, "登录密码")
 		if err != nil {
-			return bookmark, fmt.Errorf("加密登录密码失败: %v", err)
+			return bookmark, err
 		}
-		bookmark.Password = encryptedPassword
+		bookmark.Password = encrypted
 	}
 
 	return bookmark, nil
+}
+
+// encryptFieldIfNeeded 在需要时加密字段值
+func (bs *BookmarkService) encryptFieldIfNeeded(newValue, existingValue, fieldName string) (string, error) {
+	if newValue == "" || newValue == existingValue {
+		return existingValue, nil
+	}
+	if bs.userPassword == "" {
+		if err := bs.waitForPassword("需要密码来加密" + fieldName); err != nil {
+			return "", err
+		}
+	}
+	encrypted, err := secret.Encrypt(bs.userPassword, newValue)
+	if err != nil {
+		return "", fmt.Errorf("加密%s失败: %v", fieldName, err)
+	}
+	return encrypted, nil
 }
 
 // processBookmarkForSave 处理书签保存逻辑，包括条件加密
 func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existingBookmark *SSHBookmark) (SSHBookmark, error) {
-	if existingBookmark != nil {
-		// 处理私钥密码
-		if bookmark.PrivateKeyPassword == "" || bookmark.PrivateKeyPassword == existingBookmark.PrivateKeyPassword {
-			bookmark.PrivateKeyPassword = existingBookmark.PrivateKeyPassword
-		} else {
-			if bs.userPassword == "" {
-				if err := bs.waitForPassword("需要密码来加密私钥密码"); err != nil {
-					return bookmark, err
-				}
-			}
-			encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.PrivateKeyPassword)
-			if err != nil {
-				return bookmark, fmt.Errorf("加密私钥密码失败: %v", err)
-			}
-			bookmark.PrivateKeyPassword = encryptedPassword
-		}
-
-		// 处理登录密码
-		if bookmark.Password == "" || bookmark.Password == existingBookmark.Password {
-			bookmark.Password = existingBookmark.Password
-		} else {
-			if bs.userPassword == "" {
-				if err := bs.waitForPassword("需要密码来加密登录密码"); err != nil {
-					return bookmark, err
-				}
-			}
-			encryptedPassword, err := secret.Encrypt(bs.userPassword, bookmark.Password)
-			if err != nil {
-				return bookmark, fmt.Errorf("加密登录密码失败: %v", err)
-			}
-			bookmark.Password = encryptedPassword
-		}
-	} else {
+	if existingBookmark == nil {
 		return bs.encryptBookmark(bookmark)
+	}
+
+	var err error
+	bookmark.PrivateKeyPassword, err = bs.encryptFieldIfNeeded(
+		bookmark.PrivateKeyPassword, existingBookmark.PrivateKeyPassword, "私钥密码")
+	if err != nil {
+		return bookmark, err
+	}
+
+	bookmark.Password, err = bs.encryptFieldIfNeeded(
+		bookmark.Password, existingBookmark.Password, "登录密码")
+	if err != nil {
+		return bookmark, err
 	}
 
 	return bookmark, nil
 }
 
+// decryptField 解密单个字段，如果失败则清空用户密码
+func (bs *BookmarkService) decryptField(encryptedValue, fieldName string) (string, error) {
+	if bs.userPassword == "" {
+		if err := bs.waitForPassword("需要密码来解密" + fieldName); err != nil {
+			return "", err
+		}
+	}
+	decrypted, err := secret.Decrypt(bs.userPassword, encryptedValue)
+	if err != nil {
+		bs.userPassword = ""
+		return "", fmt.Errorf("解密%s失败: %v", fieldName, err)
+	}
+	return decrypted, nil
+}
+
 // decryptBookmark 对书签中的敏感字段进行解密
 func (bs *BookmarkService) decryptBookmark(bookmark SSHBookmark) (SSHBookmark, error) {
-	// 解密私钥密码
 	if bookmark.PrivateKeyPassword != "" {
-		if bs.userPassword == "" {
-			if err := bs.waitForPassword("需要密码来解密私钥密码"); err != nil {
-				return bookmark, err
-			}
-		}
-		decryptedPassword, err := secret.Decrypt(bs.userPassword, bookmark.PrivateKeyPassword)
+		decrypted, err := bs.decryptField(bookmark.PrivateKeyPassword, "私钥密码")
 		if err != nil {
-			// 解密失败，清空用户密码，让用户重新输入
-			bs.userPassword = ""
-			return bookmark, fmt.Errorf("解密私钥密码失败: %v", err)
+			return bookmark, err
 		}
-		bookmark.PrivateKeyPassword = decryptedPassword
+		bookmark.PrivateKeyPassword = decrypted
 	}
 
-	// 解密登录密码
 	if bookmark.Password != "" {
-		if bs.userPassword == "" {
-			if err := bs.waitForPassword("需要密码来解密登录密码"); err != nil {
-				return bookmark, err
-			}
-		}
-		decryptedPassword, err := secret.Decrypt(bs.userPassword, bookmark.Password)
+		decrypted, err := bs.decryptField(bookmark.Password, "登录密码")
 		if err != nil {
-			// 解密失败，清空用户密码，让用户重新输入
-			bs.userPassword = ""
-			return bookmark, fmt.Errorf("解密登录密码失败: %v", err)
+			return bookmark, err
 		}
-		bookmark.Password = decryptedPassword
+		bookmark.Password = decrypted
 	}
 
 	return bookmark, nil
@@ -264,17 +283,6 @@ func (bs *BookmarkService) DecryptPassword(password string) string {
 	}
 
 	return decrypted
-}
-
-// ShowWindow show bookmark manage window
-func (bs *BookmarkService) ShowWindow() {
-	AppInstance.BookmarkWindow.Show()
-	AppInstance.BookmarkWindow.Focus()
-}
-
-// CloseWindow 关闭窗口
-func (bs *BookmarkService) CloseWindow() {
-	AppInstance.BookmarkWindow.Hide()
 }
 
 // loadBookmarksToMemory 从文件加载书签数据到内存
@@ -359,103 +367,92 @@ func (bs *BookmarkService) ListBookmarks() ([]*BookmarkGroup, error) {
 	return bs.loadBookmarks(), nil
 }
 
+// findBookmarkByID 查找书签位置，返回是否找到及分组索引和书签索引
+func (bs *BookmarkService) findBookmarkByID(groups []*BookmarkGroup, id string) (found bool, groupIdx, bookmarkIdx int) {
+	for i, group := range groups {
+		for j, b := range group.Bookmarks {
+			if b.ID == id {
+				return true, i, j
+			}
+		}
+	}
+	return false, 0, 0
+}
+
+// findGroupIndexByName 根据分组名称查找分组索引
+func (bs *BookmarkService) findGroupIndexByName(groups []*BookmarkGroup, name string) (int, bool) {
+	for i, g := range groups {
+		if g.Name == name {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// updateExistingBookmark 更新现有书签
+func (bs *BookmarkService) updateExistingBookmark(groups []*BookmarkGroup, bookmark SSHBookmark, groupIdx, bookmarkIdx int) ([]*BookmarkGroup, error) {
+	existing := groups[groupIdx].Bookmarks[bookmarkIdx]
+
+	targetIdx, found := bs.findGroupIndexByName(groups, bookmark.GroupName)
+	if !found {
+		bookmark.GroupName = existing.GroupName
+		targetIdx = groupIdx
+	}
+
+	processed, err := bs.processBookmarkForSave(bookmark, &existing)
+	if err != nil {
+		return groups, err
+	}
+
+	if targetIdx != groupIdx {
+		bookmarks := groups[groupIdx].Bookmarks
+		groups[groupIdx].Bookmarks = append(bookmarks[:bookmarkIdx], bookmarks[bookmarkIdx+1:]...)
+		groups[targetIdx].Bookmarks = append(groups[targetIdx].Bookmarks, processed)
+	} else {
+		groups[groupIdx].Bookmarks[bookmarkIdx] = processed
+	}
+
+	return groups, nil
+}
+
+// addNewBookmark 添加新书签
+func (bs *BookmarkService) addNewBookmark(groups []*BookmarkGroup, bookmark SSHBookmark) ([]*BookmarkGroup, error) {
+	processed, err := bs.processBookmarkForSave(bookmark, nil)
+	if err != nil {
+		return groups, err
+	}
+
+	if idx, found := bs.findGroupIndexByName(groups, bookmark.GroupName); found {
+		groups[idx].Bookmarks = append(groups[idx].Bookmarks, processed)
+		return groups, nil
+	}
+
+	defaultName := "默认书签"
+	if idx, found := bs.findGroupIndexByName(groups, defaultName); found {
+		groups[idx].Bookmarks = append(groups[idx].Bookmarks, processed)
+	}
+
+	return groups, nil
+}
+
 // SaveBookmark 保存SSH连接信息书签，根据ID判断是新增还是更新
 func (bs *BookmarkService) SaveBookmark(bookmark SSHBookmark) error {
-	bookmarkGroups := bs.loadBookmarks()
+	groups := bs.loadBookmarks()
 
-	// 检查ID是否已存在
-	bookmarkExists := false
-	var existingGroupIndex int
-	var existingBookmarkIndex int
+	found, groupIdx, bookmarkIdx := bs.findBookmarkByID(groups, bookmark.ID)
 
-	for i, group := range bookmarkGroups {
-		for j, existingBookmark := range group.Bookmarks {
-			if existingBookmark.ID == bookmark.ID {
-				bookmarkExists = true
-				existingGroupIndex = i
-				existingBookmarkIndex = j
-				break
-			}
-		}
-		if bookmarkExists {
-			break
-		}
-	}
-
-	if bookmarkExists {
-		// 更新现有书签
-		existingBookmark := bookmarkGroups[existingGroupIndex].Bookmarks[existingBookmarkIndex]
-
-		// 检查目标分组是否存在
-		targetGroupExists := false
-		var targetGroupIndex int
-		for i, g := range bookmarkGroups {
-			if g.Name == bookmark.GroupName {
-				targetGroupExists = true
-				targetGroupIndex = i
-				break
-			}
-		}
-
-		if !targetGroupExists {
-			// 如果目标分组不存在，使用原分组
-			bookmark.GroupName = existingBookmark.GroupName
-			targetGroupIndex = existingGroupIndex
-		}
-
-		// 处理加密逻辑
-		processedBookmark, err := bs.processBookmarkForSave(bookmark, &existingBookmark)
-		if err != nil {
-			return err
-		}
-		bookmark = processedBookmark
-
-		// 如果分组发生变化，需要移动书签
-		if targetGroupIndex != existingGroupIndex {
-			// 从原分组移除
-			bookmarks := bookmarkGroups[existingGroupIndex].Bookmarks
-			bookmarkGroups[existingGroupIndex].Bookmarks = append(bookmarks[:existingBookmarkIndex], bookmarks[existingBookmarkIndex+1:]...)
-
-			// 添加到新分组
-			bookmarkGroups[targetGroupIndex].Bookmarks = append(bookmarkGroups[targetGroupIndex].Bookmarks, bookmark)
-		} else {
-			// 更新书签信息
-			bookmarkGroups[existingGroupIndex].Bookmarks[existingBookmarkIndex] = bookmark
-		}
+	var err error
+	if found {
+		groups, err = bs.updateExistingBookmark(groups, bookmark, groupIdx, bookmarkIdx)
 	} else {
-		// 新增书签
-		// 处理加密逻辑
-		processedBookmark, err := bs.processBookmarkForSave(bookmark, nil)
-		if err != nil {
-			return err
-		}
-		bookmark = processedBookmark
-
-		// 检查分组是否存在，如果不存在则使用默认分组
-		groupExists := false
-		for i, group := range bookmarkGroups {
-			if group.Name == bookmark.GroupName {
-				bookmarkGroups[i].Bookmarks = append(group.Bookmarks, bookmark)
-				groupExists = true
-				break
-			}
-		}
-
-		if !groupExists {
-			// 如果分组不存在，添加到默认分组
-			defaultGroupName := "默认书签"
-			for i, group := range bookmarkGroups {
-				if group.Name == defaultGroupName {
-					bookmarkGroups[i].Bookmarks = append(group.Bookmarks, bookmark)
-					break
-				}
-			}
-		}
+		groups, err = bs.addNewBookmark(groups, bookmark)
 	}
 
-	// 更新内存中的数据
-	bs.bookmarks = bookmarkGroups
+	if err != nil {
+		return err
+	}
 
+	bs.bookmarks = groups
 	return bs.saveBookmarks()
 }
 

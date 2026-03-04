@@ -390,6 +390,7 @@ func (sc *SSHConnect) Close() error {
 	if sc.isClosed {
 		return nil
 	}
+	sc.isClosed = true
 
 	// Close SFTP service if exists
 	if sc.sftpService != nil {
@@ -413,7 +414,6 @@ func (sc *SSHConnect) Close() error {
 		Logger.Debug("Output channel closed in Close()", zap.String("ID", sc.ID))
 	}()
 
-	sc.isClosed = true
 	sc.sshService.CloseByID(sc.ID)
 	GetWebSocketService().CloseClient(sc.ID)
 	Logger.Debug("SSH connection closed", zap.String("ID", sc.ID))
