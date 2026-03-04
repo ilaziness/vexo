@@ -303,7 +303,7 @@ func (sc *SSHConnect) Start(cols, rows int) error {
 		if err != nil {
 			Logger.Debug("SSH session ended with error:", zap.String("msg", err.Error()), zap.String("id", sc.ID))
 		} else {
-			Logger.Info("SSH session ended", zap.String("ID", sc.ID))
+			Logger.Debug("SSH session ended", zap.String("ID", sc.ID))
 		}
 		_ = sc.Close()
 	}()
