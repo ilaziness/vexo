@@ -115,6 +115,7 @@ npm run build:dev
 生成前端绑定：`wails3 generate bindings -ts`
 
 ```bash
+# 编译go
 go build -o {name} .
 ```
 `{name}` 为平台对应的可执行文件名，如 `vexo.exe`（Windows）、`vexo`（macOS/Linux）。

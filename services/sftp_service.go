@@ -291,17 +291,17 @@ func (sft *SftpService) UploadDirectoryDialog(sessionID, remotePath string) erro
 // uploadDirectory recursively uploads a local directory to the specified remote path
 func (sft *SftpService) uploadDirectory(sessionID string, localPath, remotePath string, tracker *transferTracker) error {
 	Logger.Debug("uploadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
-	
+
 	// Validate inputs and get clients
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
 	}
-	
+
 	if tracker == nil {
 		return fmt.Errorf(ErrTrackerRequired)
 	}
-	
+
 	// Validate local directory
 	info, err := os.Stat(localPath)
 	if err != nil {
@@ -382,17 +382,17 @@ func (sft *SftpService) DownloadDirectoryDialog(sessionID, remotePath string) er
 // downloadDirectory recursively downloads a remote directory to the specified local path
 func (sft *SftpService) downloadDirectory(sessionID string, localPath, remotePath string, tracker *transferTracker) error {
 	Logger.Debug("downloadDirectory", zap.String("sessionID", sessionID), zap.String("localPath", localPath), zap.String("remotePath", remotePath))
-	
+
 	// Validate inputs and get clients
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
 	}
-	
+
 	if tracker == nil {
 		return fmt.Errorf(ErrTrackerRequired)
 	}
-	
+
 	// Validate remote directory
 	info, err := ftpClient.Stat(remotePath)
 	if err != nil {

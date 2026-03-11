@@ -39,14 +39,21 @@ type SSHConnect struct {
 type SSHService struct {
 	clients     *sync.Map // 客户端连接列表，key是host:port字符串, value是*ssh.Client
 	SSHConnects *sync.Map // 终端会话列表，key是SSHConnect.ID，value是*sshConnect
+	// host key prompt state
+	hostKeyMu   sync.Mutex
+	hostKeyChan chan bool
+	pendingHost string
 }
 
 func NewSSHService() *SSHService {
 	return &SSHService{
 		clients:     new(sync.Map),
 		SSHConnects: new(sync.Map),
+		hostKeyChan: nil,
 	}
 }
+
+// host key event/handlers moved to services/hostkey.go
 
 // dialSSH establishes an SSH connection with the provided credentials and timeout.
 func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPassword string, timeout time.Duration) (*ssh.Client, error) {
@@ -56,7 +63,7 @@ func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPass
 	cfg := &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: s.hostKeyCallback,
 		Timeout:         timeout,
 	}
 	if key != "" {
@@ -257,6 +264,8 @@ func (s *SSHService) SelectKeyFile() (string, error) {
 func generateConnectID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
+
+// known hosts helpers moved to services/hostkey.go
 
 func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client) *SSHConnect {
 	return &SSHConnect{

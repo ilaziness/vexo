@@ -6,6 +6,7 @@ import (
 )
 
 var app *application.App
+var ConfigSvc *ConfigService
 
 type AppInfo struct {
 	Version   string
@@ -31,6 +32,8 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	configService := NewConfigService()
 	bookmarkService := NewBookmarkService(configService)
 	sshTunnelService := NewSSHTunnelService(sshService)
+
+	ConfigSvc = configService
 
 	app.RegisterService(application.NewService(appService))
 	app.RegisterService(application.NewService(sshService))

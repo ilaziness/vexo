@@ -3,6 +3,7 @@ import SSHTabs from "../components/SSHTabs.tsx";
 import Header from "../components/Header.tsx";
 import Message from "../components/Message.tsx";
 import PasswordInputDialog from "../components/PasswordInputDialog.tsx";
+import HostKeyPrompt from "../components/HostKeyPrompt";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
       </Box>
       <Message />
       <PasswordInputDialog />
+      <HostKeyPrompt />
     </>
   );
 }
