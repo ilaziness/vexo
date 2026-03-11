@@ -139,11 +139,7 @@ func (t *SSHTunnelService) StartLocal(sessionID string, LocalPort int, RemoteAdd
 				}
 				defer remoteConn.Close()
 
-				Logger.Debug("SSH tunnel local forwarding connection established",
-					zap.String("tunnelID", tunnel.ID),
-					zap.String("sessionID", sessionID),
-					zap.Int("localPort", LocalPort),
-					zap.String("remoteAddr", RemoteAddr))
+				Logger.Debug("SSH tunnel local forwarding connection established")
 
 				// 创建退出信号通道和同步机制
 				connExitCh := make(chan struct{})
@@ -172,24 +168,16 @@ func (t *SSHTunnelService) StartLocal(sessionID string, LocalPort int, RemoteAdd
 				select {
 				case <-connExitCh:
 					// 连接正常结束
-					Logger.Debug("SSH tunnel connection closed normally",
-						zap.String("tunnelID", tunnel.ID),
-						zap.String("sessionID", sessionID))
+					Logger.Debug("SSH tunnel connection closed normally")
 				case <-tunnel.exitCh:
 					// 隧道被停止，需要中断连接
-					Logger.Debug("SSH tunnel stopping, closing connections",
-						zap.String("tunnelID", tunnel.ID),
-						zap.String("sessionID", sessionID))
+					Logger.Debug("SSH tunnel stopping, closing connections")
 					localConn.Close()
 					remoteConn.Close()
 					<-connExitCh
 				}
 
-				Logger.Debug("SSH tunnel local forwarding connection closed",
-					zap.String("tunnelID", tunnel.ID),
-					zap.String("sessionID", sessionID),
-					zap.Int("localPort", LocalPort),
-					zap.String("remoteAddr", RemoteAddr))
+				Logger.Debug("SSH tunnel local forwarding connection closed")
 			})
 		}
 	})
@@ -224,7 +212,7 @@ func (t *SSHTunnelService) StopLocalByID(tunnelID string) error {
 	close(tunnel.exitCh)
 	tunnel.wg.Wait()
 	sshTunnels.Delete(tunnelID)
-	Logger.Debug("SSH tunnel stopped", zap.String("tunnelID", tunnelID), zap.String("sessionID", tunnel.sessionID), zap.Int("localPort", tunnel.LocalPort), zap.String("remoteAddr", tunnel.RemoteAddr))
+	Logger.Debug("SSH tunnel stopped", zap.String("remoteAddr", tunnel.RemoteAddr))
 	return nil
 }
 
