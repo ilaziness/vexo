@@ -30,3 +30,11 @@ func RecoverFromPanic() {
 		fmt.Printf("Stack trace:\n%s\n", buf[:n])
 	}
 }
+
+// SafeGo 启动一个安全的 goroutine，捕获其中的 panic
+func SafeGo(fn func()) {
+	go func() {
+		defer RecoverFromPanic()
+		fn()
+	}()
+}

@@ -30,12 +30,14 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	sftpService := NewSftpService()
 	configService := NewConfigService()
 	bookmarkService := NewBookmarkService(configService)
+	sshTunnelService := NewSSHTunnelService(sshService)
 
 	app.RegisterService(application.NewService(appService))
 	app.RegisterService(application.NewService(sshService))
 	app.RegisterService(application.NewService(sftpService))
 	app.RegisterService(application.NewService(configService))
 	app.RegisterService(application.NewService(bookmarkService))
+	app.RegisterService(application.NewService(sshTunnelService))
 
 	wsService := NewWebSocketService(app, sshService)
 	wsService.Start()
@@ -44,6 +46,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 		Logger.Sugar().Debugln("run app OnShutdown...")
 		wsService.Stop()
 		sshService.Close()
+		sshTunnelService.StopAllLocal()
 	})
 }
 

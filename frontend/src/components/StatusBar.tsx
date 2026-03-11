@@ -1,7 +1,9 @@
 import React from "react";
 import { Box, Stack, Tooltip } from "@mui/material";
 import MobiledataOffIcon from "@mui/icons-material/MobiledataOff";
+import AltRouteIcon from "@mui/icons-material/AltRoute";
 import TransferList from "./TransferList";
+import SSHTunnel from "./SSHTunnel";
 
 interface StatusBarProps {
   sessionID: string;
@@ -10,11 +12,20 @@ interface StatusBarProps {
 
 const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
   const [open, setOpen] = React.useState(false);
+  const [sshTunnelOpen, setSshTunnelOpen] = React.useState(false);
+
   const toggleOpen = () => {
     setOpen((prev) => !prev);
   };
   const handleClose = () => {
     setOpen(false);
+  };
+
+  const toggleSshTunnelOpen = () => {
+    setSshTunnelOpen((prev) => !prev);
+  };
+  const handleSshTunnelClose = () => {
+    setSshTunnelOpen(false);
   };
 
   return (
@@ -31,6 +42,19 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
       }}
     >
       <Stack direction="row" spacing={2}>
+        <Tooltip title="隧道">
+          <AltRouteIcon
+            fontSize="small"
+            onClick={toggleSshTunnelOpen}
+            sx={{
+              color: "text.secondary",
+              "&:hover": {
+                color: "primary.main",
+                cursor: "pointer",
+              },
+            }}
+          />
+        </Tooltip>
         <Tooltip title="传输列表">
           <MobiledataOffIcon
             fontSize="small"
@@ -45,6 +69,13 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
           />
         </Tooltip>
       </Stack>
+
+      <SSHTunnel
+        sessionID={sessionID}
+        open={sshTunnelOpen}
+        statusBarHeight={height}
+        onClose={handleSshTunnelClose}
+      />
 
       <TransferList
         sessionID={sessionID}
