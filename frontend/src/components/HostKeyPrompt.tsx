@@ -69,8 +69,7 @@ const HostKeyPrompt: React.FC = () => {
               指纹: {payload.fingerprint}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              若信任此主机，选择“信任并继续”，将会把该主机密钥保存到 known_hosts
-              文件中。
+              若信任此主机，选择“信任并继续”，将会把该主机密钥保存到文件中。
             </Typography>
           </>
         )}
