@@ -7,6 +7,7 @@ require (
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/sftp v1.13.10
+	github.com/things-go/go-socks5 v0.1.0
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.74
 	github.com/xiwh/zmodem v1.0.4
 	go.uber.org/zap v1.27.1

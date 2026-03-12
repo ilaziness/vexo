@@ -112,7 +112,7 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
   const handleStopTunnel = async (tunnelId: string) => {
     setStoppingIds((prev) => new Set(prev).add(tunnelId));
     try {
-      await SSHTunnelService.StopLocalByID(tunnelId);
+      await SSHTunnelService.StopByID(tunnelId);
       successMessage("隧道停止成功");
       fetchTunnelList();
     } catch (err) {
@@ -377,9 +377,9 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
           <SettingsEthernet fontSize="small" sx={{ mr: 1 }} />
           远程端口转发
         </MenuItem>
-        <MenuItem onClick={() => handleTunnelTypeSelect("dynamic")} disabled>
+        <MenuItem onClick={() => handleTunnelTypeSelect("dynamic")}>
           <Public fontSize="small" sx={{ mr: 1 }} />
-          动态端口转发（预留）
+          动态端口转发
         </MenuItem>
       </Menu>
 

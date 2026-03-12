@@ -119,8 +119,8 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
         await SSHTunnelService.StartRemote(sessionID, remotePort, localPort);
         successMessage(`${getTunnelTypeName()}启动成功`);
       } else {
-        // 动态转发预留
-        throw new Error(`${getTunnelTypeName()}功能暂未实现`);
+        await SSHTunnelService.StartDynamic(sessionID, localPort);
+        successMessage(`${getTunnelTypeName()}启动成功`);
       }
 
       onSuccess();
@@ -247,9 +247,33 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
 
       case "dynamic":
         return (
-          <Box sx={{ textAlign: "center", py: 4 }}>
-            动态端口转发功能开发中...
-          </Box>
+          <>
+            <TextField
+              label="本地端口"
+              value={formData.localPort}
+              onChange={(e) =>
+                setFormData({ ...formData, localPort: e.target.value })
+              }
+              placeholder="例如: 1080"
+              type="number"
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  max: 65535,
+                },
+              }}
+              helperText={localPortHelperText}
+              error={
+                formData.localPort.trim() !== "" &&
+                validateLocalPort(formData.localPort) === false
+              }
+              fullWidth
+              required
+            />
+            <Box sx={{ textAlign: "center", py: 1, color: "text.secondary" }}>
+              动态（SOCKS5）代理：本地监听 SOCKS5 请求并通过 SSH 隧道出站。
+            </Box>
+          </>
         );
 
       default:
