@@ -49,7 +49,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 		Logger.Sugar().Debugln("run app OnShutdown...")
 		wsService.Stop()
 		sshService.Close()
-		sshTunnelService.StopAllLocal()
+		sshTunnelService.StopAll()
 	})
 }
 

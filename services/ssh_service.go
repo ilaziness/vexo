@@ -401,8 +401,8 @@ func (sc *SSHConnect) Close() error {
 	}
 	sc.isClosed = true
 
-	// Close SSH tunnel if exists
-	sshTunnelService.StopLocal(sc.ID)
+	// Close SSH tunnels (all types) for this session if exists
+	sshTunnelService.StopAllBySession(sc.ID)
 
 	// Close SFTP service if exists
 	if sc.sftpService != nil {

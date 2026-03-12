@@ -33,6 +33,7 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
   const [formData, setFormData] = useState({
     localPort: "",
     remoteAddr: "",
+    remotePort: "",
     // 动态转发可能只需要本地端口
   });
   const [loading, setLoading] = useState(false);
@@ -41,9 +42,9 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
   const getTunnelTypeName = () => {
     switch (tunnelType) {
       case "local":
-        return "本地转发";
+        return "本地端口转发";
       case "remote":
-        return "远程转发";
+        return "远程端口转发";
       case "dynamic":
         return "动态端口转发";
       default:
@@ -85,7 +86,17 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
       return true; // 动态转发可能只需要本地端口
     }
 
-    return validateRemoteAddr(formData.remoteAddr);
+    if (tunnelType === "local") {
+      return validateRemoteAddr(formData.remoteAddr);
+    }
+
+    if (tunnelType === "remote") {
+      // remote: 需要本地端口与远端监听端口
+      const rp = Number.parseInt(formData.remotePort, 10);
+      return !Number.isNaN(rp) && rp >= 1 && rp <= 65535;
+    }
+
+    return false;
   };
 
   // 处理表单提交
@@ -96,7 +107,6 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
     try {
       const localPort = Number.parseInt(formData.localPort, 10);
 
-      // 目前只实现本地转发
       if (tunnelType === "local") {
         await SSHTunnelService.StartLocal(
           sessionID,
@@ -104,14 +114,18 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
           formData.remoteAddr,
         );
         successMessage(`${getTunnelTypeName()}启动成功`);
+      } else if (tunnelType === "remote") {
+        const remotePort = Number.parseInt(formData.remotePort, 10);
+        await SSHTunnelService.StartRemote(sessionID, remotePort, localPort);
+        successMessage(`${getTunnelTypeName()}启动成功`);
       } else {
-        // 远程转发和动态转发预留
+        // 动态转发预留
         throw new Error(`${getTunnelTypeName()}功能暂未实现`);
       }
 
       onSuccess();
       onClose();
-      setFormData({ localPort: "", remoteAddr: "" });
+      setFormData({ localPort: "", remoteAddr: "", remotePort: "" });
     } catch (err) {
       const errorMsg =
         err instanceof Error ? parseCallServiceError(err) : "启动隧道失败";
@@ -189,8 +203,46 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
         );
 
       case "remote":
+        // 远端转发表单：远端监听端口（remotePort）和本地目标端口（localPort）
         return (
-          <Box sx={{ textAlign: "center", py: 4 }}>远程转发功能开发中...</Box>
+          <>
+            <TextField
+              label="本地端口"
+              value={formData.localPort}
+              onChange={(e) =>
+                setFormData({ ...formData, localPort: e.target.value })
+              }
+              placeholder="例如: 8080"
+              type="number"
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  max: 65535,
+                },
+              }}
+              helperText={"本地目标端口，例如: 8080"}
+              fullWidth
+              required
+            />
+            <TextField
+              label="远端监听端口"
+              value={formData.remotePort}
+              onChange={(e) =>
+                setFormData({ ...formData, remotePort: e.target.value })
+              }
+              placeholder="例如: 9090"
+              type="number"
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  max: 65535,
+                },
+              }}
+              helperText={"远端将在 127.0.0.1:<端口> 上监听"}
+              fullWidth
+              required
+            />
+          </>
         );
 
       case "dynamic":

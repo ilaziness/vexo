@@ -373,14 +373,14 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
           <Lan fontSize="small" sx={{ mr: 1 }} />
           本地端口转发
         </MenuItem>
-        {/* <MenuItem onClick={() => handleTunnelTypeSelect("remote")} disabled>
+        <MenuItem onClick={() => handleTunnelTypeSelect("remote")}>
           <SettingsEthernet fontSize="small" sx={{ mr: 1 }} />
-          远程转发（预留）
+          远程端口转发
         </MenuItem>
         <MenuItem onClick={() => handleTunnelTypeSelect("dynamic")} disabled>
           <Public fontSize="small" sx={{ mr: 1 }} />
           动态端口转发（预留）
-        </MenuItem> */}
+        </MenuItem>
       </Menu>
 
       {/* 隧道创建表单 - 只在选择了隧道类型时渲染 */}

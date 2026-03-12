@@ -216,8 +216,113 @@ func (t *SSHTunnelService) StopLocalByID(tunnelID string) error {
 	return nil
 }
 
-// StopAllLocal 停止所有本地端口转发
-func (t *SSHTunnelService) StopAllLocal() {
+// StartRemote 远端端口转发（remote forwarding）。
+// 在远端（SSH 服务器）监听 127.0.0.1:remotePort，接受连接后转发到本地的 127.0.0.1:localPort。
+func (t *SSHTunnelService) StartRemote(sessionID string, remotePort int, localPort int) (string, error) {
+	connAny, ok := t.sshService.SSHConnects.Load(sessionID)
+	if !ok {
+		return "", fmt.Errorf("ssh connect not found: %s", sessionID)
+	}
+	sc := connAny.(*SSHConnect)
+
+	remoteAddr := fmt.Sprintf("127.0.0.1:%d", remotePort)
+	// 在远端通过 ssh client 监听
+	ln, err := sc.client.Listen("tcp", remoteAddr)
+	if err != nil {
+		return "", err
+	}
+
+	tunnel := &SSHTunnel{
+		ID:         utils.GenerateRandomID(),
+		tunnelType: tunnelTypeRemote,
+		sessionID:  sessionID,
+		LocalPort:  localPort,
+		RemoteAddr: remoteAddr,
+		listener:   ln,
+		exitCh:     make(chan struct{}),
+	}
+	sshTunnels.Store(tunnel.ID, tunnel)
+
+	tunnel.wg.Add(1)
+	system.SafeGo(func() {
+		defer tunnel.wg.Done()
+		for {
+			remoteConn, err := ln.Accept()
+			if err != nil {
+				Logger.Debug("remote accept loop quit", zap.String("tunnelID", tunnel.ID), zap.Error(err))
+				return
+			}
+			tunnel.wg.Add(1)
+			system.SafeGo(func() {
+				defer tunnel.wg.Done()
+				defer remoteConn.Close()
+
+				localAddr := fmt.Sprintf("127.0.0.1:%d", tunnel.LocalPort)
+				localConn, err := net.Dial("tcp", localAddr)
+				if err != nil {
+					Logger.Debug("failed to dial local", zap.String("tunnelID", tunnel.ID), zap.Error(err))
+					return
+				}
+				defer localConn.Close()
+
+				Logger.Debug("SSH tunnel remote forwarding connection established")
+
+				connExitCh := make(chan struct{})
+				var closeOnce sync.Once
+				closeConnExitCh := func() {
+					closeOnce.Do(func() { close(connExitCh) })
+				}
+
+				tunnel.wg.Add(2)
+				system.SafeGo(func() {
+					defer tunnel.wg.Done()
+					io.Copy(localConn, remoteConn)
+					closeConnExitCh()
+					Logger.Debug("SSH tunnel copy1 exit")
+				})
+				system.SafeGo(func() {
+					defer tunnel.wg.Done()
+					io.Copy(remoteConn, localConn)
+					closeConnExitCh()
+					Logger.Debug("SSH tunnel copy2 exit")
+				})
+
+				select {
+				case <-connExitCh:
+					Logger.Debug("SSH tunnel connection closed normally")
+				case <-tunnel.exitCh:
+					Logger.Debug("SSH tunnel stopping, closing connections")
+					localConn.Close()
+					remoteConn.Close()
+					<-connExitCh
+				}
+
+				Logger.Debug("SSH tunnel remote forwarding connection closed")
+			})
+		}
+	})
+
+	return tunnel.ID, nil
+}
+
+// StopRemote 停止远端端口转发
+func (t *SSHTunnelService) StopRemote(sessionID string) error {
+	sshTunnels.Range(func(key, value any) bool {
+		tunnel, ok := value.(*SSHTunnel)
+		if ok && tunnel.tunnelType == tunnelTypeRemote && tunnel.sessionID == sessionID {
+			_ = tunnel.listener.Close()
+			close(tunnel.exitCh)
+			tunnel.wg.Wait()
+			sshTunnels.Delete(key)
+		}
+		return true
+	})
+	Logger.Debug("SSH remote tunnels stopped for session", zap.String("sessionID", sessionID))
+	return nil
+}
+
+// StopAll 停止所有隧道（local/remote/dynamic）
+func (t *SSHTunnelService) StopAll() {
 	sshTunnels.Range(func(key, value any) bool {
 		tunnel, ok := value.(*SSHTunnel)
 		if ok {
@@ -229,4 +334,19 @@ func (t *SSHTunnelService) StopAllLocal() {
 		return true
 	})
 	Logger.Debug("All SSH tunnels stopped")
+}
+
+// StopAllBySession 停止指定 sessionID 的所有隧道
+func (t *SSHTunnelService) StopAllBySession(sessionID string) {
+	sshTunnels.Range(func(key, value any) bool {
+		tunnel, ok := value.(*SSHTunnel)
+		if ok && tunnel.sessionID == sessionID {
+			_ = tunnel.listener.Close()
+			close(tunnel.exitCh)
+			tunnel.wg.Wait()
+			sshTunnels.Delete(key)
+		}
+		return true
+	})
+	Logger.Debug("SSH tunnels stopped for session", zap.String("sessionID", sessionID))
 }
