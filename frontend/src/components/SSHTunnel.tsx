@@ -10,8 +10,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Menu,
-  MenuItem,
   CircularProgress,
   Chip,
 } from "@mui/material";
@@ -50,10 +48,6 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
   // 状态管理
   const [tunnelGroups, setTunnelGroups] = useState<TunnelList[]>([]);
   const [loading, setLoading] = useState(false);
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedTunnelType, setSelectedTunnelType] = useState<
-    "local" | "remote" | "dynamic" | null
-  >(null);
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [stoppingIds, setStoppingIds] = useState<Set<string>>(new Set());
 
@@ -80,27 +74,14 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
     }
   }, [open]);
 
-  // 处理菜单打开
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setMenuAnchorEl(event.currentTarget);
-  };
-
-  // 处理菜单关闭
-  const handleMenuClose = () => {
-    setMenuAnchorEl(null);
-  };
-
-  // 处理隧道类型选择
-  const handleTunnelTypeSelect = (type: "local" | "remote" | "dynamic") => {
-    setSelectedTunnelType(type);
-    setMenuAnchorEl(null);
+  // 处理表单打开
+  const handleFormOpen = () => {
     setFormDialogOpen(true);
   };
 
   // 处理表单关闭
   const handleFormClose = () => {
     setFormDialogOpen(false);
-    setSelectedTunnelType(null);
   };
 
   // 处理隧道创建成功
@@ -131,15 +112,23 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
   const getTunnelTypeInfo = (type: string) => {
     switch (type) {
       case "local":
-        return { label: "本地转发", icon: <Lan />, color: "primary" as const };
+        return {
+          label: "本地端口转发",
+          icon: <Lan />,
+          color: "primary" as const,
+        };
       case "remote":
         return {
-          label: "远程转发",
+          label: "远程端口转发",
           icon: <SettingsEthernet />,
           color: "secondary" as const,
         };
       case "dynamic":
-        return { label: "动态转发", icon: <Public />, color: "info" as const };
+        return {
+          label: "动态端口转发",
+          icon: <Public />,
+          color: "info" as const,
+        };
       default:
         return { label: type, icon: <Lan />, color: "default" as const };
     }
@@ -184,7 +173,7 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
             />
             <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
               <Typography variant="body2" sx={{ fontWeight: "medium" }}>
-                本地端口: {tunnel.localPort}
+                本地地址: {tunnel.localAddr}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 远程地址: {tunnel.remoteAddr}
@@ -309,7 +298,7 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
               <Box sx={{ display: "flex", gap: 1 }}>
                 <Tooltip title="创建隧道">
                   <IconButton
-                    onClick={handleMenuOpen}
+                    onClick={handleFormOpen}
                     size="small"
                     color="primary"
                   >
@@ -355,44 +344,13 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
         </Slide>
       </Box>
 
-      {/* 隧道类型选择菜单 */}
-      <Menu
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={handleMenuClose}
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: "right",
-        }}
-        transformOrigin={{
-          vertical: "top",
-          horizontal: "right",
-        }}
-      >
-        <MenuItem onClick={() => handleTunnelTypeSelect("local")}>
-          <Lan fontSize="small" sx={{ mr: 1 }} />
-          本地端口转发
-        </MenuItem>
-        <MenuItem onClick={() => handleTunnelTypeSelect("remote")}>
-          <SettingsEthernet fontSize="small" sx={{ mr: 1 }} />
-          远程端口转发
-        </MenuItem>
-        <MenuItem onClick={() => handleTunnelTypeSelect("dynamic")}>
-          <Public fontSize="small" sx={{ mr: 1 }} />
-          动态端口转发
-        </MenuItem>
-      </Menu>
-
-      {/* 隧道创建表单 - 只在选择了隧道类型时渲染 */}
-      {selectedTunnelType && (
-        <TunnelForm
-          open={formDialogOpen}
-          onClose={handleFormClose}
-          tunnelType={selectedTunnelType}
-          sessionID={sessionID}
-          onSuccess={handleTunnelCreated}
-        />
-      )}
+      {/* 隧道创建表单 */}
+      <TunnelForm
+        open={formDialogOpen}
+        onClose={handleFormClose}
+        sessionID={sessionID}
+        onSuccess={handleTunnelCreated}
+      />
     </>
   );
 };
