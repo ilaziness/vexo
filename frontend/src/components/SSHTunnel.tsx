@@ -29,6 +29,7 @@ import {
 } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { SSHTunnelService } from "../../bindings/github.com/ilaziness/vexo/services";
 import TunnelForm from "./TunnelForm";
+import { parseCallServiceError } from "../func/service";
 
 interface SSHTunnelProps {
   sessionID: string;
@@ -97,7 +98,7 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
       successMessage("隧道停止成功");
       fetchTunnelList();
     } catch (err) {
-      errorMessage("停止隧道失败");
+      errorMessage(`停止隧道失败：${parseCallServiceError(err)}`);
       console.error("Failed to stop tunnel:", err);
     } finally {
       setStoppingIds((prev) => {
