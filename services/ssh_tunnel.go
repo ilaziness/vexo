@@ -334,34 +334,44 @@ func (t *SSHTunnelService) StartDynamic(sessionID string, localAddr string) (str
 	tunnel.wg.Add(1)
 	system.SafeGo(func() {
 		defer tunnel.wg.Done()
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				tunnel.connLock.Lock()
-				for actConn := range tunnel.activeConns {
-					_ = actConn.Close()
-					delete(tunnel.activeConns, actConn)
-				}
-				tunnel.connLock.Unlock()
-				Logger.Debug("socks5 accept loop quit", zap.Error(err))
-				return
-			}
-			tunnel.connLock.Lock()
-			tunnel.activeConns[conn] = struct{}{}
-			tunnel.connLock.Unlock()
-
-			tunnel.wg.Add(1)
-			system.SafeGo(func() {
-				Logger.Debug("socks5 conn started")
-				defer tunnel.wg.Done()
-
-				_ = tunnel.socksServer.ServeConn(conn)
-				Logger.Debug("socks5 conn stopped")
-			})
-		}
+		t.handleDynamicConn(tunnel, ln)
 	})
 
 	return tunnel.ID, nil
+}
+
+// handleDynamicConn 处理动态转发的 SOCKS5 连接
+func (t *SSHTunnelService) handleDynamicConn(tunnel *SSHTunnel, ln net.Listener) {
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			tunnel.connLock.Lock()
+			for actConn := range tunnel.activeConns {
+				_ = actConn.Close()
+			}
+			tunnel.connLock.Unlock()
+			Logger.Debug("socks5 accept loop quit", zap.Error(err))
+			return
+		}
+		tunnel.connLock.Lock()
+		tunnel.activeConns[conn] = struct{}{}
+		tunnel.connLock.Unlock()
+
+		tunnel.wg.Add(1)
+		system.SafeGo(func() {
+			Logger.Debug("socks5 conn started")
+			defer tunnel.wg.Done()
+			defer func() {
+				conn.Close()
+				tunnel.connLock.Lock()
+				delete(tunnel.activeConns, conn)
+				tunnel.connLock.Unlock()
+			}()
+
+			_ = tunnel.socksServer.ServeConn(conn)
+			Logger.Debug("socks5 conn stopped")
+		})
+	}
 }
 
 // StopByID 根据隧道 ID 停止隧道
