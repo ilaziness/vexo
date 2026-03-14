@@ -11,7 +11,6 @@ import (
 
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 const (
@@ -67,25 +66,6 @@ func NewBookmarkService(cfgs *ConfigService) *BookmarkService {
 	// 初始化时加载书签数据到内存
 	bs.loadBookmarksToMemory()
 	return bs
-}
-
-// ShowWindow show bookmark manage window
-func (bs *BookmarkService) ShowWindow() {
-	if AppInstance.BookmarkWindow == nil {
-		AppInstance.BookmarkWindow = newBookmarkWindow()
-	}
-	AppInstance.BookmarkWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
-		AppInstance.BookmarkWindow = nil
-	})
-	AppInstance.BookmarkWindow.Show()
-	AppInstance.BookmarkWindow.Focus()
-}
-
-func (cs *BookmarkService) CloseWindow() {
-	if AppInstance.BookmarkWindow != nil {
-		AppInstance.BookmarkWindow.Close()
-		AppInstance.BookmarkWindow = nil
-	}
 }
 
 // SetUserPassword 设置用户密码用于加密/解密私钥密码

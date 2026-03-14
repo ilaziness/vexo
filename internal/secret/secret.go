@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 
@@ -12,11 +13,11 @@ import (
 
 const (
 	// Argon2 parameters
-	time    = 3
-	memory  = 64 * 1024 // 64 KB
-	threads = 4
-	keyLen  = 32
-	saltLen = 16
+	time     = 3
+	memory   = 64 * 1024 // 64 KB
+	threads  = 4
+	keyLen   = 32
+	saltLen  = 16
 	nonceLen = 12
 )
 
@@ -30,6 +31,7 @@ func Encrypt(password, plaintext string) (string, error) {
 
 	// Derive key using Argon2
 	key := argon2.IDKey([]byte(password), salt, time, uint32(memory), uint8(threads), keyLen)
+	defer secureClear(key)
 
 	// Create AES cipher
 	block, err := aes.NewCipher(key)
@@ -81,6 +83,7 @@ func Decrypt(password, encrypted string) (string, error) {
 
 	// Derive key using Argon2
 	key := argon2.IDKey([]byte(password), salt, time, uint32(memory), uint8(threads), keyLen)
+	defer secureClear(key)
 
 	// Create AES cipher
 	block, err := aes.NewCipher(key)
@@ -101,4 +104,8 @@ func Decrypt(password, encrypted string) (string, error) {
 	}
 
 	return string(plaintext), nil
+}
+
+func secureClear(b []byte) {
+	subtle.ConstantTimeCopy(1, b, make([]byte, len(b)))
 }

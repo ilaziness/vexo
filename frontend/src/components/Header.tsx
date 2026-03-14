@@ -257,7 +257,12 @@ export default function Header() {
           open={bookmarkManageOpen}
           onClose={() => setBookmarkManageOpen(false)}
         >
-          <AppBar position="static" color="default" elevation={1}>
+          <AppBar
+            position="static"
+            color="default"
+            elevation={1}
+            sx={{ "--wails-draggable": "drag" }}
+          >
             <Toolbar>
               <IconButton
                 edge="start"
@@ -272,7 +277,9 @@ export default function Header() {
             </Toolbar>
           </AppBar>
           <Box sx={{ height: "calc(100% - 64px)" }}>
-            <BookmarkManager onRequestClose={() => setBookmarkManageOpen(false)} />
+            <BookmarkManager
+              onRequestClose={() => setBookmarkManageOpen(false)}
+            />
           </Box>
         </Dialog>
       </Stack>
