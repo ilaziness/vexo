@@ -2,15 +2,14 @@ package services
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"go.uber.org/zap"
 )
 
 const (
@@ -18,6 +17,7 @@ const (
 	EventInputPasswortClose = "eventInputPasswordClose"
 	EventBookmarkUpdate     = "eventBookmarkUpdate"
 	EventConnectBookmark    = "eventConnectBookmark"
+	BookmarkUpdateMsg       = "bookmark update"
 )
 
 func init() {
@@ -49,23 +49,18 @@ type BookmarkGroup struct {
 // BookmarkService 书签服务结构
 type BookmarkService struct {
 	cfgService   *ConfigService
-	bookmarks    []*BookmarkGroup
-	bookmarkFile string
+	db           *database.Database
 	window       *application.WebviewWindow
 	userPassword string
-	passwordChan chan struct{} // 用于等待用户密码输入完成的信号channel
+	passwordChan chan struct{}
 }
 
 // NewBookmarkService 创建新的书签服务实例
-func NewBookmarkService(cfgs *ConfigService) *BookmarkService {
-	bookmarkFile := filepath.Join(cfgs.Config.General.UserDataDir, "bookmarks.json")
-	bs := &BookmarkService{
-		cfgService:   cfgs,
-		bookmarkFile: bookmarkFile,
+func NewBookmarkService(cfgs *ConfigService, db *database.Database) *BookmarkService {
+	return &BookmarkService{
+		cfgService: cfgs,
+		db:         db,
 	}
-	// 初始化时加载书签数据到内存
-	bs.loadBookmarksToMemory()
-	return bs
 }
 
 // SetUserPassword 设置用户密码用于加密/解密私钥密码
@@ -85,10 +80,7 @@ func (bs *BookmarkService) SetUserPassword(password string) {
 
 // waitForPassword 触发事件并等待用户输入密码，超时60秒
 func (bs *BookmarkService) waitForPassword(reason string) error {
-	// 创建新的channel用于等待密码输入完成信号
 	bs.passwordChan = make(chan struct{}, 1)
-
-	// 触发密码输入事件
 	app.Event.Emit(EventInputPasswort, reason)
 
 	// 等待密码输入完成，超时60秒
@@ -105,21 +97,6 @@ func (bs *BookmarkService) waitForPassword(reason string) error {
 		bs.passwordChan = nil
 		return errors.New("密码输入超时")
 	}
-}
-
-// initializeDefaultBookmarks 初始化默认书签数据
-func (bs *BookmarkService) initializeDefaultBookmarks() error {
-	defaultGroup := &BookmarkGroup{
-		Name:      "默认书签",
-		Bookmarks: []SSHBookmark{},
-	}
-
-	bookmarkGroups := []*BookmarkGroup{defaultGroup}
-
-	// 更新内存中的数据
-	bs.bookmarks = bookmarkGroups
-
-	return bs.saveBookmarks()
 }
 
 // ConnectBookmark 连接书签，通过书签ID触发连接事件
@@ -265,317 +242,223 @@ func (bs *BookmarkService) DecryptPassword(password string) string {
 	return decrypted
 }
 
-// loadBookmarksToMemory 从文件加载书签数据到内存
-func (bs *BookmarkService) loadBookmarksToMemory() {
-	data, err := os.ReadFile(bs.bookmarkFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// 如果文件不存在，创建默认书签
-			bs.initializeDefaultBookmarks()
-			// 再次尝试读取
-			data, err = os.ReadFile(bs.bookmarkFile)
-			if err != nil {
-				// 如果再次失败，创建默认数据
-				bs.bookmarks = []*BookmarkGroup{
-					{
-						Name:      "默认书签",
-						Bookmarks: []SSHBookmark{},
-					},
-				}
-				return
-			}
-		} else {
-			// 其他错误，创建默认数据
-			bs.bookmarks = []*BookmarkGroup{
-				{
-					Name:      "默认书签",
-					Bookmarks: []SSHBookmark{},
-				},
-			}
-			return
-		}
-	}
-
-	var groups []*BookmarkGroup
-	if err := json.Unmarshal(data, &groups); err != nil {
-		// 解析错误，创建默认数据
-		bs.bookmarks = []*BookmarkGroup{
-			{
-				Name:      "默认书签",
-				Bookmarks: []SSHBookmark{},
-			},
-		}
-		return
-	}
-
-	// 确保至少有一个默认分组
-	if len(groups) == 0 {
-		groups = append(groups, &BookmarkGroup{
-			Name:      "默认书签",
-			Bookmarks: []SSHBookmark{},
-		})
-	}
-
-	bs.bookmarks = groups
-}
-
-// loadBookmarks 从内存加载书签数据
-func (bs *BookmarkService) loadBookmarks() []*BookmarkGroup {
-	return bs.bookmarks
-}
-
-// saveBookmarks 保存书签数据到文件
-func (bs *BookmarkService) saveBookmarks() error {
-	// 确保目录存在
-	bookmarkDir := filepath.Dir(bs.bookmarkFile)
-	if err := os.MkdirAll(bookmarkDir, 0755); err != nil {
-		return err
-	}
-
-	data, err := json.MarshalIndent(bs.bookmarks, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	app.Event.Emit(EventBookmarkUpdate, "bookmark update")
-
-	return os.WriteFile(bs.bookmarkFile, data, 0644)
-}
-
 // ListBookmarks 列出所有书签
 func (bs *BookmarkService) ListBookmarks() ([]*BookmarkGroup, error) {
-	return bs.loadBookmarks(), nil
-}
-
-// findBookmarkByID 查找书签位置，返回是否找到及分组索引和书签索引
-func (bs *BookmarkService) findBookmarkByID(groups []*BookmarkGroup, id string) (found bool, groupIdx, bookmarkIdx int) {
-	for i, group := range groups {
-		for j, b := range group.Bookmarks {
-			if b.ID == id {
-				return true, i, j
-			}
-		}
-	}
-	return false, 0, 0
-}
-
-// findGroupIndexByName 根据分组名称查找分组索引
-func (bs *BookmarkService) findGroupIndexByName(groups []*BookmarkGroup, name string) (int, bool) {
-	for i, g := range groups {
-		if g.Name == name {
-			return i, true
-		}
-	}
-	return 0, false
-}
-
-// updateExistingBookmark 更新现有书签
-func (bs *BookmarkService) updateExistingBookmark(groups []*BookmarkGroup, bookmark SSHBookmark, groupIdx, bookmarkIdx int) ([]*BookmarkGroup, error) {
-	existing := groups[groupIdx].Bookmarks[bookmarkIdx]
-
-	targetIdx, found := bs.findGroupIndexByName(groups, bookmark.GroupName)
-	if !found {
-		bookmark.GroupName = existing.GroupName
-		targetIdx = groupIdx
-	}
-
-	processed, err := bs.processBookmarkForSave(bookmark, &existing)
+	// 从数据库加载分组
+	dbGroups, err := bs.db.BookmarkRepo.GetAllGroups()
 	if err != nil {
-		return groups, err
+		return nil, err
 	}
 
-	if targetIdx != groupIdx {
-		bookmarks := groups[groupIdx].Bookmarks
-		groups[groupIdx].Bookmarks = append(bookmarks[:bookmarkIdx], bookmarks[bookmarkIdx+1:]...)
-		groups[targetIdx].Bookmarks = append(groups[targetIdx].Bookmarks, processed)
-	} else {
-		groups[groupIdx].Bookmarks[bookmarkIdx] = processed
+	// 从数据库加载书签
+	dbBookmarks, err := bs.db.BookmarkRepo.GetAllBookmarks()
+	if err != nil {
+		return nil, err
+	}
+
+	// 临时组装为分组结构返回
+	groupMap := make(map[int]*BookmarkGroup)
+	for _, g := range dbGroups {
+		groupMap[g.ID] = &BookmarkGroup{Name: g.Name, Bookmarks: []SSHBookmark{}}
+	}
+
+	for _, b := range dbBookmarks {
+		bookmark := SSHBookmark{
+			ID:                 b.ID,
+			GroupName:          "",
+			Title:              b.Title,
+			Host:               b.Host,
+			Port:               b.Port,
+			User:               b.User,
+			Password:           b.Password,
+			PrivateKey:         b.PrivateKey,
+			PrivateKeyPassword: b.PrivateKeyPassword,
+		}
+		if group, ok := groupMap[b.GroupID]; ok {
+			bookmark.GroupName = group.Name
+			group.Bookmarks = append(group.Bookmarks, bookmark)
+		}
+	}
+
+	groups := make([]*BookmarkGroup, 0, len(groupMap))
+	for _, group := range groupMap {
+		groups = append(groups, group)
 	}
 
 	return groups, nil
 }
 
-// addNewBookmark 添加新书签
-func (bs *BookmarkService) addNewBookmark(groups []*BookmarkGroup, bookmark SSHBookmark) ([]*BookmarkGroup, error) {
-	processed, err := bs.processBookmarkForSave(bookmark, nil)
-	if err != nil {
-		return groups, err
-	}
-
-	if idx, found := bs.findGroupIndexByName(groups, bookmark.GroupName); found {
-		groups[idx].Bookmarks = append(groups[idx].Bookmarks, processed)
-		return groups, nil
-	}
-
-	defaultName := "默认书签"
-	if idx, found := bs.findGroupIndexByName(groups, defaultName); found {
-		groups[idx].Bookmarks = append(groups[idx].Bookmarks, processed)
-	}
-
-	return groups, nil
-}
-
-// SaveBookmark 保存SSH连接信息书签，根据ID判断是新增还是更新
+// SaveBookmark 保存 SSH 连接信息书签，根据 ID 判断是新增还是更新
 func (bs *BookmarkService) SaveBookmark(bookmark SSHBookmark) error {
-	groups := bs.loadBookmarks()
+	// 查询是否已存在
+	existing, err := bs.db.BookmarkRepo.GetBookmarkByID(bookmark.ID)
 
-	found, groupIdx, bookmarkIdx := bs.findBookmarkByID(groups, bookmark.ID)
+	if err == nil && existing != nil {
+		// 更新：先解密原有数据进行对比
+		decryptedExisting, _ := bs.decryptBookmark(SSHBookmark{
+			ID:                 existing.ID,
+			Password:           existing.Password,
+			PrivateKeyPassword: existing.PrivateKeyPassword,
+		})
 
-	var err error
-	if found {
-		groups, err = bs.updateExistingBookmark(groups, bookmark, groupIdx, bookmarkIdx)
+		// 处理加密逻辑
+		processed, err := bs.processBookmarkForSave(bookmark, &decryptedExisting)
+		if err != nil {
+			return err
+		}
+
+		// 更新数据库
+		dbBookmark := &database.BookmarkDB{
+			ID:                 processed.ID,
+			GroupID:            existing.GroupID,
+			Title:              processed.Title,
+			Host:               processed.Host,
+			Port:               processed.Port,
+			User:               processed.User,
+			Password:           processed.Password,
+			PrivateKey:         processed.PrivateKey,
+			PrivateKeyPassword: processed.PrivateKeyPassword,
+			UpdatedAt:          time.Now(),
+		}
+		err = bs.db.BookmarkRepo.UpdateBookmark(dbBookmark)
+		if err != nil {
+			return err
+		}
 	} else {
-		groups, err = bs.addNewBookmark(groups, bookmark)
+		// 新增：需要获取分组 ID
+		group, err := bs.db.BookmarkRepo.GetGroupByName(bookmark.GroupName)
+		if err != nil {
+			// 如果分组不存在，使用默认分组
+			group, _ = bs.db.BookmarkRepo.GetGroupByName("默认书签")
+		}
+
+		// 处理加密逻辑
+		processed, err := bs.encryptBookmark(bookmark)
+		if err != nil {
+			return err
+		}
+
+		// 插入数据库
+		dbBookmark := &database.BookmarkDB{
+			ID:                 processed.ID,
+			GroupID:            group.ID,
+			Title:              processed.Title,
+			Host:               processed.Host,
+			Port:               processed.Port,
+			User:               processed.User,
+			Password:           processed.Password,
+			PrivateKey:         processed.PrivateKey,
+			PrivateKeyPassword: processed.PrivateKeyPassword,
+			CreatedAt:          time.Now(),
+			UpdatedAt:          time.Now(),
+		}
+		err = bs.db.BookmarkRepo.InsertBookmark(dbBookmark)
+		if err != nil {
+			return err
+		}
 	}
 
-	if err != nil {
-		return err
-	}
-
-	bs.bookmarks = groups
-	return bs.saveBookmarks()
+	app.Event.Emit(EventBookmarkUpdate, BookmarkUpdateMsg)
+	Logger.Debug("bookmark saved")
+	return nil
 }
 
 // DeleteGroup 删除分组
 func (bs *BookmarkService) DeleteGroup(groupName string) error {
-	bookmarkGroups := bs.loadBookmarks()
-
 	// 不能删除默认分组
 	if groupName == "默认书签" {
 		return fmt.Errorf("不能删除默认分组")
 	}
 
-	// 查找并移除分组
-	newGroups := []*BookmarkGroup{}
-	removed := false
-
-	for _, group := range bookmarkGroups {
-		if group.Name != groupName {
-			newGroups = append(newGroups, group)
-		} else {
-			removed = true
-		}
+	err := bs.db.BookmarkRepo.DeleteGroup(groupName)
+	if err != nil {
+		return err
 	}
 
-	if !removed {
-		return fmt.Errorf("分组 '%s' 不存在", groupName)
-	}
-
-	// 更新内存中的数据
-	bs.bookmarks = newGroups
-
-	return bs.saveBookmarks()
+	app.Event.Emit(EventBookmarkUpdate, BookmarkUpdateMsg)
+	Logger.Debug("group deleted", zap.String("name", groupName))
+	return nil
 }
 
 // DeleteBookmark 删除书签
 func (bs *BookmarkService) DeleteBookmark(bookmarkID string) error {
-	bookmarkGroups := bs.loadBookmarks()
-
-	bookmarkFound := false
-
-	for i, group := range bookmarkGroups {
-		for j, bookmark := range group.Bookmarks {
-			if bookmark.ID == bookmarkID {
-				// 从切片中移除书签
-				bookmarks := bookmarkGroups[i].Bookmarks
-				bookmarkGroups[i].Bookmarks = append(bookmarks[:j], bookmarks[j+1:]...)
-				bookmarkFound = true
-				break
-			}
-		}
-		if bookmarkFound {
-			break
-		}
+	err := bs.db.BookmarkRepo.DeleteBookmark(bookmarkID)
+	if err != nil {
+		return err
 	}
 
-	if !bookmarkFound {
-		return fmt.Errorf("书签ID '%s' 不存在", bookmarkID)
-	}
-
-	// 更新内存中的数据
-	bs.bookmarks = bookmarkGroups
-
-	return bs.saveBookmarks()
+	app.Event.Emit(EventBookmarkUpdate, BookmarkUpdateMsg)
+	Logger.Debug("bookmark deleted", zap.String("id", bookmarkID))
+	return nil
 }
 
-// GetBookmarkByID 通过书签ID查找返回连接信息
+// GetBookmarkByID 通过书签 ID 查找返回连接信息
 func (bs *BookmarkService) GetBookmarkByID(bookmarkID string) (*SSHBookmark, error) {
-	bookmarkGroups := bs.loadBookmarks()
-
-	for _, group := range bookmarkGroups {
-		for _, bookmark := range group.Bookmarks {
-			if bookmark.ID == bookmarkID {
-				// 解密敏感字段
-				decryptedBookmark, err := bs.decryptBookmark(bookmark)
-				if err != nil {
-					return nil, err
-				}
-				return &decryptedBookmark, nil
-			}
-		}
+	dbBookmark, err := bs.db.BookmarkRepo.GetBookmarkByID(bookmarkID)
+	if err != nil {
+		return nil, fmt.Errorf("未找到 ID 为 '%s' 的书签", bookmarkID)
 	}
 
-	return nil, fmt.Errorf("未找到ID为 '%s' 的书签", bookmarkID)
+	// 解密敏感字段
+	bookmark := &SSHBookmark{
+		ID:                 dbBookmark.ID,
+		GroupName:          "",
+		Title:              dbBookmark.Title,
+		Host:               dbBookmark.Host,
+		Port:               dbBookmark.Port,
+		User:               dbBookmark.User,
+		Password:           dbBookmark.Password,
+		PrivateKey:         dbBookmark.PrivateKey,
+		PrivateKeyPassword: dbBookmark.PrivateKeyPassword,
+	}
+
+	decrypted, err := bs.decryptBookmark(*bookmark)
+	if err != nil {
+		return nil, err
+	}
+
+	return &decrypted, nil
 }
 
 // AddGroup 新增分组
 func (bs *BookmarkService) AddGroup(groupName string) error {
-	bookmarkGroups := bs.loadBookmarks()
-
-	// 检查分组是否已存在
-	for _, group := range bookmarkGroups {
-		if group.Name == groupName {
-			return fmt.Errorf("分组 '%s' 已存在", groupName)
-		}
+	// 检查是否已存在
+	_, err := bs.db.BookmarkRepo.GetGroupByName(groupName)
+	if err == nil {
+		return fmt.Errorf("分组 '%s' 已存在", groupName)
 	}
 
-	newGroup := &BookmarkGroup{
-		Name:      groupName,
-		Bookmarks: []SSHBookmark{},
+	err = bs.db.BookmarkRepo.InsertGroup(&database.BookmarkGroupDB{
+		Name: groupName,
+	})
+	if err != nil {
+		return err
 	}
-	bookmarkGroups = append(bookmarkGroups, newGroup)
 
-	// 更新内存中的数据
-	bs.bookmarks = bookmarkGroups
-
-	return bs.saveBookmarks()
+	app.Event.Emit(EventBookmarkUpdate, BookmarkUpdateMsg)
+	Logger.Debug("group added", zap.String("name", groupName))
+	return nil
 }
 
 // UpdateGroupName 更新分组名称
 func (bs *BookmarkService) UpdateGroupName(oldName, newName string) error {
-	bookmarkGroups := bs.loadBookmarks()
-
 	// 不能修改默认分组名称
 	if oldName == "默认书签" {
 		return fmt.Errorf("不能修改默认分组名称")
 	}
 
-	// 检查新分组名是否已存在
-	for _, group := range bookmarkGroups {
-		if group.Name == newName {
-			return fmt.Errorf("分组 '%s' 已存在", newName)
-		}
+	// 检查新名称是否已存在
+	_, err := bs.db.BookmarkRepo.GetGroupByName(newName)
+	if err == nil {
+		return fmt.Errorf("分组 '%s' 已存在", newName)
 	}
 
-	groupFound := false
-	for i, group := range bookmarkGroups {
-		if group.Name == oldName {
-			bookmarkGroups[i].Name = newName
-			// 同时更新该组内所有书签的分组名
-			for j := range group.Bookmarks {
-				bookmarkGroups[i].Bookmarks[j].GroupName = newName
-			}
-			groupFound = true
-			break
-		}
+	err = bs.db.BookmarkRepo.UpdateGroupName(oldName, newName)
+	if err != nil {
+		return err
 	}
 
-	if !groupFound {
-		return fmt.Errorf("分组 '%s' 不存在", oldName)
-	}
-
-	// 更新内存中的数据
-	bs.bookmarks = bookmarkGroups
-
-	return bs.saveBookmarks()
+	app.Event.Emit(EventBookmarkUpdate, BookmarkUpdateMsg)
+	Logger.Debug("group name updated", zap.String("old", oldName), zap.String("new", newName))
+	return nil
 }

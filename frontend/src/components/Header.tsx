@@ -19,6 +19,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import BookmarksIcon from "@mui/icons-material/Bookmarks";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
+import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
@@ -27,6 +28,7 @@ import {
   BookmarkService,
   ConfigService,
   SSHBookmark,
+  CommandService
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../stores/ssh";
 import { genTabIndex, parseCallServiceError } from "../func/service";
@@ -189,6 +191,17 @@ export default function Header() {
         </Tooltip>
 
         <ThemeSwitcher />
+
+        <Tooltip title="命令面板">
+          <IconButton
+            size="small"
+            onClick={() => {
+              CommandService.ShowWindow().then(() => {});
+            }}
+          >
+            <LocalLibraryIcon />
+          </IconButton>
+        </Tooltip>
 
         <Tooltip title="设置">
           <IconButton size="small" onClick={showSettingWindow}>

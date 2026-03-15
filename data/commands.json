@@ -1,0 +1,87 @@
+[
+  {
+    "category": "系统监控",
+    "commands": [
+      {
+        "name": "系统负载",
+        "command": "uptime",
+        "description": "查看系统运行时间和平均负载\n\n用法：直接执行，输出包括：\n- 当前时间\n- 运行时间\n- 登录用户数\n- 1/5/15 分钟平均负载"
+      },
+      {
+        "name": "内存使用",
+        "command": "free -m",
+        "description": "以 MB 为单位显示内存使用情况\n\n用法：\n- total: 总内存\n- used: 已使用\n- free: 空闲\n- shared: 共享内存\n- buff/cache: 缓存\n- available: 可用内存"
+      },
+      {
+        "name": "磁盘使用",
+        "command": "df -h",
+        "description": "以人类可读格式显示磁盘空间使用情况\n\n用法：\n- Filesystem: 文件系统\n- Size: 总容量\n- Used: 已使用\n- Avail: 可用\n- Use%: 使用百分比\n- Mounted on: 挂载点"
+      }
+    ]
+  },
+  {
+    "category": "网络工具",
+    "commands": [
+      {
+        "name": "网络连接",
+        "command": "netstat -tulpn",
+        "description": "查看所有 TCP/UDP 监听端口和进程\n\n用法：\n-t: TCP 连接\n-u: UDP 连接\n-l: 仅监听端口\n-p: 显示进程 PID/名称\n-n: 不解析主机名"
+      },
+      {
+        "name": "套接字统计",
+        "command": "ss -tulpn",
+        "description": "netstat 的现代替代品，显示套接字统计\n\n用法参数与 netstat 相同，但性能更好"
+      },
+      {
+        "name": "网络连通性测试",
+        "command": "ping -c 4 www.google.com",
+        "description": "测试网络连通性\n\n用法：\n-c 4: 发送 4 个包后停止\n可替换目标地址为其他主机"
+      }
+    ]
+  },
+  {
+    "category": "文件操作",
+    "commands": [
+      {
+        "name": "详细目录列表",
+        "command": "ls -lah",
+        "description": "以详细列表格式显示目录内容\n\n用法：\n-l: 长格式\n-a: 显示隐藏文件\n-h: 人类可读文件大小"
+      },
+      {
+        "name": "查找文件",
+        "command": "find . -name \"*.log\" -type f",
+        "description": "在当前目录递归查找指定类型的文件\n\n用法：\n.: 当前目录\n-name: 按名称匹配\n-type f: 仅查找文件"
+      }
+    ]
+  },
+  {
+    "category": "进程管理",
+    "commands": [
+      {
+        "name": "进程快照",
+        "command": "ps aux",
+        "description": "显示所有进程的详细信息\n\n用法：\n-A: 所有进程\n-u: 用户格式\n-x: 无控制终端的进程"
+      },
+      {
+        "name": "动态进程查看",
+        "command": "top -b -n 1",
+        "description": "实时显示进程状态\n\n用法：\n-b: 批处理模式\n-n 1: 仅执行一次后退出"
+      }
+    ]
+  },
+  {
+    "category": "日志查看",
+    "commands": [
+      {
+        "name": "实时日志跟踪",
+        "command": "tail -f /var/log/syslog",
+        "description": "实时跟踪日志文件更新\n\n用法：\n-f: 持续跟踪文件末尾\n可替换为其他日志文件路径"
+      },
+      {
+        "name": "系统日志",
+        "command": "journalctl -b --no-pager",
+        "description": "查看系统启动以来的日志\n\n用法：\n-b: 本次启动的日志\n--no-pager: 不使用分页器"
+      }
+    ]
+  }
+]

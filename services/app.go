@@ -11,6 +11,7 @@ type App struct {
 	app           *application.App
 	MainWindow    *application.WebviewWindow
 	SettingWindow *application.WebviewWindow
+	CommandWindow *application.WebviewWindow // 新增
 }
 
 func NewApp(a *application.App, mainWindow *application.WebviewWindow) {
@@ -33,6 +34,21 @@ func newSettingWindow() *application.WebviewWindow {
 		Height:                     800,
 		MinWidth:                   1200,
 		MinHeight:                  800,
+		DefaultContextMenuDisabled: true,
+		Hidden:                     true,
+		Frameless:                  true,
+	})
+	return window
+}
+
+func newCommandWindow() *application.WebviewWindow {
+	window := AppInstance.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:                      "命令面板",
+		URL:                        "/#/command",
+		Width:                      1600,
+		Height:                     900,
+		MinWidth:                   1600,
+		MinHeight:                  900,
 		DefaultContextMenuDisabled: true,
 		Hidden:                     true,
 		Frameless:                  true,

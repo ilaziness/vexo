@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	_ "embed"
+	"fmt"
 	"log"
 
 	"github.com/ilaziness/vexo/internal/system"
@@ -18,7 +19,17 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed data/commands.json
+var commandsFile embed.FS
+
 func init() {
+	data, err := commandsFile.ReadFile("data/commands.json")
+	if err != nil {
+		fmt.Printf("读取 commands.json 失败：%v\n", err)
+	} else {
+		services.CommandsJSON = data
+	}
+
 	// Register a custom event whose associated data type is string.
 	// This is not required, but the binding generator will pick up registered events
 	// and provide a strongly typed JS/TS API for them.

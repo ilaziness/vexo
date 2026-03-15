@@ -258,6 +258,39 @@ func (s *SSHService) SelectKeyFile() (string, error) {
 	return f, nil
 }
 
+// GetActiveSessions 获取所有活跃的 SSH 会话列表
+func (s *SSHService) GetActiveSessions() []map[string]any {
+	sessions := make([]map[string]any, 0)
+	s.SSHConnects.Range(func(key, value any) bool {
+		conn := value.(*SSHConnect)
+		sessions = append(sessions, map[string]any{
+			"id":        conn.ID,
+			"clientKey": conn.clientKey,
+		})
+		return true
+	})
+	return sessions
+}
+
+// SendToSession 发送命令到指定的 SSH 会话
+func (s *SSHService) SendToSession(sessionID string, command string) error {
+	connAny, ok := s.SSHConnects.Load(sessionID)
+	if !ok {
+		return fmt.Errorf("SSH session %s not found", sessionID)
+	}
+	conn := connAny.(*SSHConnect)
+
+	// 通过 stdin 发送命令
+	if conn.stdin != nil {
+		_, err := conn.stdin.Write([]byte(command + "\n"))
+		if err != nil {
+			Logger.Error("Failed to write to stdin", zap.Error(err))
+		}
+		return err
+	}
+	return fmt.Errorf("stdin not available")
+}
+
 // -----------------------------------------------------------------------------
 
 // generateID generates a unique ID based on the current timestamp.

@@ -52,6 +52,8 @@
 
 和前端交互强相关的功能放在`services`下面对应文件，合理分文件编写，防止一个文件行数太多。
 
+适当的位置添加注释，注释不要太多
+
 ### 1. 日志记录
 - 前端记录日志使用go绑定到前端的`LogService`里面的方法。
 - go里面记录日志使用`LogService`里面的方法。
@@ -137,6 +139,8 @@ go build -o {name} .
 ```
 `{name}` 为平台对应的可执行文件名，如 `vexo.exe`（Windows）、`vexo`（macOS/Linux）。
 
+# dev运行，使用ctrl+c结束
+wails3 dev
 ---
 
 ## 7. 工具使用
