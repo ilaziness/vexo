@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=vexo
-Exec=vexo
-Icon=vexo
+Exec=Vexo
+Icon=Vexo
 Categories=Development;
 Terminal=false
 Keywords=wails
