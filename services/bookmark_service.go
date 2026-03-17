@@ -436,6 +436,14 @@ func (bs *BookmarkService) updateBookmark(bookmark SSHBookmark, existing *databa
 		}
 	}
 
+	// 检查同一分组下是否存在相同名称的其他书签（排除自身）
+	if existing.Title != bookmark.Title || existing.GroupID != groupID {
+		dupBookmark, err := bs.db.BookmarkRepo.GetBookmarkByTitleAndGroup(bookmark.Title, groupID)
+		if err == nil && dupBookmark.ID != bookmark.ID {
+			return fmt.Errorf("分组 '%s' 中已存在名称为 '%s' 的书签", bookmark.GroupName, bookmark.Title)
+		}
+	}
+
 	dbBookmark := &database.BookmarkDB{
 		ID:                 processed.ID,
 		GroupID:            groupID,
@@ -463,6 +471,12 @@ func (bs *BookmarkService) insertBookmark(bookmark SSHBookmark) (string, error) 
 	group, err := bs.db.BookmarkRepo.GetGroupByName(bookmark.GroupName)
 	if err != nil {
 		group, _ = bs.db.BookmarkRepo.GetGroupByName("默认书签")
+	}
+
+	// 检查同一分组下是否存在相同名称的书签
+	_, err = bs.db.BookmarkRepo.GetBookmarkByTitleAndGroup(bookmark.Title, group.ID)
+	if err == nil {
+		return "", fmt.Errorf("分组 '%s' 中已存在名称为 '%s' 的书签", bookmark.GroupName, bookmark.Title)
 	}
 
 	processed, err := bs.encryptBookmark(bookmark)
@@ -613,20 +627,20 @@ func (bs *BookmarkService) TestConnection(bookmark SSHBookmark) error {
 }
 
 // SaveAndConnect 保存书签并连接（先测试，成功后保存，然后连接）
-func (bs *BookmarkService) SaveAndConnect(bookmark SSHBookmark) error {
+func (bs *BookmarkService) SaveAndConnect(bookmark SSHBookmark) (string, error) {
 	if err := bs.TestConnection(bookmark); err != nil {
-		return fmt.Errorf("连接测试失败: %w", err)
+		return "", fmt.Errorf("连接测试失败: %w", err)
 	}
 
 	// 保存书签
 	bookmarkID, err := bs.SaveBookmark(bookmark)
 	if err != nil {
-		return fmt.Errorf("保存书签失败: %w", err)
+		return "", fmt.Errorf("保存书签失败: %w", err)
 	}
 
 	// 触发连接事件
 	bs.ConnectBookmark(bookmarkID)
-	return nil
+	return bookmarkID, nil
 }
 
 // GetBookmarkForConnect 获取用于连接的书签信息

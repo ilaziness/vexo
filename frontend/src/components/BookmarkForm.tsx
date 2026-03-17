@@ -23,9 +23,9 @@ import FormRow from "./FormRow";
 interface BookmarkFormProps {
   bookmark: SSHBookmark | null;
   groupNames: string[]; // 添加分组列表
-  onSave: (bookmark: SSHBookmark) => Promise<void>;
+  onSave: (bookmark: SSHBookmark) => Promise<SSHBookmark>;
   onTestConnection: (bookmark: SSHBookmark) => Promise<void>;
-  onSaveAndConnect: (bookmark: SSHBookmark) => Promise<void>;
+  onSaveAndConnect: (bookmark: SSHBookmark) => Promise<SSHBookmark>;
 }
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -105,7 +105,8 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     if (validateForm()) {
       setIsLoading(true);
       try {
-        await onSave(formData);
+        const savedBookmark = await onSave(formData);
+        setFormData(savedBookmark);
       } finally {
         setIsLoading(false);
       }
@@ -127,7 +128,8 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     if (validateForm()) {
       setIsLoading(true);
       try {
-        await onSaveAndConnect(formData);
+        const savedBookmark = await onSaveAndConnect(formData);
+        setFormData(savedBookmark);
       } finally {
         setIsLoading(false);
       }

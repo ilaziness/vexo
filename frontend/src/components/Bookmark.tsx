@@ -118,14 +118,18 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
     }
   };
 
-  const handleSaveBookmark = async (bookmark: SSHBookmark) => {
+  const handleSaveBookmark = async (bookmark: SSHBookmark): Promise<SSHBookmark> => {
     try {
-      await BookmarkService.SaveBookmark(bookmark);
+      const bookmarkId = await BookmarkService.SaveBookmark(bookmark);
+      const savedBookmark = { ...bookmark, id: bookmarkId };
       successMessage("书签保存成功");
       await loadBookmarks();
+      setSelectedBookmark(savedBookmark);
+      return savedBookmark;
     } catch (error) {
       LogService.Warn(`Failed to save bookmark: ${error}`);
       errorMessage("保存书签失败: " + parseCallServiceError(error));
+      throw error;
     }
   };
 
@@ -139,15 +143,19 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
     }
   };
 
-  const handleSaveAndConnect = async (bookmark: SSHBookmark) => {
+  const handleSaveAndConnect = async (bookmark: SSHBookmark): Promise<SSHBookmark> => {
     try {
-      await BookmarkService.SaveAndConnect(bookmark);
+      const bookmarkId = await BookmarkService.SaveAndConnect(bookmark);
+      const savedBookmark = { ...bookmark, id: bookmarkId };
       successMessage("书签保存并连接成功");
       await loadBookmarks();
+      setSelectedBookmark(savedBookmark);
       onRequestClose?.();
+      return savedBookmark;
     } catch (error) {
       LogService.Warn(`Failed to save and connect: ${error}`);
       errorMessage("保存并连接失败: " + parseCallServiceError(error));
+      throw error;
     }
   };
 

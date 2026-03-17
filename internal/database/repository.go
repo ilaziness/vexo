@@ -250,6 +250,26 @@ func (r *BookmarkRepository) GetBookmarksByGroupID(groupID int) ([]*BookmarkDB, 
 	return bookmarks, nil
 }
 
+// GetBookmarkByTitleAndGroup 按标题和分组 ID 查询书签（用于检查重复）
+func (r *BookmarkRepository) GetBookmarkByTitleAndGroup(title string, groupID int) (*BookmarkDB, error) {
+	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at 
+			  FROM bookmarks WHERE title = ? AND group_id = ?`
+	var b BookmarkDB
+	err := r.db.QueryRow(query, title, groupID).Scan(
+		&b.AutoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
+		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword,
+		&b.CreatedAt, &b.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("bookmark not found")
+		}
+		return nil, fmt.Errorf(errQuery, "bookmark by title and group", err)
+	}
+
+	return &b, nil
+}
+
 // InsertBookmark 插入书签
 func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
 	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at) 
