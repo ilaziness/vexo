@@ -42,28 +42,22 @@ export default function SSHTabs() {
           const bookmarkID = event.data as string;
           LogService.Debug(`Connecting to bookmark: ${bookmarkID}`);
 
-          // 获取书签信息
-          const bookmark = await BookmarkService.GetBookmarkByID(bookmarkID);
+          // 获取解密后的书签信息用于连接
+          const bookmark =
+            await BookmarkService.GetBookmarkForConnect(bookmarkID);
           if (!bookmark) {
             LogService.Warn(`Bookmark not found: ${bookmarkID}`);
             return;
           }
 
-          // 创建新标签页
           const newTab = {
             index: genTabIndex(),
             name: bookmark.title,
             sshInfo: {
+              bookmarkID: bookmarkID,
               host: bookmark.host,
               port: bookmark.port,
               user: bookmark.user,
-              password: await BookmarkService.DecryptPassword(
-                bookmark.password,
-              ),
-              key: bookmark.private_key,
-              keyPassword: await BookmarkService.DecryptPassword(
-                bookmark.private_key_password,
-              ),
             },
           };
 

@@ -1,6 +1,7 @@
 import type { ITheme } from "@xterm/xterm";
 
 export interface SSHLinkInfo {
+  bookmarkID?: string;
   host: string;
   port: number;
   user: string;

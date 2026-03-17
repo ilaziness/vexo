@@ -318,6 +318,23 @@ func (r *BookmarkRepository) InsertGroup(group *BookmarkGroupDB) error {
 	return nil
 }
 
+// GetGroupByID 按ID查询分组
+func (r *BookmarkRepository) GetGroupByID(id int) (*BookmarkGroupDB, error) {
+	query := `SELECT id, name, created_at FROM bookmark_groups WHERE id = ?`
+	row := r.db.QueryRow(query, id)
+
+	var g BookmarkGroupDB
+	err := row.Scan(&g.ID, &g.Name, &g.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("group not found")
+		}
+		return nil, fmt.Errorf(errQuery, "group by id", err)
+	}
+
+	return &g, nil
+}
+
 // GetGroupByName 按名称查询分组
 func (r *BookmarkRepository) GetGroupByName(name string) (*BookmarkGroupDB, error) {
 	query := `SELECT id, name, created_at FROM bookmark_groups WHERE name = ?`
@@ -345,6 +362,19 @@ func (r *BookmarkRepository) UpdateGroupName(oldName, newName string) error {
 
 	Logger.Debug("group name updated", zap.String("old", oldName), zap.String("new", newName))
 	return nil
+}
+
+// GetGroupBookmarkCount 获取分组下的书签数量
+func (r *BookmarkRepository) GetGroupBookmarkCount(groupName string) (int, error) {
+	query := `SELECT COUNT(b.id) FROM bookmarks b
+			  INNER JOIN bookmark_groups g ON b.group_id = g.id
+			  WHERE g.name = ?`
+	var count int
+	err := r.db.QueryRow(query, groupName).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf(errQuery, "group bookmark count", err)
+	}
+	return count, nil
 }
 
 // DeleteGroup 删除分组

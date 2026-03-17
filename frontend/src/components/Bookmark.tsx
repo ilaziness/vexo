@@ -3,14 +3,12 @@ import { Box, Paper } from "@mui/material";
 import {
   BookmarkService,
   LogService,
-  SSHService,
   SSHBookmark,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import BookmarkTree from "./BookmarkTree";
 import BookmarkForm from "./BookmarkForm";
 import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
-import { generateRandomId } from "../func/id";
 
 interface BookmarkGroup {
   name: string;
@@ -59,17 +57,7 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
     newGroupName: string,
   ) => {
     try {
-      const oldGroup = bookmarks.find((g) => g.name === oldGroupName);
-      const bookmarksToMove = oldGroup?.bookmarks || [];
-      const updatedBookmarks = bookmarksToMove.map((b) => ({
-        ...b,
-        id: `${newGroupName}-${b.title}-${Date.now()}`,
-        group_name: newGroupName,
-      }));
-      await BookmarkService.DeleteGroup(oldGroupName);
-      for (const bookmark of updatedBookmarks) {
-        await BookmarkService.SaveBookmark(bookmark);
-      }
+      await BookmarkService.UpdateGroup(oldGroupName, newGroupName);
       await loadBookmarks();
     } catch (error) {
       LogService.Warn(`Failed to rename group: ${error}`);
@@ -104,7 +92,7 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
     const group = bookmarks.find((g) => g.name === groupName);
     const bookmarkCount = group?.bookmarks?.length || 0;
     const newBookmark: SSHBookmark = {
-      id: generateRandomId(),
+      id: "",
       title: `新书签 ${bookmarkCount + 1}`,
       group_name: groupName,
       host: "",
@@ -143,39 +131,23 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
 
   const handleTestConnection = async (bookmark: SSHBookmark) => {
     try {
-      await SSHService.TestConnectInfo(
-        bookmark.host,
-        bookmark.port,
-        bookmark.user,
-        await BookmarkService.DecryptPassword(bookmark.password),
-        bookmark.private_key,
-        await BookmarkService.DecryptPassword(bookmark.private_key_password),
-      );
+      await BookmarkService.TestConnection(bookmark);
       successMessage("连接测试成功");
     } catch (error) {
       LogService.Warn(`Connection test failed: ${error}`);
-      errorMessage("连接测试失败");
+      errorMessage("连接测试失败: " + parseCallServiceError(error));
     }
   };
 
   const handleSaveAndConnect = async (bookmark: SSHBookmark) => {
     try {
-      await SSHService.TestConnectInfo(
-        bookmark.host,
-        bookmark.port,
-        bookmark.user,
-        await BookmarkService.DecryptPassword(bookmark.password),
-        bookmark.private_key,
-        await BookmarkService.DecryptPassword(bookmark.private_key_password),
-      );
-      await BookmarkService.SaveBookmark(bookmark);
-      successMessage("书签保存成功");
+      await BookmarkService.SaveAndConnect(bookmark);
+      successMessage("书签保存并连接成功");
       await loadBookmarks();
-      await BookmarkService.ConnectBookmark(bookmark.id);
       onRequestClose?.();
     } catch (error) {
       LogService.Warn(`Failed to save and connect: ${error}`);
-      errorMessage("连接失败");
+      errorMessage("保存并连接失败: " + parseCallServiceError(error));
     }
   };
 

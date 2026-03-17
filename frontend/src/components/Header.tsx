@@ -19,7 +19,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import BookmarksIcon from "@mui/icons-material/Bookmarks";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
-import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
+import LocalLibraryIcon from "@mui/icons-material/LocalLibrary";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
@@ -28,7 +28,7 @@ import {
   BookmarkService,
   ConfigService,
   SSHBookmark,
-  CommandService
+  CommandService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../stores/ssh";
 import { genTabIndex, parseCallServiceError } from "../func/service";
@@ -129,12 +129,10 @@ export default function Header() {
         return;
       }
       const sshInfo = {
+        bookmarkID: bookmark.id,
         host: bookmark.host,
         port: bookmark.port,
         user: bookmark.user,
-        password: bookmark.password || undefined,
-        key: bookmark.private_key || undefined,
-        keyPassword: bookmark.private_key_password || undefined,
       };
       const newIndex = genTabIndex();
       pushTab({

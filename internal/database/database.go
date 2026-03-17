@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"go.uber.org/zap"
 )
 
@@ -34,7 +34,7 @@ func NewDatabase(userDataDir string) *Database {
 // skipCreateTables: 如果为 true，则跳过表结构的创建和变更
 func (d *Database) Initialize(skipCreateTables bool) error {
 	var err error
-	d.db, err = sql.Open("sqlite3", d.dbPath)
+	d.db, err = sql.Open("sqlite", d.dbPath)
 	if err != nil {
 		return fmt.Errorf("open db failed: %w", err)
 	}

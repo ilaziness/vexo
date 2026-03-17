@@ -42,7 +42,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 
 	sshService := NewSSHService()
 	sftpService := NewSftpService()
-	bookmarkService := NewBookmarkService(configService, db)
+	bookmarkService := NewBookmarkService(db, sshService)
 	sshTunnelService := NewSSHTunnelService(sshService)
 	commandService := NewCommandService(sshService, db)
 

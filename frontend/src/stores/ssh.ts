@@ -44,10 +44,10 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
     // 如果删除的是当前激活的标签，需要切换到另一个标签
     let newTabValue = currentTab;
     if (currentTab === delTab) {
-      if (newSshTabs.length > 0) {
-        newTabValue = newSshTabs[newSshTabs.length - 1].index;
+      const lastTab = newSshTabs.at(-1);
+      if (lastTab) {
+        newTabValue = lastTab.index;
       } else {
-        // 如果没有其他标签了，创建一个新标签
         newSshTabs = [
           {
             index: `${genTabIndex()}`,
@@ -79,7 +79,7 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
     })),
 }));
 
-export interface reloadSSHTabStoreType {
+export interface ReloadSSHTabStoreType {
   reloadTab: {
     index: string;
     count: number;
@@ -87,7 +87,7 @@ export interface reloadSSHTabStoreType {
   doTabReload: (index: string) => void;
 }
 
-export const useReloadSSHTabStore = create<reloadSSHTabStoreType>(
+export const useReloadSSHTabStore = create<ReloadSSHTabStoreType>(
   (set, get) => ({
     reloadTab: {
       index: "",
