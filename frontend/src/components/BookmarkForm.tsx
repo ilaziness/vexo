@@ -13,8 +13,10 @@ import {
   InputAdornment,
 } from "@mui/material";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
-import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
-import { AppService } from "../../bindings/github.com/ilaziness/vexo/services";
+import {
+  SSHBookmark,
+  AppService,
+} from "../../bindings/github.com/ilaziness/vexo/services";
 import { useMessageStore } from "../stores/message";
 import FormRow from "./FormRow";
 

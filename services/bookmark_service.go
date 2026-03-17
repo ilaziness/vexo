@@ -403,12 +403,12 @@ func (bs *BookmarkService) getBookmarkByID(bookmarkID string) (*SSHBookmark, err
 }
 
 // SaveBookmark 保存 SSH 连接信息书签，根据 ID 判断是新增还是更新
-func (bs *BookmarkService) SaveBookmark(bookmark SSHBookmark) error {
+func (bs *BookmarkService) SaveBookmark(bookmark SSHBookmark) (string, error) {
 	Logger.Debug("savebookmark", zap.Any("bk", bookmark))
 	if bookmark.ID != "" {
 		existing, err := bs.db.BookmarkRepo.GetBookmarkByID(bookmark.ID)
 		if err == nil && existing != nil {
-			return bs.updateBookmark(bookmark, existing)
+			return bookmark.ID, bs.updateBookmark(bookmark, existing)
 		}
 	}
 	return bs.insertBookmark(bookmark)
@@ -459,7 +459,7 @@ func (bs *BookmarkService) updateBookmark(bookmark SSHBookmark, existing *databa
 }
 
 // insertBookmark 插入新书签
-func (bs *BookmarkService) insertBookmark(bookmark SSHBookmark) error {
+func (bs *BookmarkService) insertBookmark(bookmark SSHBookmark) (string, error) {
 	group, err := bs.db.BookmarkRepo.GetGroupByName(bookmark.GroupName)
 	if err != nil {
 		group, _ = bs.db.BookmarkRepo.GetGroupByName("默认书签")
@@ -467,11 +467,12 @@ func (bs *BookmarkService) insertBookmark(bookmark SSHBookmark) error {
 
 	processed, err := bs.encryptBookmark(bookmark)
 	if err != nil {
-		return err
+		return "", err
 	}
 
+	bookmarkID := utils.GenerateRandomID()
 	dbBookmark := &database.BookmarkDB{
-		ID:                 utils.GenerateRandomID(),
+		ID:                 bookmarkID,
 		GroupID:            group.ID,
 		Title:              processed.Title,
 		Host:               processed.Host,
@@ -485,12 +486,12 @@ func (bs *BookmarkService) insertBookmark(bookmark SSHBookmark) error {
 	}
 
 	if err := bs.db.BookmarkRepo.InsertBookmark(dbBookmark); err != nil {
-		return err
+		return "", err
 	}
 
 	app.Event.Emit(EventBookmarkUpdate, BookmarkUpdateMsg)
 	Logger.Debug("bookmark inserted")
-	return nil
+	return bookmarkID, nil
 }
 
 // DeleteBookmark 删除书签
@@ -618,12 +619,13 @@ func (bs *BookmarkService) SaveAndConnect(bookmark SSHBookmark) error {
 	}
 
 	// 保存书签
-	if err := bs.SaveBookmark(bookmark); err != nil {
+	bookmarkID, err := bs.SaveBookmark(bookmark)
+	if err != nil {
 		return fmt.Errorf("保存书签失败: %w", err)
 	}
 
 	// 触发连接事件
-	bs.ConnectBookmark(bookmark.ID)
+	bs.ConnectBookmark(bookmarkID)
 	return nil
 }
 
