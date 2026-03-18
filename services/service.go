@@ -1,8 +1,10 @@
 package services
 
 import (
+	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/updater"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"go.uber.org/zap"
 )
 
 var app *application.App
@@ -27,11 +29,22 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	appService := &AppService{
 		mainWindow: mainWindow,
 	}
+
+	configService := NewConfigService()
+
+	database.Logger = Logger
+	db := database.NewDatabase(configService.Config.General.UserDataDir)
+	skipCreateTables := !configService.CheckAndUpdateDBVersion()
+	if err := db.Initialize(skipCreateTables); err != nil {
+		Logger.Error("init db failed", zap.Error(err))
+		return
+	}
+
 	sshService := NewSSHService()
 	sftpService := NewSftpService()
-	configService := NewConfigService()
-	bookmarkService := NewBookmarkService(configService)
+	bookmarkService := NewBookmarkService(db, sshService)
 	sshTunnelService := NewSSHTunnelService(sshService)
+	commandService := NewCommandService(sshService, db)
 
 	ConfigSvc = configService
 
@@ -41,6 +54,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	app.RegisterService(application.NewService(configService))
 	app.RegisterService(application.NewService(bookmarkService))
 	app.RegisterService(application.NewService(sshTunnelService))
+	app.RegisterService(application.NewService(commandService))
 
 	wsService := NewWebSocketService(app, sshService)
 	wsService.Start()
@@ -50,6 +64,10 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 		wsService.Stop()
 		sshService.Close()
 		sshTunnelService.StopAll()
+
+		if err := db.Close(); err != nil {
+			Logger.Error("close db failed", zap.Error(err))
+		}
 	})
 }
 

@@ -1,7 +1,7 @@
 import { createHashRouter } from "react-router";
 import App from "./pages/App.tsx";
 import Setting from "./pages/Setting";
-import Bookmark from "./pages/Bookmark";
+import Command from "./pages/Command";
 
 export default createHashRouter([
   {
@@ -13,7 +13,7 @@ export default createHashRouter([
     Component: Setting,
   },
   {
-    path: "/bookmark",
-    Component: Bookmark,
+    path: "/command",
+    Component: Command,
   },
 ]);

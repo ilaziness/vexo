@@ -3,6 +3,7 @@ import { Box, Tab, Tabs } from "@mui/material";
 import {
   LogService,
   SSHService,
+  BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { SSHLinkInfo } from "../types/ssh";
 import Terminal from "./Terminal";
@@ -53,14 +54,19 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     setLastSSHInfo(li);
     try {
       LogService.Debug(`SSHLinkInfo ${JSON.stringify(li)}`);
-      const linkID = await SSHService.Connect(
-        li.host,
-        li.port,
-        li.user,
-        li.password || "",
-        li.key || "",
-        li.keyPassword || "",
-      );
+      let linkID = "";
+      if (li.bookmarkID != "" && li.bookmarkID != undefined) {
+        linkID = await BookmarkService.ConnectBookmarkByID(li.bookmarkID);
+      } else {
+        linkID = await SSHService.Connect(
+          li.host,
+          li.port,
+          li.user,
+          li.password || "",
+          li.key || "",
+          li.keyPassword || "",
+        );
+      }
       LogService.Debug(`SSH connection established with ID: ${linkID}`);
       setLinkID(linkID);
       setName(tabIndex, `${li.user}@${li.host}:${li.port}`);

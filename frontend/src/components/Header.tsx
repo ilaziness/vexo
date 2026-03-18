@@ -10,18 +10,25 @@ import {
   ListItemIcon,
   ListItemText,
   Collapse,
+  Dialog,
+  AppBar,
+  Toolbar,
+  Typography,
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import BookmarksIcon from "@mui/icons-material/Bookmarks";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
+import LocalLibraryIcon from "@mui/icons-material/LocalLibrary";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import CloseIcon from "@mui/icons-material/Close";
 
 import {
   BookmarkService,
   ConfigService,
   SSHBookmark,
+  CommandService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../stores/ssh";
 import { genTabIndex, parseCallServiceError } from "../func/service";
@@ -29,6 +36,7 @@ import React, { useState, useEffect } from "react";
 import { useMessageStore } from "../stores/message";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { Events } from "@wailsio/runtime";
+import BookmarkManager from "./Bookmark";
 
 interface BookmarkGroup {
   name: string;
@@ -48,6 +56,7 @@ export default function Header() {
   const [expandedGroups, setExpandedGroups] = useState<{
     [key: string]: boolean;
   }>({});
+  const [bookmarkManageOpen, setBookmarkManageOpen] = useState(false);
 
   const showSettingWindow = () => {
     ConfigService.ShowWindow().then(() => {});
@@ -120,12 +129,10 @@ export default function Header() {
         return;
       }
       const sshInfo = {
+        bookmarkID: bookmark.id,
         host: bookmark.host,
         port: bookmark.port,
         user: bookmark.user,
-        password: bookmark.password || undefined,
-        key: bookmark.private_key || undefined,
-        keyPassword: bookmark.private_key_password || undefined,
       };
       const newIndex = genTabIndex();
       pushTab({
@@ -174,7 +181,7 @@ export default function Header() {
           <IconButton
             size="small"
             onClick={() => {
-              BookmarkService.ShowWindow().then(() => {});
+              setBookmarkManageOpen(true);
             }}
           >
             <BookmarksIcon />
@@ -182,6 +189,17 @@ export default function Header() {
         </Tooltip>
 
         <ThemeSwitcher />
+
+        <Tooltip title="命令面板">
+          <IconButton
+            size="small"
+            onClick={() => {
+              CommandService.ShowWindow().then(() => {});
+            }}
+          >
+            <LocalLibraryIcon />
+          </IconButton>
+        </Tooltip>
 
         <Tooltip title="设置">
           <IconButton size="small" onClick={showSettingWindow}>
@@ -245,6 +263,36 @@ export default function Header() {
             ))}
           </List>
         </Menu>
+        <Dialog
+          fullScreen
+          open={bookmarkManageOpen}
+          onClose={() => setBookmarkManageOpen(false)}
+        >
+          <AppBar
+            position="static"
+            color="default"
+            elevation={1}
+            sx={{ "--wails-draggable": "drag" }}
+          >
+            <Toolbar>
+              <IconButton
+                edge="start"
+                onClick={() => setBookmarkManageOpen(false)}
+                size="large"
+              >
+                <CloseIcon />
+              </IconButton>
+              <Typography sx={{ ml: 1 }} variant="h6">
+                书签管理
+              </Typography>
+            </Toolbar>
+          </AppBar>
+          <Box sx={{ height: "calc(100% - 64px)" }}>
+            <BookmarkManager
+              onRequestClose={() => setBookmarkManageOpen(false)}
+            />
+          </Box>
+        </Dialog>
       </Stack>
     </Box>
   );

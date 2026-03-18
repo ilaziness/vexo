@@ -2,10 +2,14 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/internal/utils"
@@ -21,6 +25,10 @@ const (
 	tunnelTypeDynamic = "dynamic"
 )
 
+var (
+	sshSessionNotFoundErr = errors.New("ssh connect not found")
+)
+
 var sshTunnels sync.Map // map[string]*SSHTunnel，key 是隧道ID
 var sshTunnelService *SSHTunnelService
 
@@ -32,7 +40,7 @@ type TunnelInfo struct {
 	ID         string `json:"id"`
 	TunnelType string `json:"tunnelType"`
 	SessionID  string `json:"sessionID"`
-	LocalPort  int    `json:"localPort"`
+	LocalAddr  string `json:"localAddr"`
 	RemoteAddr string `json:"remoteAddr"`
 }
 
@@ -43,17 +51,17 @@ type SSHTunnelService struct {
 type SSHTunnel struct {
 	ID         string
 	tunnelType string
-	sessionID  string // 关联的 SSHConnect 的 sessionID
-	LocalPort  int
-	RemoteAddr string
+	sessionID  string
+	LocalAddr  string // 本地监听地址，格式: ip:port
+	RemoteAddr string // 远程地址，格式: ip:port
 
 	listener net.Listener
 	exitCh   chan struct{}
 	wg       sync.WaitGroup
-	// For dynamic tunnels: track active socks connections for graceful shutdown
+	// For dynamic tunnels
 	connLock    sync.Mutex
 	activeConns map[net.Conn]struct{}
-	socksServer any
+	socksServer *socks5.Server
 }
 
 func NewSSHTunnelService(sshService *SSHService) *SSHTunnelService {
@@ -63,8 +71,8 @@ func NewSSHTunnelService(sshService *SSHService) *SSHTunnelService {
 	return sshTunnelService
 }
 
+// TunnelList 隧道列表，按类型分组
 func (t *SSHTunnelService) TunnelList() []TunnelList {
-	// 按隧道类型分组
 	tunnelsByType := make(map[string][]TunnelInfo)
 
 	sshTunnels.Range(func(key, value any) bool {
@@ -74,7 +82,7 @@ func (t *SSHTunnelService) TunnelList() []TunnelList {
 				ID:         tunnel.ID,
 				TunnelType: tunnel.tunnelType,
 				SessionID:  tunnel.sessionID,
-				LocalPort:  tunnel.LocalPort,
+				LocalAddr:  tunnel.LocalAddr,
 				RemoteAddr: tunnel.RemoteAddr,
 			}
 			tunnelsByType[tunnel.tunnelType] = append(tunnelsByType[tunnel.tunnelType], tunnelInfo)
@@ -95,16 +103,16 @@ func (t *SSHTunnelService) TunnelList() []TunnelList {
 }
 
 // StartLocal 本地端口转发（local forwarding）。
-func (t *SSHTunnelService) StartLocal(sessionID string, LocalPort int, RemoteAddr string) (string, error) {
+// localAddr 格式: ip:port，例如 127.0.0.1:8080
+// remoteAddr 格式: host:port，例如 127.0.0.1:3306 或 example.com:443
+func (t *SSHTunnelService) StartLocal(sessionID string, localAddr string, remoteAddr string) (string, error) {
 	connAny, ok := t.sshService.SSHConnects.Load(sessionID)
 	if !ok {
-		return "", fmt.Errorf("ssh connect not found: %s", sessionID)
+		return "", sshSessionNotFoundErr
 	}
 	sc := connAny.(*SSHConnect)
 
-	// 默认将本地端口转发到远端的 127.0.0.1:LocalPort
-	addr := fmt.Sprintf("127.0.0.1:%d", LocalPort)
-	ln, err := net.Listen("tcp", addr)
+	ln, err := net.Listen("tcp", localAddr)
 	if err != nil {
 		return "", err
 	}
@@ -113,12 +121,11 @@ func (t *SSHTunnelService) StartLocal(sessionID string, LocalPort int, RemoteAdd
 		ID:         utils.GenerateRandomID(),
 		tunnelType: tunnelTypeLocal,
 		sessionID:  sessionID,
-		LocalPort:  LocalPort,
-		RemoteAddr: RemoteAddr,
+		LocalAddr:  localAddr,
+		RemoteAddr: remoteAddr,
 		listener:   ln,
 		exitCh:     make(chan struct{}),
 	}
-	// 使用隧道ID 作为 key 存储，这样 StopByID(tunnelID) 能正确找到对应隧道
 	sshTunnels.Store(tunnel.ID, tunnel)
 
 	// accept loop
@@ -191,60 +198,14 @@ func (t *SSHTunnelService) StartLocal(sessionID string, LocalPort int, RemoteAdd
 	return tunnel.ID, nil
 }
 
-// StopLocal 停止本地端口转发
-func (t *SSHTunnelService) StopLocal(sessionID string) error {
-	sshTunnels.Range(func(key, value any) bool {
-		tunnel, ok := value.(*SSHTunnel)
-		if ok && tunnel.sessionID == sessionID {
-			_ = tunnel.listener.Close()
-			// if dynamic, try to close active socks connections and server
-			if tunnel.tunnelType == tunnelTypeDynamic {
-				// close server if it has Close method
-				type closer interface{ Close() error }
-				if srv, ok := tunnel.socksServer.(closer); ok {
-					_ = srv.Close()
-				}
-				// don't force-close active connections here; allow ServeConn goroutines to exit gracefully
-			}
-
-			close(tunnel.exitCh)
-			tunnel.wg.Wait()
-			sshTunnels.Delete(key)
-		}
-		return true
-	})
-	Logger.Debug("SSH tunnels stopped for session", zap.String("sessionID", sessionID))
-	return nil
-}
-
-// StopByID 根据隧道 ID 停止隧道
-func (t *SSHTunnelService) StopByID(tunnelID string) error {
-	tunnelAny, ok := sshTunnels.Load(tunnelID)
-	if !ok {
-		return fmt.Errorf("tunnel not found")
-	}
-	tunnel := tunnelAny.(*SSHTunnel)
-	_ = tunnel.listener.Close()
-	if tunnel.tunnelType == tunnelTypeDynamic {
-		type closer interface{ Close() error }
-		if srv, ok := tunnel.socksServer.(closer); ok {
-			_ = srv.Close()
-		}
-		// don't force-close active connections here; let ServeConn finish and goroutines clean up
-	}
-	close(tunnel.exitCh)
-	tunnel.wg.Wait()
-	sshTunnels.Delete(tunnelID)
-	Logger.Debug("SSH tunnel stopped", zap.String("remoteAddr", tunnel.RemoteAddr))
-	return nil
-}
-
 // StartRemote 远端端口转发（remote forwarding）。
-// 在远端（SSH 服务器）监听 127.0.0.1:remotePort，接受连接后转发到本地的 127.0.0.1:localPort。
-func (t *SSHTunnelService) StartRemote(sessionID string, remotePort int, localPort int) (string, error) {
+// 在远端（SSH 服务器）监听 127.0.0.1:remotePort，接受连接后转发到本地的 localAddr。
+// remotePort: 远端监听端口（远端地址固定 127.0.0.1）
+// localAddr 格式: ip:port，例如 127.0.0.1:3306
+func (t *SSHTunnelService) StartRemote(sessionID string, remotePort int, localAddr string) (string, error) {
 	connAny, ok := t.sshService.SSHConnects.Load(sessionID)
 	if !ok {
-		return "", fmt.Errorf("ssh connect not found: %s", sessionID)
+		return "", sshSessionNotFoundErr
 	}
 	sc := connAny.(*SSHConnect)
 
@@ -259,7 +220,7 @@ func (t *SSHTunnelService) StartRemote(sessionID string, remotePort int, localPo
 		ID:         utils.GenerateRandomID(),
 		tunnelType: tunnelTypeRemote,
 		sessionID:  sessionID,
-		LocalPort:  localPort,
+		LocalAddr:  localAddr,
 		RemoteAddr: remoteAddr,
 		listener:   ln,
 		exitCh:     make(chan struct{}),
@@ -280,8 +241,7 @@ func (t *SSHTunnelService) StartRemote(sessionID string, remotePort int, localPo
 				defer tunnel.wg.Done()
 				defer remoteConn.Close()
 
-				localAddr := fmt.Sprintf("127.0.0.1:%d", tunnel.LocalPort)
-				localConn, err := net.Dial("tcp", localAddr)
+				localConn, err := net.Dial("tcp", tunnel.LocalAddr)
 				if err != nil {
 					Logger.Debug("failed to dial local", zap.String("tunnelID", tunnel.ID), zap.Error(err))
 					return
@@ -330,15 +290,15 @@ func (t *SSHTunnelService) StartRemote(sessionID string, remotePort int, localPo
 
 // StartDynamic 动态端口转发（SOCKS5）。
 // 本地监听 SOCKS5 请求，并通过 SSH 客户端发起出站连接。
-func (t *SSHTunnelService) StartDynamic(sessionID string, LocalPort int) (string, error) {
+// localAddr 格式: ip:port，例如 127.0.0.1:1080
+func (t *SSHTunnelService) StartDynamic(sessionID string, localAddr string) (string, error) {
 	connAny, ok := t.sshService.SSHConnects.Load(sessionID)
 	if !ok {
-		return "", fmt.Errorf("ssh connect not found: %s", sessionID)
+		return "", sshSessionNotFoundErr
 	}
 	sc := connAny.(*SSHConnect)
 
-	addr := fmt.Sprintf("127.0.0.1:%d", LocalPort)
-	ln, err := net.Listen("tcp", addr)
+	ln, err := net.Listen("tcp", localAddr)
 	if err != nil {
 		return "", err
 	}
@@ -347,7 +307,7 @@ func (t *SSHTunnelService) StartDynamic(sessionID string, LocalPort int) (string
 		ID:          utils.GenerateRandomID(),
 		tunnelType:  tunnelTypeDynamic,
 		sessionID:   sessionID,
-		LocalPort:   LocalPort,
+		LocalAddr:   localAddr,
 		RemoteAddr:  "",
 		listener:    ln,
 		exitCh:      make(chan struct{}),
@@ -355,83 +315,77 @@ func (t *SSHTunnelService) StartDynamic(sessionID string, LocalPort int) (string
 	}
 	sshTunnels.Store(tunnel.ID, tunnel)
 
-	// 创建 SOCKS5 服务器，使用自定义 Dial 将出站连接通过 SSH 客户端发起
-	srv := socks5.NewServer(socks5.WithDial(func(ctx context.Context, network, address string) (net.Conn, error) {
-		return sc.client.Dial(network, address)
-	}))
-
-	// store server instance for potential shutdown
-	tunnel.socksServer = srv
-
+	opts := []socks5.Option{
+		socks5.WithDial(func(ctx context.Context, network, address string) (net.Conn, error) {
+			to, cancel := context.WithTimeout(ctx, time.Second*20)
+			defer cancel()
+			defer func() {
+				if to.Err() != nil {
+					Logger.Debug(to.Err().Error(), zap.String("network", network), zap.String("address", address))
+				}
+			}()
+			return sc.client.DialContext(to, network, address)
+		}),
+	}
+	if Mode != ModeRelease {
+		opts = append(opts, socks5.WithLogger(socks5.NewLogger(log.New(os.Stdout, "socks5: ", log.LstdFlags))))
+	}
+	tunnel.socksServer = socks5.NewServer(opts...)
 	tunnel.wg.Add(1)
 	system.SafeGo(func() {
 		defer tunnel.wg.Done()
-
-		// If server provides ServeConn, accept connections ourselves so we can track them
-		type serveConnIface interface {
-			ServeConn(net.Conn) error
-		}
-
-		if scSrv, ok := interface{}(srv).(serveConnIface); ok {
-			for {
-				localConn, err := ln.Accept()
-				if err != nil {
-					Logger.Debug("socks accept loop quit", zap.String("tunnelID", tunnel.ID), zap.Error(err))
-					return
-				}
-
-				tunnel.connLock.Lock()
-				tunnel.activeConns[localConn] = struct{}{}
-				tunnel.connLock.Unlock()
-
-				tunnel.wg.Add(1)
-				system.SafeGo(func() {
-					defer tunnel.wg.Done()
-					defer func() {
-						localConn.Close()
-						tunnel.connLock.Lock()
-						delete(tunnel.activeConns, localConn)
-						tunnel.connLock.Unlock()
-					}()
-
-					if err := scSrv.ServeConn(localConn); err != nil {
-						Logger.Debug("socks serveConn error", zap.String("tunnelID", tunnel.ID), zap.Error(err))
-					}
-				})
-			}
-		}
-
-		// Fallback: let server serve the listener directly
-		if err := srv.Serve(ln); err != nil {
-			Logger.Debug("socks5 serve exit", zap.String("tunnelID", tunnel.ID), zap.Error(err))
-		} else {
-			Logger.Debug("socks5 serve stopped", zap.String("tunnelID", tunnel.ID))
-		}
+		t.handleDynamicConn(tunnel, ln)
 	})
 
 	return tunnel.ID, nil
 }
 
-// StopRemote 停止远端端口转发
-func (t *SSHTunnelService) StopRemote(sessionID string) error {
-	sshTunnels.Range(func(key, value any) bool {
-		tunnel, ok := value.(*SSHTunnel)
-		if ok && tunnel.tunnelType == tunnelTypeRemote && tunnel.sessionID == sessionID {
-			_ = tunnel.listener.Close()
-			if tunnel.tunnelType == tunnelTypeDynamic {
-				type closer interface{ Close() error }
-				if srv, ok := tunnel.socksServer.(closer); ok {
-					_ = srv.Close()
-				}
-				// don't force-close active connections here; let ServeConn goroutines exit gracefully
+// handleDynamicConn 处理动态转发的 SOCKS5 连接
+func (t *SSHTunnelService) handleDynamicConn(tunnel *SSHTunnel, ln net.Listener) {
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			tunnel.connLock.Lock()
+			for actConn := range tunnel.activeConns {
+				_ = actConn.Close()
 			}
-			close(tunnel.exitCh)
-			tunnel.wg.Wait()
-			sshTunnels.Delete(key)
+			tunnel.connLock.Unlock()
+			Logger.Debug("socks5 accept loop quit", zap.Error(err))
+			return
 		}
-		return true
-	})
-	Logger.Debug("SSH remote tunnels stopped for session", zap.String("sessionID", sessionID))
+		tunnel.connLock.Lock()
+		tunnel.activeConns[conn] = struct{}{}
+		tunnel.connLock.Unlock()
+
+		tunnel.wg.Add(1)
+		system.SafeGo(func() {
+			Logger.Debug("socks5 conn started")
+			defer tunnel.wg.Done()
+			defer func() {
+				conn.Close()
+				tunnel.connLock.Lock()
+				delete(tunnel.activeConns, conn)
+				tunnel.connLock.Unlock()
+			}()
+
+			_ = tunnel.socksServer.ServeConn(conn)
+			Logger.Debug("socks5 conn stopped")
+		})
+	}
+}
+
+// StopByID 根据隧道 ID 停止隧道
+func (t *SSHTunnelService) StopByID(tunnelID string) error {
+	tunnelAny, ok := sshTunnels.Load(tunnelID)
+	if !ok {
+		return fmt.Errorf("tunnel not found")
+	}
+	tunnel := tunnelAny.(*SSHTunnel)
+	_ = tunnel.listener.Close()
+	close(tunnel.exitCh)
+	tunnel.wg.Wait()
+	sshTunnels.Delete(tunnelID)
+	Logger.Debug("SSH tunnel stopped", zap.String("remoteAddr", tunnel.RemoteAddr))
 	return nil
 }
 
@@ -441,13 +395,6 @@ func (t *SSHTunnelService) StopAll() {
 		tunnel, ok := value.(*SSHTunnel)
 		if ok {
 			_ = tunnel.listener.Close()
-			if tunnel.tunnelType == tunnelTypeDynamic {
-				type closer interface{ Close() error }
-				if srv, ok := tunnel.socksServer.(closer); ok {
-					_ = srv.Close()
-				}
-				// don't force-close active connections here; let per-connection goroutines finish
-			}
 			close(tunnel.exitCh)
 			tunnel.wg.Wait()
 			sshTunnels.Delete(key)

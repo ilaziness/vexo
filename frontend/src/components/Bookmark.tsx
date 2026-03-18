@@ -3,24 +3,23 @@ import { Box, Paper } from "@mui/material";
 import {
   BookmarkService,
   LogService,
-  SSHService,
   SSHBookmark,
 } from "../../bindings/github.com/ilaziness/vexo/services";
-import BookmarkTree from "../components/BookmarkTree";
-import BookmarkForm from "../components/BookmarkForm";
+import BookmarkTree from "./BookmarkTree";
+import BookmarkForm from "./BookmarkForm";
 import { useMessageStore } from "../stores/message";
-import Message from "../components/Message";
 import { parseCallServiceError } from "../func/service";
-import { generateRandomId } from "../func/id";
-import PasswordInputDialog from "../components/PasswordInputDialog";
-import OpBar from "../components/OpBar";
 
 interface BookmarkGroup {
   name: string;
   bookmarks: SSHBookmark[];
 }
 
-const Bookmark: React.FC = () => {
+interface BookmarkProps {
+  onRequestClose?: () => void;
+}
+
+const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
   const [bookmarks, setBookmarks] = useState<BookmarkGroup[]>([]);
   const [selectedBookmark, setSelectedBookmark] = useState<SSHBookmark | null>(
     null,
@@ -35,7 +34,6 @@ const Bookmark: React.FC = () => {
     try {
       const config = await BookmarkService.ListBookmarks();
       if (config && Array.isArray(config)) {
-        // 过滤掉 null 值，确保类型安全
         const validBookmarks = config.filter(
           (group): group is BookmarkGroup =>
             group !== null && group !== undefined,
@@ -59,26 +57,7 @@ const Bookmark: React.FC = () => {
     newGroupName: string,
   ) => {
     try {
-      // 查找旧分组
-      const oldGroup = bookmarks.find((g) => g.name === oldGroupName);
-      const bookmarksToMove = oldGroup?.bookmarks || [];
-
-      // 为这些书签创建新ID并更新分组
-      const updatedBookmarks = bookmarksToMove.map((b) => ({
-        ...b,
-        id: `${newGroupName}-${b.title}-${Date.now()}`, // 创建新ID以确保唯一性
-        group_name: newGroupName,
-      }));
-
-      // 删除旧分组
-      await BookmarkService.DeleteGroup(oldGroupName);
-
-      // 添加更新后的书签到新分组
-      for (const bookmark of updatedBookmarks) {
-        await BookmarkService.SaveBookmark(bookmark);
-      }
-
-      // 重新加载书签
+      await BookmarkService.UpdateGroup(oldGroupName, newGroupName);
       await loadBookmarks();
     } catch (error) {
       LogService.Warn(`Failed to rename group: ${error}`);
@@ -113,7 +92,7 @@ const Bookmark: React.FC = () => {
     const group = bookmarks.find((g) => g.name === groupName);
     const bookmarkCount = group?.bookmarks?.length || 0;
     const newBookmark: SSHBookmark = {
-      id: generateRandomId(),
+      id: "",
       title: `新书签 ${bookmarkCount + 1}`,
       group_name: groupName,
       host: "",
@@ -139,118 +118,95 @@ const Bookmark: React.FC = () => {
     }
   };
 
-  const handleSaveBookmark = async (bookmark: SSHBookmark) => {
+  const handleSaveBookmark = async (bookmark: SSHBookmark): Promise<SSHBookmark> => {
     try {
-      await BookmarkService.SaveBookmark(bookmark);
+      const bookmarkId = await BookmarkService.SaveBookmark(bookmark);
+      const savedBookmark = { ...bookmark, id: bookmarkId };
       successMessage("书签保存成功");
       await loadBookmarks();
+      setSelectedBookmark(savedBookmark);
+      return savedBookmark;
     } catch (error) {
       LogService.Warn(`Failed to save bookmark: ${error}`);
       errorMessage("保存书签失败: " + parseCallServiceError(error));
+      throw error;
     }
   };
 
   const handleTestConnection = async (bookmark: SSHBookmark) => {
     try {
-      await SSHService.TestConnectInfo(
-        bookmark.host,
-        bookmark.port,
-        bookmark.user,
-        await BookmarkService.DecryptPassword(bookmark.password),
-        bookmark.private_key,
-        await BookmarkService.DecryptPassword(bookmark.private_key_password),
-      );
+      await BookmarkService.TestConnection(bookmark);
       successMessage("连接测试成功");
     } catch (error) {
       LogService.Warn(`Connection test failed: ${error}`);
-      errorMessage("连接测试失败");
+      errorMessage("连接测试失败: " + parseCallServiceError(error));
     }
   };
 
-  const handleSaveAndConnect = async (bookmark: SSHBookmark) => {
+  const handleSaveAndConnect = async (bookmark: SSHBookmark): Promise<SSHBookmark> => {
     try {
-      // 先测试连接
-      await SSHService.TestConnectInfo(
-        bookmark.host,
-        bookmark.port,
-        bookmark.user,
-        await BookmarkService.DecryptPassword(bookmark.password),
-        bookmark.private_key,
-        await BookmarkService.DecryptPassword(bookmark.private_key_password),
-      );
-
-      // 连接成功后保存书签
-      await BookmarkService.SaveBookmark(bookmark);
-      successMessage("书签保存成功");
+      const bookmarkId = await BookmarkService.SaveAndConnect(bookmark);
+      const savedBookmark = { ...bookmark, id: bookmarkId };
+      successMessage("书签保存并连接成功");
       await loadBookmarks();
-
-      // 调用ConnectBookmark触发事件，让SSHTabs处理创建tab
-      await BookmarkService.ConnectBookmark(bookmark.id);
-      BookmarkService.CloseWindow();
+      setSelectedBookmark(savedBookmark);
+      onRequestClose?.();
+      return savedBookmark;
     } catch (error) {
       LogService.Warn(`Failed to save and connect: ${error}`);
-      errorMessage("连接失败");
+      errorMessage("保存并连接失败: " + parseCallServiceError(error));
+      throw error;
     }
   };
 
   return (
-    <>
-      <Box sx={{ height: 40 }}>
-        <OpBar />
-      </Box>
+    <Box
+      sx={{
+        height: "100%",
+        display: "flex",
+        overflow: "hidden",
+      }}
+    >
+      <Paper
+        sx={{
+          width: 280,
+          flexShrink: 0,
+          borderRight: 1,
+          borderColor: "divider",
+          display: "flex",
+          flexDirection: "column",
+        }}
+        elevation={0}
+        square
+      >
+        <BookmarkTree
+          bookmarks={bookmarks}
+          selectedBookmark={selectedBookmark}
+          onBookmarkSelect={handleBookmarkSelect}
+          onGroupRename={handleGroupRename}
+          onGroupAdd={handleGroupAdd}
+          onGroupDelete={handleGroupDelete}
+          onBookmarkAdd={handleBookmarkAdd}
+          onBookmarkDelete={handleBookmarkDelete}
+        />
+      </Paper>
       <Box
         sx={{
-          height: "calc(100% - 40px)",
+          flex: 1,
           display: "flex",
+          flexDirection: "column",
           overflow: "hidden",
         }}
       >
-        {/* 左侧树形列表 */}
-        <Paper
-          sx={{
-            width: 280,
-            flexShrink: 0,
-            borderRight: 1,
-            borderColor: "divider",
-            display: "flex",
-            flexDirection: "column",
-          }}
-          elevation={0}
-          square
-        >
-          <BookmarkTree
-            bookmarks={bookmarks}
-            selectedBookmark={selectedBookmark}
-            onBookmarkSelect={handleBookmarkSelect}
-            onGroupRename={handleGroupRename}
-            onGroupAdd={handleGroupAdd}
-            onGroupDelete={handleGroupDelete}
-            onBookmarkAdd={handleBookmarkAdd}
-            onBookmarkDelete={handleBookmarkDelete}
-          />
-        </Paper>
-
-        {/* 右侧表单区域 */}
-        <Box
-          sx={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          <BookmarkForm
-            bookmark={selectedBookmark}
-            groupNames={bookmarks.map((g) => g.name)}
-            onSave={handleSaveBookmark}
-            onTestConnection={handleTestConnection}
-            onSaveAndConnect={handleSaveAndConnect}
-          />
-        </Box>
+        <BookmarkForm
+          bookmark={selectedBookmark}
+          groupNames={bookmarks.map((g) => g.name)}
+          onSave={handleSaveBookmark}
+          onTestConnection={handleTestConnection}
+          onSaveAndConnect={handleSaveAndConnect}
+        />
       </Box>
-      <Message />
-      <PasswordInputDialog />
-    </>
+    </Box>
   );
 };
 

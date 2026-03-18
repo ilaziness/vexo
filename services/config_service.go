@@ -22,6 +22,9 @@ var (
 	GitInfo   = "2026-02-06 14:53:25 4cc46033541fe7927208fedf8edea6bf3efafce7"
 	BuildTime = "2026-02-06 07:02:20 AM"
 
+	// CurrentDBVersion 当前数据库版本号
+	CurrentDBVersion = 1
+
 	defaultFontFamily = []string{
 		"'Noto Sans Mono'",
 		"'ui-monospace'",
@@ -57,15 +60,17 @@ type TerminalConfig struct {
 	LineHeight float64 `toml:"line_height" json:"lineHeight"`
 }
 
-// AppConfig 应用配置，只保存 user_data_dir
+// AppConfig 应用配置
 type AppConfig struct {
-	General GeneralConfig `toml:"general"`
+	General   GeneralConfig `toml:"general"`
+	DBVersion int           `toml:"db_version,omitempty"`
 }
 
 type ConfigService struct {
-	Config     *Config
-	userConfig string // UserDataDir 下的用户配置文件路径
-	appConfig  string // 可执行目录下的应用配置文件路径
+	Config         *Config
+	appConfig      *AppConfig // 应用配置对象
+	userConfigFile string     // UserDataDir 下的用户配置文件路径
+	appConfigFile  string     // 可执行目录下的应用配置文件路径
 }
 
 // GetDefaultConfig 获取默认配置
@@ -183,9 +188,10 @@ func NewConfigService() *ConfigService {
 	}
 
 	return &ConfigService{
-		Config:     finalConfig,
-		userConfig: userConfigPath,
-		appConfig:  appConfigPath,
+		Config:         finalConfig,
+		appConfig:      appConfig,
+		userConfigFile: userConfigPath,
+		appConfigFile:  appConfigPath,
 	}
 }
 
@@ -213,7 +219,7 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 			},
 		}
 		if data, err := toml.Marshal(appConfig); err == nil {
-			os.WriteFile(cs.appConfig, data, 0644)
+			os.WriteFile(cs.appConfigFile, data, 0644)
 		}
 
 		// 确保新的 UserDataDir 存在
@@ -222,7 +228,7 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 		}
 
 		// 更新用户配置文件路径
-		cs.userConfig = filepath.Join(config.General.UserDataDir, ConfigFile)
+		cs.userConfigFile = filepath.Join(config.General.UserDataDir, ConfigFile)
 	}
 
 	// 2. 保存完整配置到用户配置文件
@@ -232,13 +238,13 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 	}
 
 	// 确保用户配置目录存在
-	userConfigDir := filepath.Dir(cs.userConfig)
+	userConfigDir := filepath.Dir(cs.userConfigFile)
 	if err := os.MkdirAll(userConfigDir, 0755); err != nil {
 		return err
 	}
 
 	// 保存到用户配置文件
-	if err := os.WriteFile(cs.userConfig, data, 0644); err != nil {
+	if err := os.WriteFile(cs.userConfigFile, data, 0644); err != nil {
 		return err
 	}
 
@@ -255,8 +261,34 @@ func (cs *ConfigService) saveToFile() {
 		Logger.Error("save config to file failed", zap.Error(err))
 		return
 	}
-	if err := os.WriteFile(cs.userConfig, data, 0644); err != nil {
+	if err := os.WriteFile(cs.userConfigFile, data, 0644); err != nil {
 		Logger.Error("save config to file failed", zap.Error(err))
 		return
 	}
+}
+
+// UpdateAppConfig 更新应用配置并持久化到文件
+func (cs *ConfigService) UpdateAppConfig() error {
+	if data, err := toml.Marshal(cs.appConfig); err != nil {
+		return err
+	} else {
+		return os.WriteFile(cs.appConfigFile, data, 0644)
+	}
+}
+
+// CheckAndUpdateDBVersion 检查是否需要更新数据库版本
+// 返回 true 表示需要执行数据库初始化（版本号不匹配或首次），false 表示跳过
+func (cs *ConfigService) CheckAndUpdateDBVersion() bool {
+	// 判断是否需要初始化
+	needInit := cs.appConfig.DBVersion < CurrentDBVersion || cs.appConfig.DBVersion == 0
+
+	// 如果需要初始化，更新配置对象和文件中的版本号
+	if needInit {
+		cs.appConfig.DBVersion = CurrentDBVersion
+		if err := cs.UpdateAppConfig(); err != nil {
+			Logger.Error("update app config db version failed", zap.Error(err))
+		}
+	}
+
+	return needInit
 }

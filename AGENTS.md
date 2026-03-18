@@ -8,7 +8,7 @@
 
 | 类别      | 技术/库              | 版本要求    |
 |---------|-------------------|---------|
-| 后端语言    | Go                | ≥ 1.16  |
+| 后端语言    | Go                | ≥ 1.26  |
 | 桌面框架    | Wails             | v3.x    |
 | 前端 UI 库 | Material UI (MUI) | v7.3.x  |
 | 前端路由    | React Router      | v7.11.x |
@@ -52,6 +52,8 @@
 
 和前端交互强相关的功能放在`services`下面对应文件，合理分文件编写，防止一个文件行数太多。
 
+适当的位置添加注释，注释不要太多
+
 ### 1. 日志记录
 - 前端记录日志使用go绑定到前端的`LogService`里面的方法。
 - go里面记录日志使用`LogService`里面的方法。
@@ -65,6 +67,23 @@ React开发时启用了严格模式StrictMode。
 Go绑定到前端的方法和数据类型在`frontend\bindings\github.com\ilaziness\vexo\services`。
 
 搜索代码应该排除`dist`目录。
+
+前端调用go生成的绑定方法需要catch错误，例如：
+
+```typescript
+try {
+      const bookmark = await BookmarkService.GetBookmarkByID(bookmarkID);
+      if (!bookmark) {
+        errorMessage("bookmark not found");
+        return;
+      }
+      setCurrentTab(newIndex);
+    } catch (err) {
+      errorMessage(parseCallServiceError(err));
+    }
+```
+
+使用`parseCallServiceError`解析错误提示，消息提醒使用`useMessageStore`立马的方法。
 
 ### 4.1 XTerm.js 集成
 
@@ -120,6 +139,8 @@ go build -o {name} .
 ```
 `{name}` 为平台对应的可执行文件名，如 `vexo.exe`（Windows）、`vexo`（macOS/Linux）。
 
+# dev运行，使用ctrl+c结束
+wails3 dev
 ---
 
 ## 7. 工具使用

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -8,14 +8,30 @@ import {
   Button,
   CircularProgress,
   Box,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Typography,
 } from "@mui/material";
 import { useMessageStore } from "../stores/message";
 import { SSHTunnelService } from "../../bindings/github.com/ilaziness/vexo/services";
 import { parseCallServiceError } from "../func/service";
+import {
+  TunnelType,
+  validateIpPort,
+  validateRemoteAddr,
+  validatePort,
+  isTunnelFormValid,
+  getTunnelTypeName,
+  getLocalAddrPlaceholder,
+  getLocalAddrHelperText,
+  getRemoteAddrHelperText,
+  getRemotePortHelperText,
+} from "../func/validation";
 
 interface TunnelFormProps {
   open: boolean;
-  tunnelType: "local" | "remote" | "dynamic";
   sessionID: string;
   onClose: () => void;
   onSuccess: () => void;
@@ -23,80 +39,89 @@ interface TunnelFormProps {
 
 const TunnelForm: React.FC<TunnelFormProps> = ({
   open,
-  tunnelType,
   sessionID,
   onClose,
   onSuccess,
 }) => {
   const { errorMessage, successMessage } = useMessageStore();
 
+  const [tunnelType, setTunnelType] = useState<TunnelType>("local");
   const [formData, setFormData] = useState({
-    localPort: "",
+    localAddr: "",
     remoteAddr: "",
     remotePort: "",
-    // 动态转发可能只需要本地端口
   });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({
+    localAddr: "",
+    remoteAddr: "",
+    remotePort: "",
+  });
 
-  // 获取隧道类型显示名称
-  const getTunnelTypeName = () => {
-    switch (tunnelType) {
-      case "local":
-        return "本地端口转发";
-      case "remote":
-        return "远程端口转发";
-      case "dynamic":
-        return "动态端口转发";
-      default:
-        return "隧道";
+  // 重置表单
+  useEffect(() => {
+    if (open) {
+      setTunnelType("local");
+      setFormData({
+        localAddr: "127.0.0.1:", // 本地和动态转发预填写
+        remoteAddr: "",
+        remotePort: "",
+      });
+      setErrors({ localAddr: "", remoteAddr: "", remotePort: "" });
     }
-  };
+  }, [open]);
 
-  // 验证远程地址格式 (host:port)
-  const validateRemoteAddr = (addr: string): boolean => {
-    if (!addr.trim()) return false;
+  // 隧道类型改变时重置表单
+  useEffect(() => {
+    if (tunnelType === "local" || tunnelType === "dynamic") {
+      setFormData((prev) => ({
+        ...prev,
+        localAddr: "127.0.0.1:",
+        remoteAddr: tunnelType === "local" ? prev.remoteAddr : "",
+        remotePort: "",
+      }));
+    } else if (tunnelType === "remote") {
+      setFormData((prev) => ({
+        ...prev,
+        localAddr: "",
+        remoteAddr: "",
+        remotePort: prev.remotePort,
+      }));
+    }
+  }, [tunnelType]);
 
-    // 基本格式验证: host:port
-    const parts = addr.split(":");
-    if (parts.length !== 2) return false;
+  // 实时验证并更新错误状态
+  const validateAndUpdateField = (field: string, value: string) => {
+    let error = "";
 
-    const [host, portStr] = parts;
-    if (!host.trim()) return false;
+    switch (field) {
+      case "localAddr":
+        {
+          const ipPortResult = validateIpPort(value);
+          error = ipPortResult.error;
+        }
+        break;
+      case "remoteAddr":
+        if (tunnelType === "local") {
+          const remoteResult = validateRemoteAddr(value);
+          error = remoteResult.error;
+        }
+        break;
+      case "remotePort":
+        if (tunnelType === "remote") {
+          const portResult = validatePort(value);
+          error = portResult.error;
+        }
+        break;
+    }
 
-    const port = Number.parseInt(portStr, 10);
-    if (Number.isNaN(port) || port < 1 || port > 65535) return false;
-
-    return true;
-  };
-
-  // 验证本地端口
-  const validateLocalPort = (portStr: string): boolean => {
-    if (!portStr.trim()) return false;
-
-    const port = Number.parseInt(portStr, 10);
-    return !Number.isNaN(port) && port >= 1 && port <= 65535;
+    setErrors((prev) => ({ ...prev, [field]: error }));
+    return error === "";
   };
 
   // 表单验证
   const isFormValid = () => {
-    if (!validateLocalPort(formData.localPort)) return false;
-
-    // 动态转发可能不需要远程地址
-    if (tunnelType === "dynamic") {
-      return true; // 动态转发可能只需要本地端口
-    }
-
-    if (tunnelType === "local") {
-      return validateRemoteAddr(formData.remoteAddr);
-    }
-
-    if (tunnelType === "remote") {
-      // remote: 需要本地端口与远端监听端口
-      const rp = Number.parseInt(formData.remotePort, 10);
-      return !Number.isNaN(rp) && rp >= 1 && rp <= 65535;
-    }
-
-    return false;
+    return isTunnelFormValid(tunnelType, formData);
   };
 
   // 处理表单提交
@@ -105,31 +130,33 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
 
     setLoading(true);
     try {
-      const localPort = Number.parseInt(formData.localPort, 10);
-
       if (tunnelType === "local") {
         await SSHTunnelService.StartLocal(
           sessionID,
-          localPort,
+          formData.localAddr,
           formData.remoteAddr,
         );
-        successMessage(`${getTunnelTypeName()}启动成功`);
+        successMessage(`${getTunnelTypeName(tunnelType)}启动成功`);
       } else if (tunnelType === "remote") {
         const remotePort = Number.parseInt(formData.remotePort, 10);
-        await SSHTunnelService.StartRemote(sessionID, remotePort, localPort);
-        successMessage(`${getTunnelTypeName()}启动成功`);
+        await SSHTunnelService.StartRemote(
+          sessionID,
+          remotePort,
+          formData.localAddr,
+        );
+        successMessage(`${getTunnelTypeName(tunnelType)}启动成功`);
       } else {
-        await SSHTunnelService.StartDynamic(sessionID, localPort);
-        successMessage(`${getTunnelTypeName()}启动成功`);
+        await SSHTunnelService.StartDynamic(sessionID, formData.localAddr);
+        successMessage(`${getTunnelTypeName(tunnelType)}启动成功`);
       }
 
       onSuccess();
       onClose();
-      setFormData({ localPort: "", remoteAddr: "", remotePort: "" });
+      setFormData({ localAddr: "", remoteAddr: "", remotePort: "" });
     } catch (err) {
       const errorMsg =
         err instanceof Error ? parseCallServiceError(err) : "启动隧道失败";
-      errorMessage(`${getTunnelTypeName()}失败: ${errorMsg}`);
+      errorMessage(`${getTunnelTypeName(tunnelType)}失败: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -137,153 +164,88 @@ const TunnelForm: React.FC<TunnelFormProps> = ({
 
   // 渲染表单字段
   const renderFormFields = () => {
-    let localPortHelperText = "1-65535 之间的端口号";
-    if (!formData.localPort.trim()) {
-      localPortHelperText = "请输入本地端口";
-    } else if (validateLocalPort(formData.localPort) === false) {
-      localPortHelperText = "端口必须是 1-65535 之间的数字";
-    }
+    return (
+      <>
+        <FormControl fullWidth required>
+          <InputLabel>隧道类型</InputLabel>
+          <Select
+            value={tunnelType}
+            onChange={(e) => setTunnelType(e.target.value as TunnelType)}
+            label="隧道类型"
+          >
+            <MenuItem value="local">本地端口转发</MenuItem>
+            <MenuItem value="remote">远程端口转发</MenuItem>
+            <MenuItem value="dynamic">动态端口转发</MenuItem>
+          </Select>
+        </FormControl>
 
-    switch (tunnelType) {
-      case "local":
-        // 提取本地端口 helperText 逻辑
-        return (
-          <>
-            <TextField
-              label="本地端口"
-              value={formData.localPort}
-              onChange={(e) =>
-                setFormData({ ...formData, localPort: e.target.value })
-              }
-              placeholder="例如: 8080"
-              type="number"
-              slotProps={{
-                htmlInput: {
-                  min: 1,
-                  max: 65535,
-                },
-              }}
-              helperText={localPortHelperText}
-              error={
-                formData.localPort.trim() !== "" &&
-                validateLocalPort(formData.localPort) === false
-              }
-              fullWidth
-              required
-            />
-            {/*
-              提取远程地址 helperText 逻辑
-            */}
-            {(() => {
-              let remoteAddrHelperText = "格式: host:port";
-              if (formData.remoteAddr.trim() === "") {
-                remoteAddrHelperText = "请输入远程地址";
-              } else if (validateRemoteAddr(formData.remoteAddr) === false) {
-                remoteAddrHelperText = "格式不正确，应为 host:port";
-              }
-              return (
-                <TextField
-                  label="远程地址"
-                  value={formData.remoteAddr}
-                  onChange={(e) =>
-                    setFormData({ ...formData, remoteAddr: e.target.value })
-                  }
-                  placeholder="例如: 127.0.0.1:80 或 example.com:443"
-                  helperText={remoteAddrHelperText}
-                  error={
-                    formData.remoteAddr.trim() !== "" &&
-                    !validateRemoteAddr(formData.remoteAddr)
-                  }
-                  fullWidth
-                  required
-                />
-              );
-            })()}
-          </>
-        );
+        <TextField
+          label="本地地址"
+          value={formData.localAddr}
+          onChange={(e) => {
+            setFormData({ ...formData, localAddr: e.target.value });
+            validateAndUpdateField("localAddr", e.target.value);
+          }}
+          placeholder={getLocalAddrPlaceholder(tunnelType)}
+          helperText={getLocalAddrHelperText(tunnelType, errors.localAddr)}
+          error={!!errors.localAddr}
+          fullWidth
+          required
+        />
 
-      case "remote":
-        // 远端转发表单：远端监听端口（remotePort）和本地目标端口（localPort）
-        return (
-          <>
-            <TextField
-              label="本地端口"
-              value={formData.localPort}
-              onChange={(e) =>
-                setFormData({ ...formData, localPort: e.target.value })
-              }
-              placeholder="例如: 8080"
-              type="number"
-              slotProps={{
-                htmlInput: {
-                  min: 1,
-                  max: 65535,
-                },
-              }}
-              helperText={"本地目标端口，例如: 8080"}
-              fullWidth
-              required
-            />
-            <TextField
-              label="远端监听端口"
-              value={formData.remotePort}
-              onChange={(e) =>
-                setFormData({ ...formData, remotePort: e.target.value })
-              }
-              placeholder="例如: 9090"
-              type="number"
-              slotProps={{
-                htmlInput: {
-                  min: 1,
-                  max: 65535,
-                },
-              }}
-              helperText={"远端将在 127.0.0.1:<端口> 上监听"}
-              fullWidth
-              required
-            />
-          </>
-        );
+        {tunnelType === "local" && (
+          <TextField
+            label="远程地址"
+            value={formData.remoteAddr}
+            onChange={(e) => {
+              setFormData({ ...formData, remoteAddr: e.target.value });
+              validateAndUpdateField("remoteAddr", e.target.value);
+            }}
+            placeholder="例如: 127.0.0.1:80 或 example.com:443"
+            helperText={getRemoteAddrHelperText(errors.remoteAddr)}
+            error={!!errors.remoteAddr}
+            fullWidth
+            required
+          />
+        )}
 
-      case "dynamic":
-        return (
-          <>
-            <TextField
-              label="本地端口"
-              value={formData.localPort}
-              onChange={(e) =>
-                setFormData({ ...formData, localPort: e.target.value })
-              }
-              placeholder="例如: 1080"
-              type="number"
-              slotProps={{
-                htmlInput: {
-                  min: 1,
-                  max: 65535,
-                },
-              }}
-              helperText={localPortHelperText}
-              error={
-                formData.localPort.trim() !== "" &&
-                validateLocalPort(formData.localPort) === false
-              }
-              fullWidth
-              required
-            />
-            <Box sx={{ textAlign: "center", py: 1, color: "text.secondary" }}>
+        {tunnelType === "remote" && (
+          <TextField
+            label="远程端口"
+            value={formData.remotePort}
+            onChange={(e) => {
+              setFormData({ ...formData, remotePort: e.target.value });
+              validateAndUpdateField("remotePort", e.target.value);
+            }}
+            placeholder="例如: 9090"
+            type="number"
+            slotProps={{
+              htmlInput: {
+                min: 1,
+                max: 65535,
+              },
+            }}
+            helperText={getRemotePortHelperText(errors.remotePort)}
+            error={!!errors.remotePort}
+            fullWidth
+            required
+          />
+        )}
+
+        {tunnelType === "dynamic" && (
+          <Box sx={{ textAlign: "center", py: 1, color: "text.secondary" }}>
+            <Typography variant="body2">
               动态（SOCKS5）代理：本地监听 SOCKS5 请求并通过 SSH 隧道出站。
-            </Box>
-          </>
-        );
-
-      default:
-        return null;
-    }
+            </Typography>
+          </Box>
+        )}
+      </>
+    );
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>创建{getTunnelTypeName()}</DialogTitle>
+      <DialogTitle>创建 SSH 隧道</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           {renderFormFields()}
