@@ -20,9 +20,25 @@
 ## 2. 项目结构规范
 
 ```
-├── service/                  # 核心逻辑
+├── services/                 # 核心逻辑（Wails服务层，暴露给前端调用）
 ├── internal                  # 应用内部功能包
 │   ├── secret                # 加解密相关
+│   ├── sync                  # 数据同步客户端（上传/下载/版本管理）
+│   ├── updater               # 自动更新功能
+│   ├── utils                 # 通用工具函数
+│   ├── system                # 系统相关功能
+│   ├── database              # 数据库访问层
+├── sync-backend/             # 同步服务端（独立可部署）
+│   ├── config.go             # 服务端配置
+│   ├── handler.go            # HTTP请求处理器
+│   ├── service.go            # 业务逻辑（版本管理/用户管理）
+│   ├── storage.go            # 文件存储管理
+│   ├── model.go              # 数据模型
+│   └── db.go                 # 数据库连接
+├── openspec/                 # OpenSpec 规范驱动开发配置
+│   ├── specs/                # 功能规格定义
+│   └── changes/              # 变更提案（含归档）
+├── docs/                     # 项目文档
 ├── frontend/                 # 前端react项目目录
 │   ├── bindings/github.com/ilaziness/vexo/services    # go暴露到前端的函数、类型等
 │   ├── public                # 公共静态资源
@@ -48,7 +64,7 @@
 
 模块化，可复用，减少重复模块代码
 
-可单独封装的包放在`internail`下面，合理取包名称。
+可单独封装的包放在`internal`下面，合理取包名称。
 
 和前端交互强相关的功能放在`services`下面对应文件，合理分文件编写，防止一个文件行数太多。
 

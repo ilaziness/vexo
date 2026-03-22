@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ilaziness/vexo/internal/sync"
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -45,8 +46,9 @@ var (
 )
 
 type Config struct {
-	General  GeneralConfig  `toml:"general"`
-	Terminal TerminalConfig `toml:"terminal"`
+	General  GeneralConfig   `toml:"general"`
+	Terminal TerminalConfig  `toml:"terminal"`
+	Sync     sync.SyncConfig `toml:"sync"`
 }
 
 type GeneralConfig struct {
@@ -110,32 +112,6 @@ func (cs *ConfigService) CloseWindow() {
 	}
 }
 
-// mergeConfig 合并配置，userConfig 覆盖 defaultConfig
-func mergeConfig(defaultConfig, userConfig *Config) *Config {
-	result := &Config{
-		General:  defaultConfig.General,
-		Terminal: defaultConfig.Terminal,
-	}
-
-	// 合并 General 配置
-	if userConfig.General.UserDataDir != "" {
-		result.General.UserDataDir = userConfig.General.UserDataDir
-	}
-
-	// 合并 Terminal 配置
-	if userConfig.Terminal.Font != "" {
-		result.Terminal.Font = userConfig.Terminal.Font
-	}
-	if userConfig.Terminal.FontSize > 0 {
-		result.Terminal.FontSize = userConfig.Terminal.FontSize
-	}
-	if userConfig.Terminal.LineHeight > 0 {
-		result.Terminal.LineHeight = userConfig.Terminal.LineHeight
-	}
-
-	return result
-}
-
 func NewConfigService() *ConfigService {
 	// 获取可执行文件所在目录
 	execDir := system.GetExecutableDir()
@@ -174,11 +150,9 @@ func NewConfigService() *ConfigService {
 	finalConfig.General.UserDataDir = userDataDir
 
 	if data, err := os.ReadFile(userConfigPath); err == nil {
-		userConfig := &Config{}
-		if err = toml.Unmarshal(data, userConfig); err == nil {
-			// 用户配置覆盖默认配置（不包括 UserDataDir，UserDataDir 由应用配置管理）
-			finalConfig = mergeConfig(defaultConfig, userConfig)
-			finalConfig.General.UserDataDir = userDataDir
+		Logger.Debug("user config content", zap.String("content", string(data)))
+		if err = toml.Unmarshal(data, finalConfig); err != nil {
+			Logger.Error("unmarshal user config failed", zap.Error(err))
 		}
 	} else if os.IsNotExist(err) {
 		// 首次启动，创建用户配置文件
@@ -186,6 +160,7 @@ func NewConfigService() *ConfigService {
 			os.WriteFile(userConfigPath, data, 0644)
 		}
 	}
+	Logger.Debug("final config", zap.Any("config", finalConfig), zap.String("appConfigPath", appConfigPath), zap.String("userConfigPath", userConfigPath))
 
 	return &ConfigService{
 		Config:         finalConfig,
@@ -203,6 +178,7 @@ func (cs *ConfigService) SetTheme(theme string) {
 
 // ReadConfig 读取配置方法，返回当前配置
 func (cs *ConfigService) ReadConfig() (*Config, error) {
+	Logger.Debug("read config", zap.Any("config", cs.Config))
 	return cs.Config, nil
 }
 
@@ -256,6 +232,7 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 
 // saveToFile 保存配置到文件
 func (cs *ConfigService) saveToFile() {
+	Logger.Debug("save config to file", zap.Any("config", cs.Config))
 	data, err := toml.Marshal(cs.Config)
 	if err != nil {
 		Logger.Error("save config to file failed", zap.Error(err))
@@ -291,4 +268,17 @@ func (cs *ConfigService) CheckAndUpdateDBVersion() bool {
 	}
 
 	return needInit
+}
+
+// GetSyncConfig 获取同步配置
+func (cs *ConfigService) GetSyncConfig() *sync.SyncConfig {
+	return &cs.Config.Sync
+}
+
+// SaveSyncConfig 保存同步配置
+func (cs *ConfigService) SaveSyncConfig(syncConfig sync.SyncConfig) error {
+	cs.Config.Sync = syncConfig
+	Logger.Debug("save sync config", zap.Any("syncConfig", syncConfig))
+	cs.saveToFile()
+	return nil
 }

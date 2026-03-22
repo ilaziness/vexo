@@ -1,0 +1,23 @@
+# Sync Backend Configuration
+
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[data]
+data_dir = "./data/files"
+max_versions = 5
+
+# SQLite 配置（默认）
+[data.database]
+type = "sqlite"
+db_path = "./data/sync.db"
+
+# MySQL 配置（可选）
+# [data.database]
+# type = "mysql"
+# host = "localhost"
+# port = 3306
+# user = "vexo"
+# password = "password"
+# name = "vexo_sync"

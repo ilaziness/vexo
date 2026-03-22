@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
 	"go.uber.org/zap"
+	_ "modernc.org/sqlite"
 )
 
 // Logger 全局日志实例
@@ -148,6 +148,7 @@ func (d *Database) Close() error {
 		if err := d.db.Close(); err != nil {
 			return fmt.Errorf("close db failed: %w", err)
 		}
+		d.db = nil
 		Logger.Debug("db closed successfully")
 	}
 	return nil

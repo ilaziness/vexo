@@ -7,6 +7,7 @@ import {
   Config,
   ConfigService,
   AppInfo,
+  LogService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import {
   Box,
@@ -28,6 +29,7 @@ import {
   GetAppInfo,
 } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
 import About from "../components/About";
+import SyncSettings from "../components/SyncSettings";
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/message.ts";
@@ -35,9 +37,9 @@ import FormRow from "../components/FormRow";
 import OpBar from "../components/OpBar.tsx";
 
 const Setting: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"general" | "terminal" | "about">(
-    "general",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "general" | "terminal" | "sync" | "about"
+  >("general");
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const { errorMessage } = useMessageStore();
@@ -141,6 +143,20 @@ const Setting: React.FC = () => {
     }
   };
 
+  const handleSyncSettingSave = async (syncConfig: Config["Sync"]) => {
+    if (!config) return;
+    const updatedConfig = { ...config };
+    updatedConfig.Sync = { ...updatedConfig.Sync, ...syncConfig };
+    LogService.Debug("Sync config updated:" + JSON.stringify(updatedConfig));
+    setConfig(updatedConfig);
+    try {
+      await ConfigService.SaveSyncConfig(syncConfig);
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      errorMessage("配置保存失败");
+    }
+  };
+
   if (loading) {
     return (
       <Box
@@ -228,6 +244,25 @@ const Setting: React.FC = () => {
                   }}
                 >
                   <ListItemText primary="终端" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton
+                  selected={activeTab === "sync"}
+                  onClick={() => setActiveTab("sync")}
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    "&.Mui-selected": {
+                      backgroundColor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": {
+                        backgroundColor: "primary.dark",
+                      },
+                    },
+                  }}
+                >
+                  <ListItemText primary="同步" />
                 </ListItemButton>
               </ListItem>
               <ListItem disablePadding>
@@ -379,6 +414,13 @@ const Setting: React.FC = () => {
                     </Stack>
                   </Paper>
                 </Box>
+              )}
+
+              {activeTab === "sync" && config && (
+                <SyncSettings
+                  syncConfig={config.Sync || {}}
+                  onChange={handleSyncSettingSave}
+                />
               )}
 
               {activeTab === "about" && (

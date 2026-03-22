@@ -9,6 +9,7 @@ import (
 
 var app *application.App
 var ConfigSvc *ConfigService
+var DB *database.Database
 
 type AppInfo struct {
 	Version   string
@@ -45,8 +46,10 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	bookmarkService := NewBookmarkService(db, sshService)
 	sshTunnelService := NewSSHTunnelService(sshService)
 	commandService := NewCommandService(sshService, db)
+	syncService := NewSyncService(configService)
 
 	ConfigSvc = configService
+	DB = db
 
 	app.RegisterService(application.NewService(appService))
 	app.RegisterService(application.NewService(sshService))
@@ -55,6 +58,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	app.RegisterService(application.NewService(bookmarkService))
 	app.RegisterService(application.NewService(sshTunnelService))
 	app.RegisterService(application.NewService(commandService))
+	app.RegisterService(application.NewService(syncService))
 
 	wsService := NewWebSocketService(app, sshService)
 	wsService.Start()
