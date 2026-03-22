@@ -14,6 +14,11 @@ import {
   AppBar,
   Toolbar,
   Typography,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Backdrop,
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
@@ -23,13 +28,17 @@ import LocalLibraryIcon from "@mui/icons-material/LocalLibrary";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 
 import {
   BookmarkService,
   ConfigService,
   SSHBookmark,
   CommandService,
+  LogService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
+import { UploadSync } from "../../bindings/github.com/ilaziness/vexo/services/syncservice";
+import { ReadConfig } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 import { useSSHTabsStore } from "../stores/ssh";
 import { genTabIndex, parseCallServiceError } from "../func/service";
 import React, { useState, useEffect } from "react";
@@ -37,6 +46,7 @@ import { useMessageStore } from "../stores/message";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { Events } from "@wailsio/runtime";
 import BookmarkManager from "./Bookmark";
+import Loading from "./Loading";
 
 interface BookmarkGroup {
   name: string;
@@ -45,7 +55,7 @@ interface BookmarkGroup {
 
 export default function Header() {
   const { sshTabs, pushTab, setCurrentTab } = useSSHTabsStore();
-  const { errorMessage } = useMessageStore();
+  const { errorMessage, successMessage } = useMessageStore();
 
   // 书签数据
   const [bookmarks, setBookmarks] = useState<BookmarkGroup[]>([]);
@@ -57,6 +67,9 @@ export default function Header() {
     [key: string]: boolean;
   }>({});
   const [bookmarkManageOpen, setBookmarkManageOpen] = useState(false);
+  // 备份上传相关状态
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const showSettingWindow = () => {
     ConfigService.ShowWindow().then(() => {});
@@ -146,6 +159,48 @@ export default function Header() {
     }
   };
 
+  // 备份上传相关函数
+  const handleBackupClick = async () => {
+    try {
+      const config = await ReadConfig();
+      const syncConfig = config?.Sync;
+      if (
+        !syncConfig?.serverUrl ||
+        !syncConfig?.syncId ||
+        !syncConfig?.userKey
+      ) {
+        errorMessage("请先前往设置页面配置同步参数");
+        return;
+      }
+      setConfirmDialogOpen(true);
+    } catch (error) {
+      LogService.Error("Failed to read config: " + String(error));
+      errorMessage("读取配置失败");
+    }
+  };
+
+  const handleCancelBackup = () => {
+    setConfirmDialogOpen(false);
+  };
+
+  const handleConfirmBackup = () => {
+    setConfirmDialogOpen(false);
+    handleUpload();
+  };
+
+  const handleUpload = async () => {
+    setUploading(true);
+    try {
+      await UploadSync();
+      successMessage("数据上传成功");
+    } catch (error) {
+      LogService.Error("Upload failed: " + String(error));
+      errorMessage("数据上传失败: " + parseCallServiceError(error));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <Box
       component={"header"}
@@ -198,6 +253,12 @@ export default function Header() {
             }}
           >
             <LocalLibraryIcon />
+          </IconButton>
+        </Tooltip>
+
+        <Tooltip title="上传备份">
+          <IconButton size="small" onClick={handleBackupClick}>
+            <CloudUploadIcon />
           </IconButton>
         </Tooltip>
 
@@ -293,6 +354,36 @@ export default function Header() {
             />
           </Box>
         </Dialog>
+
+        {/* 备份上传确认对话框 */}
+        <Dialog
+          open={confirmDialogOpen}
+          onClose={handleCancelBackup}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>确认上传</DialogTitle>
+          <DialogContent>
+            <Typography>确定要上传备份吗？</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCancelBackup}>取消</Button>
+            <Button variant="contained" onClick={handleConfirmBackup}>
+              确定
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 全屏 Loading */}
+        <Backdrop
+          open={uploading}
+          sx={(theme) => ({
+            zIndex: theme.zIndex.modal + 1,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          })}
+        >
+          <Loading message="正在上传备份..." size={60} />
+        </Backdrop>
       </Stack>
     </Box>
   );

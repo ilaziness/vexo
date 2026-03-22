@@ -448,7 +448,7 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
               onClick={handleUpload}
               disabled={loading}
             >
-              上传数据
+              上传备份
             </Button>
             <Button
               variant="outlined"
