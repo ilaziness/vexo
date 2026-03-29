@@ -19,6 +19,7 @@ export interface SSHTabs {
   setCurrentTab: (index: string) => void;
   getByIndex: (index: string) => SSHTab | undefined;
   setSSHInfo: (index: string, sshInfo: SSHLinkInfo) => void;
+  reorderTabs: (sourceIndex: number, destinationIndex: number) => void;
 }
 
 export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
@@ -77,6 +78,13 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
         tab.index === index ? { ...tab, sshInfo } : tab,
       ),
     })),
+  reorderTabs: (sourceIndex: number, destinationIndex: number) =>
+    set((state) => {
+      const newTabs = [...state.sshTabs];
+      const [removed] = newTabs.splice(sourceIndex, 1);
+      newTabs.splice(destinationIndex, 0, removed);
+      return { sshTabs: newTabs };
+    }),
 }));
 
 export interface ReloadSSHTabStoreType {

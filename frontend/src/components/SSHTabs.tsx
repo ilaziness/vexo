@@ -1,37 +1,45 @@
-import { Box, Menu, MenuItem, Tab, Tabs } from "@mui/material";
-import { tabsClasses } from "@mui/material/Tabs";
-import React from "react";
+import { Box, Menu, MenuItem } from "@mui/material";
+import React, { useRef, useCallback } from "react";
 import SSHContainer from "./SSHContainer.tsx";
 import { Events } from "@wailsio/runtime";
-import TerminalIcon from "@mui/icons-material/Terminal";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh.ts";
 import { useTransferStore } from "../stores/transfer.ts";
 import MainOpBar from "./MainOpBar.tsx";
-import SSHTabText from "./SSHTabText.tsx";
+import { DraggableTab } from "./DraggableTab.tsx";
+import { useSSHContextMenu } from "../hooks/useSSHContextMenu.ts";
 import { genTabIndex } from "../func/service.ts";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
 import {
   LogService,
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
+import {
+  DragDropContext,
+  Droppable,
+  DropResult,
+} from "@hello-pangea/dnd";
 
 const tabHeight = "40px";
 
 export default function SSHTabs() {
-  const { sshTabs, currentTab, delTab, pushTab, getByIndex, setCurrentTab } =
-    useSSHTabsStore();
+  const {
+    sshTabs,
+    currentTab,
+    delTab,
+    pushTab,
+    getByIndex,
+    setCurrentTab,
+    reorderTabs,
+  } = useSSHTabsStore();
   const { doTabReload } = useReloadSSHTabStore();
   const { addProgress } = useTransferStore();
-  const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(
-    null,
-  );
-  const [menuTabIndex, setMenuTabIndex] = React.useState<string | null>(null);
+  const { anchorEl, tabIndex, isOpen, openMenu, closeMenu } = useSSHContextMenu();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const unsubscribeProgress = Events.On("eventProgress", (event: any) => {
       LogService.Debug(`SSHTabs eventProgress: ${JSON.stringify(event)}`);
       const eventData = event.data as ProgressData;
-      LogService.Debug(`eventProgress: ${JSON.stringify(event)}`);
       addProgress(eventData);
     });
 
@@ -42,7 +50,6 @@ export default function SSHTabs() {
           const bookmarkID = event.data as string;
           LogService.Debug(`Connecting to bookmark: ${bookmarkID}`);
 
-          // 获取解密后的书签信息用于连接
           const bookmark =
             await BookmarkService.GetBookmarkForConnect(bookmarkID);
           if (!bookmark) {
@@ -75,30 +82,15 @@ export default function SSHTabs() {
     };
   }, [addProgress, pushTab, setCurrentTab]);
 
-  const handleContextMenu = (
-    e: React.MouseEvent<HTMLElement>,
-    tabIndex: string,
-  ) => {
-    e.preventDefault();
-    setMenuAnchorEl(e.currentTarget);
-    setMenuTabIndex(tabIndex);
-  };
+  const handleCloseTab = useCallback(() => {
+    if (tabIndex === null) return;
+    delTab(tabIndex, currentTab);
+    closeMenu();
+  }, [tabIndex, currentTab, delTab, closeMenu]);
 
-  const closeContextMenu = () => {
-    setMenuAnchorEl(null);
-    setMenuTabIndex(null);
-  };
-
-  const handleCloseTab = () => {
-    if (menuTabIndex === null) return;
-    delTab(menuTabIndex, currentTab);
-    closeContextMenu();
-  };
-
-  // duplicate ssh tab
-  const handleDuplicateTab = () => {
-    closeContextMenu();
-    const currentTabInfo = getByIndex(menuTabIndex || "");
+  const handleDuplicateTab = useCallback(() => {
+    closeMenu();
+    const currentTabInfo = getByIndex(tabIndex || "");
     const number = sshTabs.length + 1;
     const newIndex = genTabIndex();
     pushTab({
@@ -107,19 +99,25 @@ export default function SSHTabs() {
       sshInfo: currentTabInfo ? currentTabInfo.sshInfo : undefined,
     });
     setCurrentTab(newIndex);
-  };
+  }, [tabIndex, sshTabs.length, getByIndex, pushTab, setCurrentTab, closeMenu]);
 
-  // refresh ssh tab
-  const handleRefreshTab = () => {
-    closeContextMenu();
-    if (menuTabIndex) {
-      doTabReload(menuTabIndex);
+  const handleRefreshTab = useCallback(() => {
+    closeMenu();
+    if (tabIndex) {
+      doTabReload(tabIndex);
     }
-  };
+  }, [tabIndex, doTabReload, closeMenu]);
 
-  const tabOnchange = (event: React.SyntheticEvent, newValue: string) => {
-    setCurrentTab(newValue);
-  };
+  const handleDragEnd = useCallback((result: DropResult) => {
+    if (!result.destination) return;
+
+    const sourceIndex = result.source.index;
+    const destinationIndex = result.destination.index;
+
+    if (sourceIndex === destinationIndex) return;
+
+    reorderTabs(sourceIndex, destinationIndex);
+  }, [reorderTabs]);
 
   return (
     <Box
@@ -143,66 +141,52 @@ export default function SSHTabs() {
           "--wails-draggable": "drag",
         }}
       >
-        <Tabs
-          value={currentTab}
-          onChange={tabOnchange}
-          aria-label="ssh tabs"
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            minHeight: tabHeight,
-            height: tabHeight,
-            flex: 1,
-            [`& .${tabsClasses.scrollButtons}`]: {
-              "&.Mui-disabled": { opacity: 0.5 },
-            },
-            [`& .${tabsClasses.scrollButtons}:first-of-type`]: {
-              borderRight: 1,
-              borderColor: "#FFF",
-            },
-            [`& .${tabsClasses.scrollButtons}:last-of-type`]: {
-              borderLeft: 1,
-              borderColor: "#FFF",
-            },
-          }}
-        >
-          {sshTabs.map((item) => (
-            <Tab
-              key={item.index}
-              value={item.index}
-              label={
-                <SSHTabText
-                  text={item.name}
-                  onClose={(e) => {
-                    e.stopPropagation();
-                    delTab(item.index, currentTab);
-                  }}
-                />
-              }
-              icon={<TerminalIcon sx={{ fontSize: 14 }} />}
-              iconPosition="start"
-              onContextMenu={(e) => handleContextMenu(e, item.index)}
-              sx={{
-                "--wails-draggable": "no-drag",
-                textTransform: "none",
-                "&.MuiTab-root": {
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="ssh-tabs" direction="horizontal">
+            {(provided) => (
+              <Box
+                ref={(el: HTMLDivElement | null) => {
+                  provided.innerRef(el);
+                  scrollContainerRef.current = el;
+                }}
+                {...provided.droppableProps}
+                sx={{
+                  display: "flex",
+                  flex: 1,
                   height: tabHeight,
-                  minHeight: tabHeight,
-                  p: 0.5,
-                  minWidth: 150,
-                  width: 150,
-                  borderRight: 2,
-                  borderColor: "divider",
-                },
-              }}
-            />
-          ))}
-        </Tabs>
+                  overflow: "auto",
+                  scrollbarWidth: "none",
+                  "&::-webkit-scrollbar": {
+                    display: "none",
+                  },
+                }}
+              >
+                {sshTabs.map((item, index) => (
+                  <DraggableTab
+                    key={item.index}
+                    item={item}
+                    index={index}
+                    isActive={currentTab === item.index}
+                    onClick={() => setCurrentTab(item.index)}
+                    onClose={(e) => {
+                      e.stopPropagation();
+                      delTab(item.index, currentTab);
+                    }}
+                    onContextMenu={(e) =>
+                      openMenu(e as unknown as React.MouseEvent<HTMLElement>, item.index)
+                    }
+                  />
+                ))}
+                {provided.placeholder}
+              </Box>
+            )}
+          </Droppable>
+        </DragDropContext>
         <MainOpBar />
         <Menu
-          open={Boolean(menuAnchorEl)}
-          anchorEl={menuAnchorEl}
-          onClose={closeContextMenu}
+          open={isOpen}
+          anchorEl={anchorEl}
+          onClose={closeMenu}
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
           transformOrigin={{ vertical: "top", horizontal: "center" }}
         >
@@ -211,7 +195,6 @@ export default function SSHTabs() {
           <MenuItem onClick={handleRefreshTab}>刷新</MenuItem>
         </Menu>
       </Box>
-      {/* ssh tab body */}
       <Box
         sx={{
           width: "100%",

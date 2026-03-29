@@ -162,7 +162,7 @@ export default function Terminal(props: { readonly linkID: string }) {
         if (!mountedRef.current) return;
         term.current?.focus();
         term.current?.onResize(onResize);
-        sleep(200).then(() => {
+        sleep(1000).then(() => {
           LogService.Debug("Fitting terminal after WebSocket connection");
           termFit.current?.fit();
         });

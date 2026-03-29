@@ -25,7 +25,7 @@ export const parseCallServiceError = (err: any): string => {
 
 // genTabIndex generate tab index ID
 export const genTabIndex = (): string => {
-  return `${new Date().getTime()}`;
+  return `${Date.now()}`;
 };
 
 export const formatFileSize = (bytes: number): string => {
