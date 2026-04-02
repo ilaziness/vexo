@@ -121,8 +121,7 @@ export default function HashTool() {
               value={result.result}
               fullWidth
               multiline
-              InputProps={{ readOnly: true }}
-              slotProps={{ input: { style: { fontFamily: 'monospace' } } }}
+              slotProps={{ input: { readOnly: true, style: { fontFamily: 'monospace' } } }}
             />
           </Stack>
           <Button
