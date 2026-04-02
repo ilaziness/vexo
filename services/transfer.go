@@ -38,32 +38,46 @@ type ProgressData struct {
 	Error        string
 }
 
-// copyWithContext copies from src to dst using the provided context for cancellation
-func copyWithContext(dst io.Writer, src io.Reader, ctx context.Context) (written int64, err error) {
-	buf := make([]byte, 4*1024)
-	for {
-		select {
-		case <-ctx.Done():
-			if errors.Is(ctx.Err(), context.Canceled) {
-				return written, errors.New("user cancelled")
-			}
-			return written, ctx.Err()
-		default:
+type progressReader struct {
+	reader  io.Reader
+	tracker *transferTracker
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	select {
+	case <-pr.tracker.ctx.Done():
+		if errors.Is(pr.tracker.ctx.Err(), context.Canceled) {
+			return 0, errors.New("user cancelled")
 		}
-		n, err := src.Read(buf)
-		if n > 0 {
-			if nw, err := dst.Write(buf[:n]); err != nil {
-				return written + int64(nw), err
-			}
-			written += int64(n)
-		}
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			return written, err
-		}
+		return 0, pr.tracker.ctx.Err()
+	default:
 	}
+	n, err := pr.reader.Read(p)
+	if n > 0 {
+		pr.tracker.update(int64(n))
+	}
+	return n, err
+}
+
+type progressWriter struct {
+	writer  io.Writer
+	tracker *transferTracker
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	select {
+	case <-pw.tracker.ctx.Done():
+		if errors.Is(pw.tracker.ctx.Err(), context.Canceled) {
+			return 0, errors.New("user cancelled")
+		}
+		return 0, pw.tracker.ctx.Err()
+	default:
+	}
+	n, err := pw.writer.Write(p)
+	if n > 0 {
+		pw.tracker.update(int64(n))
+	}
+	return n, err
 }
 
 type transferTracker struct {
@@ -186,17 +200,4 @@ func (t *transferTracker) stopProgress(err error) {
 	}
 	app.Event.Emit(EventProgress, progressData)
 	activeTransfers.Delete(t.id)
-}
-
-type progressWriter struct {
-	writer  io.Writer
-	tracker *transferTracker
-}
-
-func (pw *progressWriter) Write(p []byte) (int, error) {
-	n, err := pw.writer.Write(p)
-	if n > 0 {
-		pw.tracker.update(int64(n))
-	}
-	return n, err
 }

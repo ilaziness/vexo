@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -76,7 +77,16 @@ func (sft *SftpService) getSftpClient(sessionID string) (*sftp.Client, error) {
 
 // Connect connects to SFTP using an SSH session ID
 func (sft *SftpService) Connect(sshClient *ssh.Client) error {
-	ftpClient, err := sftp.NewClient(sshClient)
+	// Add SFTP client options for better performance over high latency networks
+	// - MaxPacket: Use 32KB packet size (max allowed by protocol)
+	// - UseConcurrentWrites: Enable concurrent writes for upload
+	// - UseConcurrentReads: Enable concurrent reads for download
+	ftpClient, err := sftp.NewClient(
+		sshClient,
+		sftp.MaxPacket(32768),
+		sftp.UseConcurrentWrites(true),
+		sftp.UseConcurrentReads(true),
+	)
 	if err != nil {
 		return err
 	}
@@ -168,10 +178,10 @@ func (sft *SftpService) uploadFile(sessionID string, localPathFile, remoteDir st
 		return fmt.Errorf(ErrTrackerRequired)
 	}
 
-	progressWriter := &progressWriter{writer: remoteFile, tracker: tracker}
+	progressReader := &progressReader{reader: localFile, tracker: tracker}
 
-	// Copy the local file content to the remote file
-	_, err = copyWithContext(progressWriter, localFile, tracker.ctx)
+	// Copy the local file content to the remote file using io.Copy to leverage sftp.File.ReadFrom concurrent writes
+	_, err = io.Copy(remoteFile, progressReader)
 	return err
 }
 
@@ -231,8 +241,8 @@ func (sft *SftpService) downloadFile(sessionID string, localPathFile, remotePath
 
 	progressWriter := &progressWriter{writer: localFile, tracker: tracker}
 
-	// Copy the remote file content to the local file
-	_, err = copyWithContext(progressWriter, remoteFile, tracker.ctx)
+	// Copy the remote file content to the local file using io.Copy to leverage sftp.File.WriteTo concurrent reads
+	_, err = io.Copy(progressWriter, remoteFile)
 	if err != nil {
 		return err
 	}
