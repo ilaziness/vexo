@@ -47,6 +47,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	sshTunnelService := NewSSHTunnelService(sshService)
 	commandService := NewCommandService(sshService, db)
 	syncService := NewSyncService(configService)
+	toolService := NewToolService()
 
 	ConfigSvc = configService
 	DB = db
@@ -59,6 +60,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	app.RegisterService(application.NewService(sshTunnelService))
 	app.RegisterService(application.NewService(commandService))
 	app.RegisterService(application.NewService(syncService))
+	app.RegisterService(application.NewService(toolService))
 
 	wsService := NewWebSocketService(app, sshService)
 	wsService.Start()

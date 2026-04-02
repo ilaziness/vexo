@@ -12,6 +12,7 @@ type App struct {
 	MainWindow    *application.WebviewWindow
 	SettingWindow *application.WebviewWindow
 	CommandWindow *application.WebviewWindow // 新增
+	ToolWindow    *application.WebviewWindow // 工具窗口
 }
 
 func NewApp(a *application.App, mainWindow *application.WebviewWindow) {
@@ -49,6 +50,21 @@ func newCommandWindow() *application.WebviewWindow {
 		Height:                     900,
 		MinWidth:                   1600,
 		MinHeight:                  900,
+		DefaultContextMenuDisabled: true,
+		Hidden:                     true,
+		Frameless:                  true,
+	})
+	return window
+}
+
+func newToolWindow() *application.WebviewWindow {
+	window := AppInstance.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title:                      "运维工具",
+		URL:                        "/#/tools",
+		Width:                      1200,
+		Height:                     800,
+		MinWidth:                   800,
+		MinHeight:                  600,
 		DefaultContextMenuDisabled: true,
 		Hidden:                     true,
 		Frameless:                  true,

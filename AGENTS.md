@@ -6,14 +6,14 @@
 
 ## 1. 技术栈概览
 
-| 类别      | 技术/库              | 版本要求    |
-|---------|-------------------|---------|
-| 后端语言    | Go                | ≥ 1.26  |
-| 桌面框架    | Wails             | v3.x    |
-| 前端 UI 库 | Material UI (MUI) | v7.3.x  |
-| 前端路由    | React Router      | v7.11.x |
-| 终端模拟器   | XTerm.js          | v6.x.x  |
-| 构建工具    | Wails CLI + Vite  | 默认集成    |
+| 类别       | 技术/库           | 版本要求 |
+| ---------- | ----------------- | -------- |
+| 后端语言   | Go                | ≥ 1.26   |
+| 桌面框架   | Wails             | v3.x     |
+| 前端 UI 库 | Material UI (MUI) | v7.3.x   |
+| 前端路由   | React Router      | v7.11.x  |
+| 终端模拟器 | XTerm.js          | v6.x.x   |
+| 构建工具   | Wails CLI + Vite  | 默认集成 |
 
 ---
 
@@ -54,7 +54,7 @@
 │   │   ├── main.tsx          # 前端react主入口
 │   │   ├── routes.ts         # 路由
 │   ├── public/
-├── main.go                   # main入口   
+├── main.go                   # main入口
 └── go.mod
 ```
 
@@ -71,12 +71,15 @@
 适当的位置添加注释，注释不要太多
 
 ### 1. 日志记录
+
 - 前端记录日志使用go绑定到前端的`LogService`里面的方法。
 - go里面记录日志使用`LogService`里面的方法。
 
 ---
 
 ## 4. 前端集成规范
+
+安装依赖使用`npm install`命令，卸载依赖使用`npm uninstall`命令，不要之间便更加`package.json`文件。
 
 React开发时启用了严格模式StrictMode。
 
@@ -88,15 +91,15 @@ Go绑定到前端的方法和数据类型在`frontend\bindings\github.com\ilazin
 
 ```typescript
 try {
-      const bookmark = await BookmarkService.GetBookmarkByID(bookmarkID);
-      if (!bookmark) {
-        errorMessage("bookmark not found");
-        return;
-      }
-      setCurrentTab(newIndex);
-    } catch (err) {
-      errorMessage(parseCallServiceError(err));
-    }
+  const bookmark = await BookmarkService.GetBookmarkByID(bookmarkID);
+  if (!bookmark) {
+    errorMessage("bookmark not found");
+    return;
+  }
+  setCurrentTab(newIndex);
+} catch (err) {
+  errorMessage(parseCallServiceError(err));
+}
 ```
 
 使用`parseCallServiceError`解析错误提示，消息提醒使用`useMessageStore`立马的方法。
@@ -135,6 +138,8 @@ try {
 
 ## 6. 开发与调试
 
+**重要**：使用这里列出来的命令编译测试，不要用其他的。
+
 ### 1. 前端编译调试
 
 `frontend`执行下面命令编译调试：
@@ -150,14 +155,17 @@ npm run build:dev
 生成前端绑定：`wails3 generate bindings -ts`
 
 ```bash
-# 编译go
+# 编译go，项目根目录执行
 go build -o {name} .
+# 或
+go build .
 ```
+
 `{name}` 为平台对应的可执行文件名，如 `vexo.exe`（Windows）、`vexo`（macOS/Linux）。
 
 # dev运行，使用ctrl+c结束
-wails3 dev
----
+
+## wails3 dev
 
 ## 7. 工具使用
 

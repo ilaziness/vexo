@@ -29,6 +29,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import HandymanIcon from "@mui/icons-material/Handyman";
 
 import {
   BookmarkService,
@@ -36,6 +37,7 @@ import {
   SSHBookmark,
   CommandService,
   LogService,
+  ToolService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { UploadSync } from "../../bindings/github.com/ilaziness/vexo/services/syncservice";
 import { ReadConfig } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
@@ -259,6 +261,17 @@ export default function Header() {
         <Tooltip title="上传备份">
           <IconButton size="small" onClick={handleBackupClick}>
             <CloudUploadIcon />
+          </IconButton>
+        </Tooltip>
+
+        <Tooltip title="工具">
+          <IconButton
+            size="small"
+            onClick={() => {
+              ToolService.ShowWindow().then(() => {});
+            }}
+          >
+            <HandymanIcon />
           </IconButton>
         </Tooltip>
 
