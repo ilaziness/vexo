@@ -99,6 +99,7 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       port: 22,
       private_key: "",
       private_key_password: "",
+      proxy_jump_id: "",
       user: "",
       password: "",
     };

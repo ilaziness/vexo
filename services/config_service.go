@@ -24,7 +24,7 @@ var (
 	BuildTime = "2026-02-06 07:02:20 AM"
 
 	// CurrentDBVersion 当前数据库版本号
-	CurrentDBVersion = 1
+	CurrentDBVersion = 2
 
 	defaultFontFamily = []string{
 		"'Noto Sans Mono'",

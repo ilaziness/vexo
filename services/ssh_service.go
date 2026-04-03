@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -37,8 +38,9 @@ type SSHConnect struct {
 }
 
 type SSHService struct {
-	clients     *sync.Map // 客户端连接列表，key是host:port字符串, value是*ssh.Client
-	SSHConnects *sync.Map // 终端会话列表，key是SSHConnect.ID，value是*sshConnect
+	clients         *sync.Map        // 客户端连接列表，key是host:port字符串, value是*ssh.Client
+	SSHConnects     *sync.Map        // 终端会话列表，key是SSHConnect.ID，value是*sshConnect
+	bookmarkService *BookmarkService // 书签服务引用
 	// host key prompt state
 	hostKeyMu   sync.Mutex
 	hostKeyChan chan bool
@@ -53,10 +55,25 @@ func NewSSHService() *SSHService {
 	}
 }
 
+// setBookmarkService 设置书签服务引用
+func (s *SSHService) setBookmarkService(bs *BookmarkService) {
+	s.bookmarkService = bs
+}
+
 // host key event/handlers moved to services/hostkey.go
 
 // dialSSH establishes an SSH connection with the provided credentials and timeout.
-func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPassword string, timeout time.Duration) (*ssh.Client, error) {
+func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPassword, proxyJumpID string, timeout time.Duration) (*ssh.Client, error) {
+	return s.dialSSHWithDepth(host, port, user, password, key, keyPassword, proxyJumpID, timeout, 0, make(map[string]bool))
+}
+
+// dialSSHWithDepth 带深度限制和循环检测的 SSH 连接
+func (s *SSHService) dialSSHWithDepth(host string, port int, user, password, key, keyPassword, proxyJumpID string, timeout time.Duration, depth int, visited map[string]bool) (*ssh.Client, error) {
+	const maxDepth = 5
+
+	if depth > maxDepth {
+		return nil, fmt.Errorf("跳板机层数超过最大限制 (%d)", maxDepth)
+	}
 	if password == "" && key == "" {
 		return nil, fmt.Errorf("empty password and key")
 	}
@@ -90,14 +107,84 @@ func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPass
 
 	Logger.Debug("ssh key", zap.String("file", key))
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
-	conn, err := net.DialTimeout("tcp", addr, cfg.Timeout)
-	if err != nil {
-		Logger.Debug("tcp connect error", zap.Error(err))
-		return nil, err
+
+	var conn net.Conn
+	var err error
+	var isProxyConn bool
+
+	// Handle ProxyJump if specified
+	if proxyJumpID != "" {
+		if s.bookmarkService == nil {
+			return nil, fmt.Errorf("bookmark service not initialized")
+		}
+		proxyBookmark, err := s.bookmarkService.getDecryptedBookmarkByID(proxyJumpID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load proxy jump bookmark: %v", err)
+		}
+
+		proxyAddr := net.JoinHostPort(proxyBookmark.Host, fmt.Sprintf("%d", proxyBookmark.Port))
+
+		// 检查跳板机是否与目标主机相同
+		if proxyBookmark.Host == host && proxyBookmark.Port == port {
+			return nil, fmt.Errorf("跳板机不能与目标主机相同")
+		}
+
+		// 检查循环引用
+		if visited[proxyAddr] {
+			return nil, fmt.Errorf("检测到跳板机循环引用: %s", proxyAddr)
+		}
+
+		// 将当前目标主机加入已访问列表
+		currentAddr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+		newVisited := make(map[string]bool)
+		for k, v := range visited {
+			newVisited[k] = v
+		}
+		newVisited[currentAddr] = true
+
+		Logger.Debug("Connecting via ProxyJump", zap.String("proxyHost", proxyBookmark.Host), zap.Int("proxyPort", proxyBookmark.Port), zap.Int("depth", depth))
+
+		proxyClient, err := s.dialSSHWithDepth(
+			proxyBookmark.Host,
+			proxyBookmark.Port,
+			proxyBookmark.User,
+			proxyBookmark.Password,
+			proxyBookmark.PrivateKey,
+			proxyBookmark.PrivateKeyPassword,
+			proxyBookmark.ProxyJumpID,
+			timeout,
+			depth+1,
+			newVisited,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to proxy jump host: %v", err)
+		}
+
+		// Dial through proxy with timeout
+		dialCtx, dialCancel := context.WithTimeout(context.Background(), cfg.Timeout)
+		defer dialCancel()
+		conn, err = proxyClient.DialContext(dialCtx, "tcp", addr)
+		if err != nil {
+			proxyClient.Close()
+			Logger.Debug("proxy dial tcp error", zap.Error(err))
+			return nil, err
+		}
+		isProxyConn = true
+	} else {
+		conn, err = net.DialTimeout("tcp", addr, cfg.Timeout)
+		if err != nil {
+			Logger.Debug("tcp connect error", zap.Error(err))
+			return nil, err
+		}
 	}
-	if err = conn.SetDeadline(time.Now().Add(cfg.Timeout)); err != nil {
-		conn.Close()
-		return nil, err
+
+	// SSH channel 不支持 SetDeadline，跳过
+	if !isProxyConn {
+		if err = conn.SetDeadline(time.Now().Add(cfg.Timeout)); err != nil {
+			conn.Close()
+			Logger.Debug("set deadline error", zap.Error(err))
+			return nil, err
+		}
 	}
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
 	if err != nil {
@@ -105,26 +192,34 @@ func (s *SSHService) dialSSH(host string, port int, user, password, key, keyPass
 		Logger.Debug("ssh handshake error", zap.Error(err))
 		return nil, err
 	}
-	if err := conn.SetDeadline(time.Time{}); err != nil {
-		c.Close()
-		return nil, err
+	// SSH channel 不支持 SetDeadline，跳过
+	if !isProxyConn {
+		if err := conn.SetDeadline(time.Time{}); err != nil {
+			c.Close()
+			Logger.Debug("set deadline error", zap.Error(err))
+			return nil, err
+		}
 	}
 	return ssh.NewClient(c, chans, reqs), nil
 }
 
 // Connect establishes an SSH connection to the specified host using the provided credentials.
 // return session ID if success
-func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword string) (ID string, err error) {
+func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword, proxyJumpID string) (ID string, err error) {
 	Logger.Debug("Connecting to SSH server", zap.String("host", host), zap.Int("port", port))
 
 	var client *ssh.Client
 	clientKey := fmt.Sprintf("%s@%s:%d", user, host, port)
+	if proxyJumpID != "" {
+		clientKey += fmt.Sprintf("via:%s", proxyJumpID)
+	}
+
 	clientVal, ok := s.clients.Load(clientKey)
 	if ok {
 		Logger.Debug("Using existing SSH client", zap.String("clientKey", clientKey))
 		client = clientVal.(*ssh.Client)
 	} else {
-		client, err = s.dialSSH(host, port, user, password, key, keyPassword, time.Second*30)
+		client, err = s.dialSSH(host, port, user, password, key, keyPassword, proxyJumpID, time.Second*30)
 		if err != nil {
 			return "", err
 		}
@@ -154,9 +249,9 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 }
 
 // TestConnectInfo tests SSH connection information without establishing a persistent connection.
-func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword string) error {
+func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword, proxyJumpID string) error {
 	Logger.Debug("Testing SSH connection", zap.String("host", host), zap.Int("port", port))
-	client, err := s.dialSSH(host, port, user, password, key, keyPassword, time.Second*20)
+	client, err := s.dialSSH(host, port, user, password, key, keyPassword, proxyJumpID, time.Second*20)
 	if err != nil {
 		return err
 	}

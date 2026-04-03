@@ -65,6 +65,7 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
           li.password || "",
           li.key || "",
           li.keyPassword || "",
+          li.proxyJumpID || "",
         );
       }
       LogService.Debug(`SSH connection established with ID: ${linkID}`);

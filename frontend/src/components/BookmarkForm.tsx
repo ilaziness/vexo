@@ -11,12 +11,16 @@ import {
   FormControl,
   IconButton,
   InputAdornment,
+  Autocomplete,
+  createFilterOptions,
 } from "@mui/material";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import {
   SSHBookmark,
   AppService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
+import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/services/bookmarkservice";
+import { BookmarkListItem } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { useMessageStore } from "../stores/message";
 import FormRow from "./FormRow";
 
@@ -45,11 +49,23 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     port: 22,
     private_key: "",
     private_key_password: "",
+    proxy_jump_id: "",
     user: "",
     password: "",
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
+
+  useEffect(() => {
+    BookmarkService.GetAllBookmarks()
+      .then((res) => {
+        setAllBookmarks(res.filter((b): b is BookmarkListItem => b !== null));
+      })
+      .catch((err) => {
+        console.error("获取书签列表失败:", err);
+      });
+  }, []);
 
   useEffect(() => {
     if (bookmark) {
@@ -63,11 +79,16 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
         port: 22,
         private_key: "",
         private_key_password: "",
+        proxy_jump_id: "",
         user: "",
         password: "",
       });
     }
   }, [bookmark]);
+
+  const filterOptions = createFilterOptions<BookmarkListItem>({
+    limit: 20,
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -243,6 +264,34 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                       ))}
                     </Select>
                   </FormControl>
+                </FormRow>
+                <FormRow label="跳板机(ProxyJump)" labelWidth={120}>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    options={allBookmarks.filter((b) => b.id !== formData.id)}
+                    filterOptions={filterOptions}
+                    getOptionLabel={(option) =>
+                      `${option.title} (${option.host})`
+                    }
+                    value={
+                      allBookmarks.find(
+                        (b) => b.id === formData.proxy_jump_id,
+                      ) || null
+                    }
+                    onChange={(_, newValue) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        proxy_jump_id: newValue ? newValue.id : "",
+                      }));
+                    }}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder="选择跳板机（可选）" />
+                    )}
+                    isOptionEqualToValue={(option, value) =>
+                      option.id === value.id
+                    }
+                  />
                 </FormRow>
               </Stack>
             </Box>

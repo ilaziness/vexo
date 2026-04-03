@@ -148,6 +148,7 @@ export default function Header() {
         host: bookmark.host,
         port: bookmark.port,
         user: bookmark.user,
+        proxyJumpID: bookmark.proxy_jump_id,
       };
       const newIndex = genTabIndex();
       pushTab({

@@ -52,6 +52,10 @@ func (d *Database) Initialize(skipCreateTables bool) error {
 		if err := d.createTables(); err != nil {
 			return fmt.Errorf("create tables failed: %w", err)
 		}
+		// Migration: add proxy_jump_id to bookmarks table if not exists
+		if err := d.migrateAddProxyJumpID(); err != nil {
+			Logger.Debug("migration add proxy_jump_id", zap.Error(err))
+		}
 	}
 
 	Logger.Debug("db initialized successfully")
@@ -134,6 +138,24 @@ func (d *Database) createTables() error {
 	}
 
 	Logger.Debug("tables created successfully")
+	return nil
+}
+
+// migrateAddProxyJumpID 迁移：添加 proxy_jump_id 列（如果不存在）
+func (d *Database) migrateAddProxyJumpID() error {
+	var columnName string
+	err := d.db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'proxy_jump_id'`).Scan(&columnName)
+	if err == sql.ErrNoRows {
+		_, err := d.db.Exec(`ALTER TABLE bookmarks ADD COLUMN proxy_jump_id TEXT DEFAULT ''`)
+		if err != nil {
+			return fmt.Errorf("add column proxy_jump_id failed: %w", err)
+		}
+		Logger.Debug("migration: added proxy_jump_id column")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check column proxy_jump_id failed: %w", err)
+	}
 	return nil
 }
 

@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Events } from "@wailsio/runtime";
-import { BookmarkService } from "../../bindings/github.com/ilaziness/vexo/services";
+import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/services/bookmarkservice";
 
 const PasswordInputDialog: React.FC = () => {
   const [open, setOpen] = useState(false);

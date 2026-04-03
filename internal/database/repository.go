@@ -46,6 +46,7 @@ type BookmarkDB struct {
 	Password           string    `json:"password"`
 	PrivateKey         string    `json:"private_key"`
 	PrivateKeyPassword string    `json:"private_key_password"`
+	ProxyJumpID        string    `json:"proxy_jump_id"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
@@ -101,7 +102,7 @@ func (r *BookmarkRepository) GetAllGroups() ([]*BookmarkGroupDB, error) {
 
 // GetAllBookmarks 获取所有书签
 func (r *BookmarkRepository) GetAllBookmarks() ([]*BookmarkDB, error) {
-	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at 
+	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, created_at, updated_at 
 			  FROM bookmarks ORDER BY id`
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -114,7 +115,7 @@ func (r *BookmarkRepository) GetAllBookmarks() ([]*BookmarkDB, error) {
 		var b BookmarkDB
 		if err := rows.Scan(
 			&b.AutoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
-			&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword,
+			&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID,
 			&b.CreatedAt, &b.UpdatedAt,
 		); err != nil {
 			Logger.Error("scan bookmark failed", zap.Error(err))
@@ -163,10 +164,10 @@ func (r *BookmarkRepository) SaveBookmarks(groups []*BookmarkGroupDB, bookmarks 
 		groupID := groupIDMap[groupIdx]
 		for _, bookmark := range groupBookmarks[groupID] {
 			_, err := tx.Exec(
-				`INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at) 
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, created_at, updated_at) 
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				bookmark.ID, groupID, bookmark.Title, bookmark.Host, bookmark.Port,
-				bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword,
+				bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID,
 				bookmark.CreatedAt, bookmark.UpdatedAt,
 			)
 			if err != nil {
@@ -185,13 +186,13 @@ func (r *BookmarkRepository) SaveBookmarks(groups []*BookmarkGroupDB, bookmarks 
 
 // GetBookmarkByID 按字符串 ID 查询书签
 func (r *BookmarkRepository) GetBookmarkByID(id string) (*BookmarkDB, error) {
-	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at 
+	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, created_at, updated_at 
 			  FROM bookmarks WHERE bookmark_id = ?`
 	row := r.db.QueryRow(query, id)
 
 	var b BookmarkDB
 	err := row.Scan(&b.AutoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
-		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword,
+		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID,
 		&b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -205,13 +206,13 @@ func (r *BookmarkRepository) GetBookmarkByID(id string) (*BookmarkDB, error) {
 
 // GetBookmarkByAutoID 按自增 ID 查询书签
 func (r *BookmarkRepository) GetBookmarkByAutoID(id int) (*BookmarkDB, error) {
-	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at 
+	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, created_at, updated_at 
 			  FROM bookmarks WHERE id = ?`
 	row := r.db.QueryRow(query, id)
 
 	var b BookmarkDB
 	err := row.Scan(&b.AutoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
-		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword,
+		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID,
 		&b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -225,7 +226,7 @@ func (r *BookmarkRepository) GetBookmarkByAutoID(id int) (*BookmarkDB, error) {
 
 // GetBookmarksByGroupID 按分组 ID 查询书签
 func (r *BookmarkRepository) GetBookmarksByGroupID(groupID int) ([]*BookmarkDB, error) {
-	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at 
+	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, created_at, updated_at 
 			  FROM bookmarks WHERE group_id = ? ORDER BY id`
 	rows, err := r.db.Query(query, groupID)
 	if err != nil {
@@ -238,7 +239,7 @@ func (r *BookmarkRepository) GetBookmarksByGroupID(groupID int) ([]*BookmarkDB, 
 		var b BookmarkDB
 		if err := rows.Scan(
 			&b.AutoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
-			&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword,
+			&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID,
 			&b.CreatedAt, &b.UpdatedAt,
 		); err != nil {
 			Logger.Error("scan bookmark failed", zap.Error(err))
@@ -252,12 +253,12 @@ func (r *BookmarkRepository) GetBookmarksByGroupID(groupID int) ([]*BookmarkDB, 
 
 // GetBookmarkByTitleAndGroup 按标题和分组 ID 查询书签（用于检查重复）
 func (r *BookmarkRepository) GetBookmarkByTitleAndGroup(title string, groupID int) (*BookmarkDB, error) {
-	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at 
+	query := `SELECT id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, created_at, updated_at 
 			  FROM bookmarks WHERE title = ? AND group_id = ?`
 	var b BookmarkDB
 	err := r.db.QueryRow(query, title, groupID).Scan(
 		&b.AutoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
-		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword,
+		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID,
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -272,11 +273,11 @@ func (r *BookmarkRepository) GetBookmarkByTitleAndGroup(title string, groupID in
 
 // InsertBookmark 插入书签
 func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
-	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, created_at, updated_at) 
-			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, created_at, updated_at) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query,
 		bookmark.ID, bookmark.GroupID, bookmark.Title, bookmark.Host, bookmark.Port,
-		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword,
+		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID,
 		bookmark.CreatedAt, bookmark.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "bookmark", err)
@@ -290,11 +291,11 @@ func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
 func (r *BookmarkRepository) UpdateBookmark(bookmark *BookmarkDB) error {
 	query := `UPDATE bookmarks 
 			  SET title = ?, host = ?, port = ?, user = ?, password = ?, 
-			      private_key = ?, private_key_password = ?, updated_at = ? 
+			      private_key = ?, private_key_password = ?, proxy_jump_id = ?, updated_at = ? 
 			  WHERE bookmark_id = ?`
 	_, err := r.db.Exec(query,
 		bookmark.Title, bookmark.Host, bookmark.Port,
-		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword,
+		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID,
 		bookmark.UpdatedAt, bookmark.ID)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "update bookmark", err)

@@ -12,18 +12,21 @@ import {
   MenuItem,
   InputLabel,
   Box,
+  Autocomplete,
+  createFilterOptions,
 } from "@mui/material";
 import {
   LogService,
   SSHService,
-  BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
+import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/services/bookmarkservice";
 import { SSHLinkInfo } from "../types/ssh";
 import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
 import {
   SSHBookmark,
   BookmarkGroup,
+  BookmarkListItem,
 } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { generateRandomId } from "../func/id";
 
@@ -45,11 +48,27 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [password, setPassword] = useState("");
   const [key, setKey] = useState("");
   const [keyPassword, setKeyPassword] = useState("");
+  const [proxyJumpID, setProxyJumpID] = useState("");
+  const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState("default");
   const [groups, setGroups] = useState<string[]>([]);
 
   const { errorMessage } = useMessageStore();
+
+  const filterOptions = createFilterOptions<BookmarkListItem>({
+    limit: 20,
+  });
+
+  React.useEffect(() => {
+    BookmarkService.GetAllBookmarks()
+      .then((res) => {
+        setAllBookmarks(res.filter((b): b is BookmarkListItem => b !== null));
+      })
+      .catch((err) => {
+        console.error("获取书签列表失败:", err);
+      });
+  }, []);
 
   const onSelectKeyFile = async () => {
     try {
@@ -86,6 +105,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       password,
       key,
       keyPassword: key ? keyPassword : undefined,
+      proxyJumpID,
     });
   };
 
@@ -115,6 +135,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       port: Number(port),
       private_key: key,
       private_key_password: keyPassword,
+      proxy_jump_id: proxyJumpID,
       user,
       password,
     };
@@ -131,6 +152,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           password,
           key,
           keyPassword: key ? keyPassword : undefined,
+          proxyJumpID: proxyJumpID,
         });
       })
       .catch((err) => {
@@ -221,6 +243,25 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               placeholder="private key password (optional)"
             />
           )}
+          <Autocomplete
+            size="small"
+            sx={{ m: 0.8 }}
+            options={allBookmarks}
+            filterOptions={filterOptions}
+            getOptionLabel={(option) => `${option.title} (${option.host})`}
+            value={allBookmarks.find((b) => b.id === proxyJumpID) || null}
+            onChange={(_, newValue) => {
+              setProxyJumpID(newValue ? newValue.id : "");
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="ProxyJump"
+                placeholder="Select proxy jump bookmark"
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+          />
         </FormControl>
         {error && (
           <Typography color="error" sx={{ mt: 1, mb: 1 }}>

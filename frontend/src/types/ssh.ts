@@ -8,6 +8,7 @@ export interface SSHLinkInfo {
   password?: string;
   key?: string;
   keyPassword?: string;
+  proxyJumpID?: string;
 }
 
 export interface SSHTab {

@@ -65,6 +65,7 @@ export default function SSHTabs() {
               host: bookmark.host,
               port: bookmark.port,
               user: bookmark.user,
+              proxyJumpID: bookmark.proxy_jump_id,
             },
           };
 

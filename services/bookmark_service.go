@@ -42,6 +42,7 @@ type SSHBookmark struct {
 	Port               int    `json:"port"`
 	PrivateKey         string `json:"private_key"`
 	PrivateKeyPassword string `json:"private_key_password"`
+	ProxyJumpID        string `json:"proxy_jump_id"`
 	User               string `json:"user"`
 	Password           string `json:"password"`
 }
@@ -109,8 +110,10 @@ func (bs *BookmarkService) waitForPassword(reason string) error {
 		return nil
 	case <-time.After(60 * time.Second):
 		// 超时，关闭channel
-		close(bs.passwordChan)
-		bs.passwordChan = nil
+		if bs.passwordChan != nil {
+			close(bs.passwordChan)
+			bs.passwordChan = nil
+		}
 		return errors.New("密码输入超时")
 	}
 }
@@ -134,6 +137,7 @@ func (bs *BookmarkService) ConnectBookmarkByID(bookmarkID string) (string, error
 		bookmark.Password,
 		bookmark.PrivateKey,
 		bookmark.PrivateKeyPassword,
+		bookmark.ProxyJumpID,
 	)
 }
 
@@ -291,6 +295,7 @@ func (bs *BookmarkService) ListBookmarks() ([]*BookmarkGroup, error) {
 			Password:           bs.maskPassword(b.Password),
 			PrivateKey:         b.PrivateKey,
 			PrivateKeyPassword: bs.maskPassword(b.PrivateKeyPassword),
+			ProxyJumpID:        b.ProxyJumpID,
 		}
 		if group, ok := groupMap[b.GroupID]; ok {
 			group.Bookmarks = append(group.Bookmarks, bookmark)
@@ -399,6 +404,7 @@ func (bs *BookmarkService) getBookmarkByID(bookmarkID string) (*SSHBookmark, err
 		Password:           dbBookmark.Password,
 		PrivateKey:         dbBookmark.PrivateKey,
 		PrivateKeyPassword: dbBookmark.PrivateKeyPassword,
+		ProxyJumpID:        dbBookmark.ProxyJumpID,
 	}, nil
 }
 
@@ -454,6 +460,7 @@ func (bs *BookmarkService) updateBookmark(bookmark SSHBookmark, existing *databa
 		Password:           processed.Password,
 		PrivateKey:         processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword,
+		ProxyJumpID:        processed.ProxyJumpID,
 		UpdatedAt:          time.Now(),
 	}
 
@@ -495,6 +502,7 @@ func (bs *BookmarkService) insertBookmark(bookmark SSHBookmark) (string, error) 
 		Password:           processed.Password,
 		PrivateKey:         processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword,
+		ProxyJumpID:        processed.ProxyJumpID,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
 	}
@@ -623,6 +631,7 @@ func (bs *BookmarkService) TestConnection(bookmark SSHBookmark) error {
 		testData.Password,
 		testData.PrivateKey,
 		testData.PrivateKeyPassword,
+		testData.ProxyJumpID,
 	)
 }
 

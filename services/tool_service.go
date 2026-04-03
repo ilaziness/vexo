@@ -53,9 +53,9 @@ type EncodeResponse struct {
 
 // Match 正则匹配结果
 type Match struct {
-	Text    string   `json:"text"`
-	Index   int      `json:"index"`
-	Groups  []string `json:"groups"`
+	Text   string   `json:"text"`
+	Index  int      `json:"index"`
+	Groups []string `json:"groups"`
 }
 
 // RegexMatchResult 正则匹配结果
@@ -153,7 +153,7 @@ func (ts *ToolService) CheckPort(host string, port int) PortCheckResult {
 		}
 	}
 
-	address := fmt.Sprintf("%s:%d", host, port)
+	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	start := time.Now()
 	conn, err := net.DialTimeout("tcp", address, 5*time.Second)
 	elapsed := time.Since(start).Milliseconds()
@@ -228,19 +228,19 @@ func (ts *ToolService) Decode(toolType string, input string) EncodeResponse {
 
 // HashResult 哈希计算结果
 type HashResult struct {
-	Success bool   `json:"success"`
-	Input   string `json:"input"`
+	Success   bool   `json:"success"`
+	Input     string `json:"input"`
 	Algorithm string `json:"algorithm"` // 哈希算法
-	Result  string `json:"result"`    // 哈希值
-	Error   string `json:"error,omitempty"`
+	Result    string `json:"result"`    // 哈希值
+	Error     string `json:"error,omitempty"`
 }
 
 // TimestampResult 时间戳转换结果
 type TimestampResult struct {
-	Success    bool   `json:"success"`
-	Timestamp  int64  `json:"timestamp,omitempty"` // Unix时间戳（秒）
-	Datetime   string `json:"datetime,omitempty"`  // 日期时间字符串
-	Error      string `json:"error,omitempty"`
+	Success   bool   `json:"success"`
+	Timestamp int64  `json:"timestamp,omitempty"` // Unix时间戳（秒）
+	Datetime  string `json:"datetime,omitempty"`  // 日期时间字符串
+	Error     string `json:"error,omitempty"`
 }
 
 // RegexMatch 正则匹配
@@ -290,7 +290,7 @@ func (ts *ToolService) RegexMatch(pattern string, text string, flags string) Reg
 		if len(match) >= 2 {
 			start, end := match[0], match[1]
 			matchedText := text[start:end]
-			
+
 			// 提取捕获组
 			groups := make([]string, 0)
 			for i := 2; i < len(match); i += 2 {
