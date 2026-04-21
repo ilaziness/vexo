@@ -64,6 +64,9 @@ export const DraggableTab = React.memo(function DraggableTab({
             "&:hover": {
               backgroundColor: isActive ? "action.selected" : "action.hover",
             },
+            "&:active": {
+              cursor: "grabbing",
+            },
           }}
         >
           <TerminalIcon sx={{ fontSize: 14, flexShrink: 0 }} />
