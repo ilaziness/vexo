@@ -22,7 +22,7 @@ const tabHeight = "30px";
 const statusBarHeight = "25px";
 
 // SSH 连接容器组件，管理连接状态和错误处理
-const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
+const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const { setName, setSSHInfo, getByIndex } = useSSHTabsStore();
   const { reloadTab } = useReloadSSHTabStore();
   const [linkID, setLinkID] = React.useState<string>("");
@@ -221,4 +221,4 @@ const SSHContainer: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   );
 };
 
-export default SSHContainer;
+export default SSHTabBody;

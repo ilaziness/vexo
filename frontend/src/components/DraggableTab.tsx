@@ -26,6 +26,12 @@ export const DraggableTab = React.memo(function DraggableTab({
   onClose,
   onContextMenu,
 }: DraggableTabProps) {
+  const getBackgroundColor = (isActive: boolean, isDragging: boolean) => {
+    if (isActive) return "action.selected";
+    if (isDragging) return "action.hover";
+    return "inherit";
+  };
+
   return (
     <Draggable draggableId={item.index} index={index}>
       {(provided, snapshot) => (
@@ -46,11 +52,7 @@ export const DraggableTab = React.memo(function DraggableTab({
             gap: 0.5,
             borderRight: 2,
             borderColor: "divider",
-            backgroundColor: isActive
-              ? "action.selected"
-              : snapshot.isDragging
-                ? "action.hover"
-                : "inherit",
+            backgroundColor: getBackgroundColor(isActive, snapshot.isDragging),
             opacity: snapshot.isDragging ? 0.9 : 1,
             boxShadow: snapshot.isDragging
               ? "0 4px 8px rgba(0,0,0,0.3)"

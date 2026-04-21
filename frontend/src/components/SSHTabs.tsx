@@ -1,6 +1,6 @@
 import { Box, Menu, MenuItem } from "@mui/material";
 import React, { useRef, useCallback } from "react";
-import SSHContainer from "./SSHContainer.tsx";
+import SSHTabBody from "./SSHTabBody.tsx";
 import { Events } from "@wailsio/runtime";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh.ts";
 import { useTransferStore } from "../stores/transfer.ts";
@@ -13,11 +13,7 @@ import {
   LogService,
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
-import {
-  DragDropContext,
-  Droppable,
-  DropResult,
-} from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 
 const tabHeight = "40px";
 
@@ -33,7 +29,8 @@ export default function SSHTabs() {
   } = useSSHTabsStore();
   const { doTabReload } = useReloadSSHTabStore();
   const { addProgress } = useTransferStore();
-  const { anchorEl, tabIndex, isOpen, openMenu, closeMenu } = useSSHContextMenu();
+  const { anchorEl, tabIndex, isOpen, openMenu, closeMenu } =
+    useSSHContextMenu();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -109,16 +106,19 @@ export default function SSHTabs() {
     }
   }, [tabIndex, doTabReload, closeMenu]);
 
-  const handleDragEnd = useCallback((result: DropResult) => {
-    if (!result.destination) return;
+  const handleDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) return;
 
-    const sourceIndex = result.source.index;
-    const destinationIndex = result.destination.index;
+      const sourceIndex = result.source.index;
+      const destinationIndex = result.destination.index;
 
-    if (sourceIndex === destinationIndex) return;
+      if (sourceIndex === destinationIndex) return;
 
-    reorderTabs(sourceIndex, destinationIndex);
-  }, [reorderTabs]);
+      reorderTabs(sourceIndex, destinationIndex);
+    },
+    [reorderTabs],
+  );
 
   return (
     <Box
@@ -174,7 +174,10 @@ export default function SSHTabs() {
                       delTab(item.index, currentTab);
                     }}
                     onContextMenu={(e) =>
-                      openMenu(e as unknown as React.MouseEvent<HTMLElement>, item.index)
+                      openMenu(
+                        e as unknown as React.MouseEvent<HTMLElement>,
+                        item.index,
+                      )
                     }
                   />
                 ))}
@@ -216,7 +219,7 @@ export default function SSHTabs() {
               left: currentTab === item.index ? 0 : "-9999rem",
             }}
           >
-            <SSHContainer tabIndex={item.index} />
+            <SSHTabBody tabIndex={item.index} />
           </Box>
         ))}
       </Box>
