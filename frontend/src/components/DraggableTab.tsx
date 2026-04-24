@@ -33,6 +33,14 @@ export const DraggableTab = React.memo(function DraggableTab({
     return "inherit";
   };
 
+  let connectionStatusColor = "text.disabled";
+
+  if (item.connectionStatus === "connected") {
+    connectionStatusColor = "success.main";
+  } else if (item.connectionStatus === "disconnected") {
+    connectionStatusColor = "error.main";
+  }
+
   return (
     <Draggable draggableId={item.index} index={index}>
       {(provided, snapshot) => (
@@ -76,12 +84,7 @@ export const DraggableTab = React.memo(function DraggableTab({
               height: 8,
               borderRadius: "50%",
               flexShrink: 0,
-              backgroundColor:
-                item.connectionStatus === "connected"
-                  ? "success.main"
-                  : item.connectionStatus === "disconnected"
-                    ? "error.main"
-                    : "text.disabled",
+              backgroundColor: connectionStatusColor,
             }}
           />
           <Tooltip title={item.name}>
