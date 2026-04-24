@@ -1,8 +1,8 @@
-import { Box } from "@mui/material";
+import { Box, Tooltip } from "@mui/material";
 import React from "react";
-import TerminalIcon from "@mui/icons-material/Terminal";
 import CloseIcon from "@mui/icons-material/Close";
 import { Draggable } from "@hello-pangea/dnd";
+import { ConnectionStatus } from "../types/ssh";
 
 const tabHeight = "40px";
 
@@ -10,6 +10,7 @@ export interface DraggableTabProps {
   item: {
     index: string;
     name: string;
+    connectionStatus?: ConnectionStatus;
   };
   index: number;
   isActive: boolean;
@@ -69,18 +70,33 @@ export const DraggableTab = React.memo(function DraggableTab({
             },
           }}
         >
-          <TerminalIcon sx={{ fontSize: 14, flexShrink: 0 }} />
           <Box
             sx={{
-              flex: 1,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              fontSize: "0.875rem",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              flexShrink: 0,
+              backgroundColor:
+                item.connectionStatus === "connected"
+                  ? "success.main"
+                  : item.connectionStatus === "disconnected"
+                    ? "error.main"
+                    : "text.disabled",
             }}
-          >
-            {item.name}
-          </Box>
+          />
+          <Tooltip title={item.name}>
+            <Box
+              sx={{
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontSize: "0.875rem",
+              }}
+            >
+              {item.name}
+            </Box>
+          </Tooltip>
           <Box
             component="span"
             onClick={onClose}

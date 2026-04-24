@@ -21,17 +21,19 @@ import {
   Backdrop,
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
-import NoteAddIcon from "@mui/icons-material/NoteAdd";
+import AddBoxIcon from "@mui/icons-material/AddBox";
 import BookmarksIcon from "@mui/icons-material/Bookmarks";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
-import LocalLibraryIcon from "@mui/icons-material/LocalLibrary";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CloseIcon from "@mui/icons-material/Close";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import HandymanIcon from "@mui/icons-material/Handyman";
+import TerminalIcon from "@mui/icons-material/Terminal";
+//import AddToQueueIcon from "@mui/icons-material/AddToQueue";
 
 import {
+  //AppService,
   BookmarkService,
   ConfigService,
   SSHBookmark,
@@ -204,6 +206,10 @@ export default function Header() {
     }
   };
 
+  // const handleNewMainWindow = () => {
+  //   AppService.NewMainWindow();
+  // };
+
   return (
     <Box
       component={"header"}
@@ -223,11 +229,17 @@ export default function Header() {
           />
         </Box>
 
-        <Tooltip title="新连接">
+        <Tooltip title="新建空白标签">
           <IconButton size="small" onClick={handleAddTab}>
-            <NoteAddIcon />
+            <AddBoxIcon />
           </IconButton>
         </Tooltip>
+
+        {/* <Tooltip title="新建窗口">
+          <IconButton size="small" onClick={handleNewMainWindow}>
+            <AddToQueueIcon />
+          </IconButton>
+        </Tooltip> */}
 
         <Tooltip title="书签">
           <IconButton size="small" onClick={handleBookmark}>
@@ -255,7 +267,7 @@ export default function Header() {
               CommandService.ShowWindow().then(() => {});
             }}
           >
-            <LocalLibraryIcon />
+            <TerminalIcon />
           </IconButton>
         </Tooltip>
 

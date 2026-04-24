@@ -142,3 +142,8 @@ func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion) {
 func (cs *AppService) GetWSAddr() string {
 	return wsAddr
 }
+
+// NewMainWindow 新建一个主窗口
+func (cs *AppService) NewMainWindow() {
+	AppInstance.NewMainWindow()
+}

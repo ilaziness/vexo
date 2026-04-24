@@ -162,21 +162,21 @@ export default function SSHTabs() {
                   },
                 }}
               >
-                {sshTabs.map((item, index) => (
+                {sshTabs.map((tab, index) => (
                   <DraggableTab
-                    key={item.index}
-                    item={item}
+                    key={tab.index}
+                    item={tab}
                     index={index}
-                    isActive={currentTab === item.index}
-                    onClick={() => setCurrentTab(item.index)}
+                    isActive={currentTab === tab.index}
+                    onClick={() => setCurrentTab(tab.index)}
                     onClose={(e) => {
                       e.stopPropagation();
-                      delTab(item.index, currentTab);
+                      delTab(tab.index, currentTab);
                     }}
                     onContextMenu={(e) =>
                       openMenu(
                         e as unknown as React.MouseEvent<HTMLElement>,
-                        item.index,
+                        tab.index,
                       )
                     }
                   />

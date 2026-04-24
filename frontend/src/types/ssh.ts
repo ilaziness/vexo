@@ -1,6 +1,10 @@
 import type { ITheme } from "@xterm/xterm";
 
+// 连接状态类型定义
+export type ConnectionStatus = "connected" | "disconnected" | "empty";
+
 export interface SSHLinkInfo {
+  linkID?: string;
   bookmarkID?: string;
   host: string;
   port: number;
@@ -15,6 +19,7 @@ export interface SSHTab {
   index: string;
   name: string;
   sshInfo?: SSHLinkInfo;
+  connectionStatus?: ConnectionStatus;
 }
 
 export interface Message {

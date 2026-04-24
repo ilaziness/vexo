@@ -1,14 +1,6 @@
 import { create } from "zustand";
-import { SSHLinkInfo, SSHTab } from "../types/ssh";
+import { SSHLinkInfo, SSHTab, ConnectionStatus } from "../types/ssh";
 import { genTabIndex } from "../func/service";
-
-export const useSSHLinksStore = create((set) => ({
-  sshLinks: [] as SSHLinkInfo[],
-  setSSHLink: (link: SSHLinkInfo) =>
-    set((state) => ({
-      sshLinks: [...state.sshLinks, link],
-    })),
-}));
 
 export interface SSHTabs {
   sshTabs: SSHTab[];
@@ -20,6 +12,7 @@ export interface SSHTabs {
   getByIndex: (index: string) => SSHTab | undefined;
   setSSHInfo: (index: string, sshInfo: SSHLinkInfo) => void;
   reorderTabs: (sourceIndex: number, destinationIndex: number) => void;
+  setConnectionStatus: (linkID: string, status: ConnectionStatus) => void;
 }
 
 export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
@@ -64,7 +57,7 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
   setName: (index: string, name: string) =>
     set((state) => ({
       sshTabs: state.sshTabs.map((tab) =>
-        tab.index === index ? { ...tab, name } : tab,
+        tab.index === index && tab.name == "" ? { ...tab, name } : tab,
       ),
     })),
   setCurrentTab: (index: string) => set({ currentTab: index }),
@@ -85,6 +78,14 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
       newTabs.splice(destinationIndex, 0, removed);
       return { sshTabs: newTabs };
     }),
+  setConnectionStatus: (linkID: string, status: ConnectionStatus) =>
+    set((state) => ({
+      sshTabs: state.sshTabs.map((tab) =>
+        tab.sshInfo?.linkID === linkID
+          ? { ...tab, connectionStatus: status }
+          : tab,
+      ),
+    })),
 }));
 
 export interface ReloadSSHTabStoreType {

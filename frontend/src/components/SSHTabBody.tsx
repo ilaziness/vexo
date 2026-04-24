@@ -71,6 +71,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       LogService.Debug(`SSH connection established with ID: ${linkID}`);
       setLinkID(linkID);
       setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
+      li.linkID = linkID;
       setSSHInfo(tabIndex, li);
     } catch (err: any) {
       const msg = "Connection failed";
