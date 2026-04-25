@@ -24,9 +24,17 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
   ] as SSHTab[],
   currentTab: `${genTabIndex()}`,
   pushTab: (tab: SSHTab) =>
-    set((state: any) => ({
-      sshTabs: [...state.sshTabs, tab],
-    })),
+    set((state: any) => {
+      const emptyIndex = state.sshTabs.findIndex(
+        (t: SSHTab) => !t.connectionStatus || t.connectionStatus === "empty",
+      );
+      if (emptyIndex !== -1) {
+        const newTabs = [...state.sshTabs];
+        newTabs[emptyIndex] = tab;
+        return { sshTabs: newTabs };
+      }
+      return { sshTabs: [...state.sshTabs, tab] };
+    }),
   delTab: (delTab: string, currentTab: string): string => {
     const tabIndex = get().sshTabs.findIndex((item) => item.index === delTab);
     if (tabIndex === -1) {

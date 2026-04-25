@@ -23,8 +23,10 @@ const statusBarHeight = "25px";
 
 // SSH 连接容器组件，管理连接状态和错误处理
 const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
-  const { setName, setSSHInfo, getByIndex } = useSSHTabsStore();
-  const { reloadTab } = useReloadSSHTabStore();
+  const setName = useSSHTabsStore((state) => state.setName);
+  const setSSHInfo = useSSHTabsStore((state) => state.setSSHInfo);
+  const getByIndex = useSSHTabsStore((state) => state.getByIndex);
+  const reloadTab = useReloadSSHTabStore((state) => state.reloadTab);
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
@@ -34,7 +36,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const [lastSSHInfo, setLastSSHInfo] = React.useState<SSHLinkInfo | null>(
     null,
   );
-  const tabInfo = getByIndex(tabIndex);
+  const tabInfo = useMemo(() => getByIndex(tabIndex), [tabIndex]);
   const tabItems = useMemo(
     () => [
       {
@@ -135,7 +137,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       setIsReloading(true);
       connect(tabInfo.sshInfo).then(() => {});
     }
-  }, [tabIndex]);
+  }, []);
 
   if (isReloading) {
     return <Loading message="Loading SSH connection..." />;
