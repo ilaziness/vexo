@@ -4,35 +4,65 @@ import { alpha } from "@mui/material/styles";
 import { Close, CropSquare, FilterNone, Remove } from "@mui/icons-material";
 import { useState } from "react";
 
-const OpBar = () => {
+interface OpBarProps {
+  onMinimize?: () => void;
+  onMaximize?: () => void;
+  onClose?: () => void;
+  draggable?: boolean;
+  showBorder?: boolean;
+}
+
+const OpBar = ({
+  onMinimize,
+  onMaximize,
+  onClose,
+  draggable = true,
+  showBorder = true,
+}: OpBarProps) => {
   const [isMaximised, setIsMaximised] = useState(false);
+
   const handleMinimize = () => {
-    Window.Minimise().then(() => {});
+    if (onMinimize) {
+      onMinimize();
+    } else {
+      Window.Minimise().then(() => {});
+    }
   };
 
   const handleMaximize = () => {
-    Window.ToggleMaximise().then(() => {
+    if (onMaximize) {
+      onMaximize();
       Window.IsMaximised().then((val: boolean) => {
         setIsMaximised(val);
       });
-    });
+    } else {
+      Window.ToggleMaximise().then(() => {
+        Window.IsMaximised().then((val: boolean) => {
+          setIsMaximised(val);
+        });
+      });
+    }
   };
 
   const handleClose = () => {
-    Window.Close().then(() => {});
+    if (onClose) {
+      onClose();
+    } else {
+      Window.Close().then(() => {});
+    }
   };
 
   return (
     <Box
       sx={{
-        "--wails-draggable": "drag",
+        "--wails-draggable": draggable ? "drag" : "no-drag",
         height: "100%",
-        width: "100%",
+        // width: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "flex-end",
         pr: 1,
-        borderBottom: 1,
+        borderBottom: showBorder ? 1 : 0,
         borderColor: "divider",
       }}
     >

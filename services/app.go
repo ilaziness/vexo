@@ -92,13 +92,12 @@ func (cs *App) SelectFile() (string, error) {
 func (cs *App) NewMainWindow() {
 	w := AppInstance.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:                      "Vexo",
-		URL:                        "/",
-		Width:                      1600,
-		Height:                     900,
-		MinWidth:                   1600,
-		MinHeight:                  900,
+		URL:                        "/#submainwindow",
+		Width:                      1440,
+		Height:                     800,
+		MinWidth:                   1440,
+		MinHeight:                  800,
 		DefaultContextMenuDisabled: true,
-		Hidden:                     true,
 		Frameless:                  true,
 	})
 	w.Show()

@@ -4,7 +4,7 @@ import SSHTabBody from "./SSHTabBody.tsx";
 import { Events } from "@wailsio/runtime";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh.ts";
 import { useTransferStore } from "../stores/transfer.ts";
-import MainOpBar from "./MainOpBar.tsx";
+import OpBar from "./OpBar.tsx";
 import { DraggableTab } from "./DraggableTab.tsx";
 import { useSSHContextMenu } from "../hooks/useSSHContextMenu.ts";
 import { genTabIndex } from "../func/service.ts";
@@ -15,20 +15,28 @@ import {
 } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 
+interface SSHTabsProps {
+  onMinimize?: () => void;
+  onMaximize?: () => void;
+  onClose?: () => void;
+}
+
 const tabHeight = "40px";
 
-export default function SSHTabs() {
-  const {
-    sshTabs,
-    currentTab,
-    delTab,
-    pushTab,
-    getByIndex,
-    setCurrentTab,
-    reorderTabs,
-  } = useSSHTabsStore();
-  const { doTabReload } = useReloadSSHTabStore();
-  const { addProgress } = useTransferStore();
+export default function SSHTabs({
+  onMinimize,
+  onMaximize,
+  onClose,
+}: SSHTabsProps) {
+  const sshTabs = useSSHTabsStore((state) => state.sshTabs);
+  const currentTab = useSSHTabsStore((state) => state.currentTab);
+  const delTab = useSSHTabsStore((state) => state.delTab);
+  const pushTab = useSSHTabsStore((state) => state.pushTab);
+  const getByIndex = useSSHTabsStore((state) => state.getByIndex);
+  const setCurrentTab = useSSHTabsStore((state) => state.setCurrentTab);
+  const reorderTabs = useSSHTabsStore((state) => state.reorderTabs);
+  const doTabReload = useReloadSSHTabStore((state) => state.doTabReload);
+  const addProgress = useTransferStore((state) => state.addProgress);
   const { anchorEl, tabIndex, isOpen, openMenu, closeMenu } =
     useSSHContextMenu();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -186,7 +194,13 @@ export default function SSHTabs() {
             )}
           </Droppable>
         </DragDropContext>
-        <MainOpBar />
+        <OpBar
+          draggable={false}
+          showBorder={false}
+          onMinimize={onMinimize}
+          onMaximize={onMaximize}
+          onClose={onClose}
+        />
         <Menu
           open={isOpen}
           anchorEl={anchorEl}

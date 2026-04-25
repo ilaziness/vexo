@@ -4,6 +4,7 @@ import Setting from "./pages/Setting";
 import Command from "./pages/Command";
 import Tools from "./pages/Tools";
 import ToolDetail from "./pages/ToolDetail";
+import SubMainWindow from "./pages/SubMainWindow";
 
 export default createHashRouter([
   {
@@ -25,5 +26,9 @@ export default createHashRouter([
   {
     path: "/tools/:toolId",
     Component: ToolDetail,
+  },
+  {
+    path: "/submainwindow",
+    Component: SubMainWindow,
   },
 ]);

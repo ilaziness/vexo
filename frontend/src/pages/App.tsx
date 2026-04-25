@@ -4,6 +4,7 @@ import Header from "../components/Header.tsx";
 import Message from "../components/Message.tsx";
 import PasswordInputDialog from "../components/PasswordInputDialog.tsx";
 import HostKeyPrompt from "../components/HostKeyPrompt";
+import { AppService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 function App() {
   return (
@@ -17,7 +18,11 @@ function App() {
         }}
       >
         <Header />
-        <SSHTabs />
+        <SSHTabs
+          onMinimize={() => AppService.MainWindowMin()}
+          onMaximize={() => AppService.MainWindowMax()}
+          onClose={() => AppService.MainWindowClose()}
+        />
       </Box>
       <Message />
       <PasswordInputDialog />

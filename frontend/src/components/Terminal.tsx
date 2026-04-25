@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 import { Box } from "@mui/material";
 import "@xterm/xterm/css/xterm.css";
 import styles from "../styles/Terminal.module.css";
@@ -42,7 +42,7 @@ const isWebgl2Supported = (() => {
 })();
 
 // Terminal 组件，封装 xterm.js
-export default function Terminal(props: { readonly linkID: string }) {
+function Terminal(props: { readonly linkID: string }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const termRef = React.useRef<HTMLDivElement>(null);
   const term = React.useRef<TerminalLib>(null);
@@ -283,3 +283,5 @@ export default function Terminal(props: { readonly linkID: string }) {
     </Box>
   );
 }
+
+export default memo(Terminal);

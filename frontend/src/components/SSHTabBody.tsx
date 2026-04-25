@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, memo } from "react";
 import { Box, Tab, Tabs } from "@mui/material";
 import {
   LogService,
@@ -35,16 +35,19 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     null,
   );
   const tabInfo = getByIndex(tabIndex);
-  const tabItems = [
-    {
-      label: "SSH",
-      component: <Terminal linkID={linkID} />,
-    },
-    {
-      label: "SFTP",
-      component: <Sftp linkID={linkID} />,
-    },
-  ];
+  const tabItems = useMemo(
+    () => [
+      {
+        label: "SSH",
+        component: <Terminal linkID={linkID} />,
+      },
+      {
+        label: "SFTP",
+        component: <Sftp linkID={linkID} />,
+      },
+    ],
+    [linkID],
+  );
   const sftpIndex = 1;
 
   // connect ssh server
@@ -222,4 +225,4 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   );
 };
 
-export default SSHTabBody;
+export default memo(SSHTabBody);

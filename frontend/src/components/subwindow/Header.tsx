@@ -10,47 +10,21 @@ import {
   ListItemIcon,
   ListItemText,
   Collapse,
-  Dialog,
-  AppBar,
-  Toolbar,
-  Typography,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Backdrop,
 } from "@mui/material";
-import SettingsIcon from "@mui/icons-material/Settings";
 import AddBoxIcon from "@mui/icons-material/AddBox";
-import BookmarksIcon from "@mui/icons-material/Bookmarks";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import CloseIcon from "@mui/icons-material/Close";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import HandymanIcon from "@mui/icons-material/Handyman";
-import TerminalIcon from "@mui/icons-material/Terminal";
-import AddToQueueIcon from "@mui/icons-material/AddToQueue";
 
 import {
-  AppService,
   BookmarkService,
-  ConfigService,
   SSHBookmark,
-  CommandService,
-  LogService,
-  ToolService,
-} from "../../bindings/github.com/ilaziness/vexo/services";
-import { UploadSync } from "../../bindings/github.com/ilaziness/vexo/services/syncservice";
-import { ReadConfig } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
-import { useSSHTabsStore } from "../stores/ssh";
-import { genTabIndex, parseCallServiceError } from "../func/service";
+} from "../../../bindings/github.com/ilaziness/vexo/services";
+import { useSSHTabsStore } from "../../stores/ssh";
+import { genTabIndex, parseCallServiceError } from "../../func/service";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useMessageStore } from "../stores/message";
-import ThemeSwitcher from "./ThemeSwitcher";
+import { useMessageStore } from "../../stores/message";
 import { Events } from "@wailsio/runtime";
-import BookmarkManager from "./Bookmark";
-import Loading from "./Loading";
 
 interface BookmarkGroup {
   name: string;
@@ -59,7 +33,7 @@ interface BookmarkGroup {
 
 export default function Header() {
   const { sshTabs, pushTab, setCurrentTab } = useSSHTabsStore();
-  const { errorMessage, successMessage } = useMessageStore();
+  const { errorMessage } = useMessageStore();
 
   const [bookmarks, setBookmarks] = useState<BookmarkGroup[]>([]);
   const [bookmarkAnchorEl, setBookmarkAnchorEl] = useState<null | HTMLElement>(
@@ -68,13 +42,6 @@ export default function Header() {
   const [expandedGroups, setExpandedGroups] = useState<{
     [key: string]: boolean;
   }>({});
-  const [bookmarkManageOpen, setBookmarkManageOpen] = useState(false);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  const showSettingWindow = useCallback(() => {
-    ConfigService.ShowWindow();
-  }, []);
 
   const handleAddTab = useCallback(() => {
     const number = sshTabs.length + 1;
@@ -85,71 +52,16 @@ export default function Header() {
     });
   }, [sshTabs.length, pushTab]);
 
-  const handleNewMainWindow = useCallback(() => {
-    AppService.NewMainWindow();
-  }, []);
-
   const handleBookmark = useCallback((event: React.MouseEvent<HTMLElement>) => {
     setBookmarkAnchorEl(event.currentTarget);
   }, []);
 
-  const handleBackupClick = useCallback(async () => {
-    try {
-      const config = await ReadConfig();
-      const syncConfig = config?.Sync;
-      if (
-        !syncConfig?.serverUrl ||
-        !syncConfig?.syncId ||
-        !syncConfig?.userKey
-      ) {
-        errorMessage("请先前往设置页面配置同步参数");
-        return;
-      }
-      setConfirmDialogOpen(true);
-    } catch (error) {
-      LogService.Error("Failed to read config: " + String(error));
-      errorMessage("读取配置失败");
-    }
-  }, [errorMessage]);
-
   const menuItems = useMemo(
     () => [
       { title: "新建空白标签", icon: <AddBoxIcon />, onClick: handleAddTab },
-      {
-        title: "新建窗口",
-        icon: <AddToQueueIcon />,
-        onClick: handleNewMainWindow,
-      },
       { title: "书签", icon: <BookmarkIcon />, onClick: handleBookmark },
-      {
-        title: "书签管理",
-        icon: <BookmarksIcon />,
-        onClick: () => setBookmarkManageOpen(true),
-      },
-      {
-        title: "命令面板",
-        icon: <TerminalIcon />,
-        onClick: () => CommandService.ShowWindow(),
-      },
-      {
-        title: "上传备份",
-        icon: <CloudUploadIcon />,
-        onClick: handleBackupClick,
-      },
-      {
-        title: "工具",
-        icon: <HandymanIcon />,
-        onClick: () => ToolService.ShowWindow(),
-      },
-      { title: "设置", icon: <SettingsIcon />, onClick: showSettingWindow },
     ],
-    [
-      handleAddTab,
-      handleNewMainWindow,
-      handleBookmark,
-      handleBackupClick,
-      showSettingWindow,
-    ],
+    [handleAddTab, handleBookmark],
   );
 
   useEffect(() => {
@@ -224,28 +136,6 @@ export default function Header() {
     }
   };
 
-  const handleCancelBackup = () => {
-    setConfirmDialogOpen(false);
-  };
-
-  const handleConfirmBackup = () => {
-    setConfirmDialogOpen(false);
-    handleUpload();
-  };
-
-  const handleUpload = async () => {
-    setUploading(true);
-    try {
-      await UploadSync();
-      successMessage("数据上传成功");
-    } catch (error) {
-      LogService.Error("Upload failed: " + String(error));
-      errorMessage("数据上传失败: " + parseCallServiceError(error));
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <Box
       component={"header"}
@@ -272,8 +162,6 @@ export default function Header() {
             </IconButton>
           </Tooltip>
         ))}
-
-        <ThemeSwitcher />
 
         <Menu
           anchorEl={bookmarkAnchorEl}
@@ -330,64 +218,6 @@ export default function Header() {
             ))}
           </List>
         </Menu>
-        <Dialog
-          fullScreen
-          open={bookmarkManageOpen}
-          onClose={() => setBookmarkManageOpen(false)}
-        >
-          <AppBar
-            position="static"
-            color="default"
-            elevation={1}
-            sx={{ "--wails-draggable": "drag" }}
-          >
-            <Toolbar>
-              <IconButton
-                edge="start"
-                onClick={() => setBookmarkManageOpen(false)}
-                size="large"
-              >
-                <CloseIcon />
-              </IconButton>
-              <Typography sx={{ ml: 1 }} variant="h6">
-                书签管理
-              </Typography>
-            </Toolbar>
-          </AppBar>
-          <Box sx={{ height: "calc(100% - 64px)" }}>
-            <BookmarkManager
-              onRequestClose={() => setBookmarkManageOpen(false)}
-            />
-          </Box>
-        </Dialog>
-
-        <Dialog
-          open={confirmDialogOpen}
-          onClose={handleCancelBackup}
-          maxWidth="xs"
-          fullWidth
-        >
-          <DialogTitle>确认上传</DialogTitle>
-          <DialogContent>
-            <Typography>确定要上传备份吗？</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCancelBackup}>取消</Button>
-            <Button variant="contained" onClick={handleConfirmBackup}>
-              确定
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Backdrop
-          open={uploading}
-          sx={(theme) => ({
-            zIndex: theme.zIndex.modal + 1,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-          })}
-        >
-          <Loading message="正在上传备份..." size={60} />
-        </Backdrop>
       </Stack>
     </Box>
   );
