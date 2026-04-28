@@ -393,16 +393,14 @@ func generateConnectID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
-// known hosts helpers moved to services/hostkey.go
-
 func NewSSHConnect(sshService *SSHService, clientKey string, client *ssh.Client) *SSHConnect {
 	return &SSHConnect{
 		sshService:     sshService,
 		clientKey:      clientKey,
 		client:         client,
 		ID:             generateConnectID(),
-		outputChan:     make(chan []byte, 10),
-		outputBuffSize: 32768, // 32KB
+		outputChan:     make(chan []byte, 200),
+		outputBuffSize: 1024 * 10, // 10KB
 	}
 }
 
