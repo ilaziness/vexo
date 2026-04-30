@@ -39,6 +39,8 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
         justifyContent: "flex-end",
         direction: "row",
         bgcolor: "background.default",
+        borderTop: 1,
+        borderColor: "divider",
       }}
     >
       <Stack direction="row" spacing={2}>

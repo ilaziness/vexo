@@ -173,7 +173,6 @@ func (s *WebSocketService) handleWebSocket(w http.ResponseWriter, r *http.Reques
 		sessionID: sessionID,
 	}
 	connWS, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		CompressionMode:    websocket.CompressionContextTakeover,
 		InsecureSkipVerify: true,
 		OnPongReceived: func(_ context.Context, _ []byte) {
 			client.pongMu.Lock()

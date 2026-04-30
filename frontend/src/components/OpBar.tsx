@@ -13,8 +13,6 @@ interface OpBarProps {
 }
 
 const OpBar = ({
-  onMinimize,
-  onMaximize,
   onClose,
   draggable = true,
   showBorder = true,
@@ -22,26 +20,15 @@ const OpBar = ({
   const [isMaximised, setIsMaximised] = useState(false);
 
   const handleMinimize = () => {
-    if (onMinimize) {
-      onMinimize();
-    } else {
-      Window.Minimise().then(() => {});
-    }
+    Window.Minimise().then(() => {});
   };
 
   const handleMaximize = () => {
-    if (onMaximize) {
-      onMaximize();
+    Window.ToggleMaximise().then(() => {
       Window.IsMaximised().then((val: boolean) => {
         setIsMaximised(val);
       });
-    } else {
-      Window.ToggleMaximise().then(() => {
-        Window.IsMaximised().then((val: boolean) => {
-          setIsMaximised(val);
-        });
-      });
-    }
+    });
   };
 
   const handleClose = () => {

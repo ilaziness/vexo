@@ -5,14 +5,13 @@ go 1.26.0
 require (
 	github.com/coder/websocket v1.8.14
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
-	github.com/pelletier/go-toml/v2 v2.2.4
+	github.com/pelletier/go-toml/v2 v2.3.0
 	github.com/pkg/sftp v1.13.10
-	github.com/things-go/go-socks5 v0.1.0
-	github.com/wailsapp/wails/v3 v3.0.0-alpha.74
-	github.com/xiwh/zmodem v1.0.4
-	go.uber.org/zap v1.27.1
-	golang.org/x/crypto v0.48.0
-	modernc.org/sqlite v1.46.1
+	github.com/things-go/go-socks5 v0.1.1
+	github.com/wailsapp/wails/v3 v3.0.0-alpha.80
+	go.uber.org/zap v1.28.0
+	golang.org/x/crypto v0.50.0
+	modernc.org/sqlite v1.50.0
 )
 
 require (
@@ -53,17 +52,15 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.53.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
-	github.com/sigurn/crc16 v0.0.0-20240131213347-83fcde1e29d1 // indirect
 	github.com/skeema/knownhosts v1.3.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.23 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
-	golang.org/x/net v0.51.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	modernc.org/libc v1.67.6 // indirect
+	modernc.org/libc v1.72.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )

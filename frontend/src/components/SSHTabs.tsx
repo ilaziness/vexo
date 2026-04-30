@@ -16,18 +16,12 @@ import {
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 
 interface SSHTabsProps {
-  onMinimize?: () => void;
-  onMaximize?: () => void;
   onClose?: () => void;
 }
 
 const tabHeight = "40px";
 
-export default function SSHTabs({
-  onMinimize,
-  onMaximize,
-  onClose,
-}: SSHTabsProps) {
+export default function SSHTabs({ onClose }: SSHTabsProps) {
   const sshTabs = useSSHTabsStore((state) => state.sshTabs);
   const currentTab = useSSHTabsStore((state) => state.currentTab);
   const delTab = useSSHTabsStore((state) => state.delTab);
@@ -194,13 +188,7 @@ export default function SSHTabs({
             )}
           </Droppable>
         </DragDropContext>
-        <OpBar
-          draggable={false}
-          showBorder={false}
-          onMinimize={onMinimize}
-          onMaximize={onMaximize}
-          onClose={onClose}
-        />
+        <OpBar draggable={false} showBorder={false} onClose={onClose} />
         <Menu
           open={isOpen}
           anchorEl={anchorEl}

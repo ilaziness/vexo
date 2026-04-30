@@ -18,11 +18,7 @@ function App() {
         }}
       >
         <Header />
-        <SSHTabs
-          onMinimize={() => AppService.MainWindowMin()}
-          onMaximize={() => AppService.MainWindowMax()}
-          onClose={() => AppService.MainWindowClose()}
-        />
+        <SSHTabs onClose={() => AppService.MainWindowClose()} />
       </Box>
       <Message />
       <PasswordInputDialog />

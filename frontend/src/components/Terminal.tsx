@@ -155,6 +155,7 @@ function Terminal(props: { readonly linkID: string }) {
         `Connecting to WebSocket at ${wsUrl} for terminal ${props.linkID}`,
       );
       const ws = new WebSocket(wsUrl);
+      ws.binaryType = "arraybuffer";
       wsRef.current = ws;
       const attachAddon = new AttachAddon(ws);
       term.current?.loadAddon(attachAddon);
