@@ -261,6 +261,7 @@ function Terminal(props: { readonly linkID: string }) {
         sx={{
           width: "100%",
           height: "100%",
+          backgroundColor: "var(--term-bg)",
         }}
       />
       <TerminalContextMenu
