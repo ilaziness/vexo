@@ -192,8 +192,10 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                         primary={group.name}
                         slotProps={{
                           primary: {
-                            fontSize: "0.95rem",
-                            fontWeight: 500,
+                            sx: {
+                              fontSize: "0.95rem",
+                              fontWeight: 500,
+                            }
                           },
                         }}
                         sx={{ my: 0, flex: 1, minWidth: 0 }}
@@ -283,12 +285,20 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                           secondary={`${bookmark.user}@${bookmark.host}`}
                           slotProps={{
                             primary: {
-                              fontSize: "0.9rem",
-                              noWrap: true,
+                              sx: {
+                                fontSize: "0.9rem",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }
                             },
                             secondary: {
-                              fontSize: "0.75rem",
-                              noWrap: true,
+                              sx: {
+                                fontSize: "0.75rem",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }
                             },
                           }}
                           sx={{ flex: 1, minWidth: 0 }}
@@ -328,7 +338,9 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                       primary="添加书签"
                       slotProps={{
                         primary: {
-                          fontSize: "0.9rem",
+                          sx: {
+                            fontSize: "0.9rem",
+                          }
                         },
                       }}
                     />
@@ -371,8 +383,10 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                 primary="添加分组"
                 slotProps={{
                   primary: {
-                    fontSize: "0.95rem",
-                    fontWeight: 500,
+                    sx: {
+                      fontSize: "0.95rem",
+                      fontWeight: 500,
+                    }
                   },
                 }}
               />

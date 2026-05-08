@@ -117,7 +117,7 @@ export default function RegexTool() {
 
           {result && !result.error && (
             <Box>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: "center" }}>
                 <Typography variant="subtitle1">匹配结果</Typography>
                 <Chip
                   label={`${result.count} 个匹配`}

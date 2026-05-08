@@ -13,22 +13,15 @@ import (
 )
 
 const (
-	EventInputPassword      = "eventInputPassword"
-	EventInputPasswordClose = "eventInputPasswordClose"
-	EventBookmarkUpdate     = "eventBookmarkUpdate"
-	EventConnectBookmark    = "eventConnectBookmark"
-	BookmarkUpdateMsg       = "bookmark update"
+	EventBookmarkUpdate  = "eventBookmarkUpdate"
+	EventConnectBookmark = "eventConnectBookmark"
+	BookmarkUpdateMsg    = "bookmark update"
 
 	// PasswordMask 密码占位符，用于前端展示
 	PasswordMask = "********"
 )
 
-// 用户密码，用于加密/解密书签密码
-var globalUserPassword string
-
 func init() {
-	application.RegisterEvent[string](EventInputPassword)
-	application.RegisterEvent[string](EventInputPasswordClose)
 	application.RegisterEvent[string](EventBookmarkUpdate)
 	application.RegisterEvent[string](EventConnectBookmark)
 }
@@ -65,56 +58,17 @@ type BookmarkListItem struct {
 
 // BookmarkService 书签服务结构
 type BookmarkService struct {
-	db           *database.Database
-	sshService   *SSHService
-	passwordChan chan struct{}
+	db            *database.Database
+	sshService    *SSHService
+	configService *ConfigService
 }
 
 // NewBookmarkService 创建新的书签服务实例
-func NewBookmarkService(db *database.Database, ssh *SSHService) *BookmarkService {
+func NewBookmarkService(db *database.Database, ssh *SSHService, cs *ConfigService) *BookmarkService {
 	return &BookmarkService{
-		db:         db,
-		sshService: ssh,
-	}
-}
-
-// SetUserPassword 设置用户密码用于加密/解密私钥密码
-func (bs *BookmarkService) SetUserPassword(password string) {
-	Logger.Debug("set user password", zap.String("pwd", password))
-	globalUserPassword = password
-
-	// 如果有等待密码输入的channel，向channel发送完成信号
-	if bs.passwordChan != nil {
-		bs.passwordChan <- struct{}{}
-		bs.passwordChan = nil // 清空channel引用
-	}
-	Logger.Debug("user password set successfully", zap.String("pwd", globalUserPassword))
-}
-
-// waitForPassword 触发事件并等待用户输入密码，超时60秒
-func (bs *BookmarkService) waitForPassword(reason string) error {
-	Logger.Debug("waiting for user password input", zap.String("reason", reason), zap.String("pwd", globalUserPassword))
-	if globalUserPassword != "" {
-		return nil
-	}
-	bs.passwordChan = make(chan struct{}, 1)
-	app.Event.Emit(EventInputPassword, reason)
-
-	// 等待密码输入完成，超时60秒
-	select {
-	case <-bs.passwordChan:
-		if globalUserPassword == "" {
-			return errors.New("未输入密码")
-		}
-		app.Event.Emit(EventInputPasswordClose, "")
-		return nil
-	case <-time.After(60 * time.Second):
-		// 超时，关闭channel
-		if bs.passwordChan != nil {
-			close(bs.passwordChan)
-			bs.passwordChan = nil
-		}
-		return errors.New("密码输入超时")
+		db:            db,
+		sshService:    ssh,
+		configService: cs,
 	}
 }
 
@@ -143,14 +97,13 @@ func (bs *BookmarkService) ConnectBookmarkByID(bookmarkID string) (string, error
 
 // encryptField 加密单个字段
 func (bs *BookmarkService) encryptField(value, fieldName string) (string, error) {
-	if globalUserPassword == "" {
-		if err := bs.waitForPassword("需要密码来加密" + fieldName); err != nil {
-			return "", err
-		}
-	}
-	encrypted, err := secret.Encrypt(globalUserPassword, value)
+	password, err := bs.configService.getPasswordWithPrompt("需要密码来加密" + fieldName)
 	if err != nil {
-		return "", fmt.Errorf("加密%s失败: %v", fieldName, err)
+		return "", err
+	}
+	encrypted, err := secret.Encrypt(password, value)
+	if err != nil {
+		return "", fmt.Errorf("failed to encrypt %s: %w", fieldName, err)
 	}
 	return encrypted, nil
 }
@@ -158,7 +111,7 @@ func (bs *BookmarkService) encryptField(value, fieldName string) (string, error)
 // encryptBookmark 对书签中的敏感字段进行加密
 func (bs *BookmarkService) encryptBookmark(bookmark SSHBookmark) (SSHBookmark, error) {
 	if bookmark.PrivateKeyPassword != "" {
-		encrypted, err := bs.encryptField(bookmark.PrivateKeyPassword, "私钥密码")
+		encrypted, err := bs.encryptField(bookmark.PrivateKeyPassword, "private key password")
 		if err != nil {
 			return bookmark, err
 		}
@@ -166,7 +119,7 @@ func (bs *BookmarkService) encryptBookmark(bookmark SSHBookmark) (SSHBookmark, e
 	}
 
 	if bookmark.Password != "" {
-		encrypted, err := bs.encryptField(bookmark.Password, "登录密码")
+		encrypted, err := bs.encryptField(bookmark.Password, "login password")
 		if err != nil {
 			return bookmark, err
 		}
@@ -187,14 +140,13 @@ func (bs *BookmarkService) encryptFieldIfNeeded(newValue, existingValue, fieldNa
 		return existingValue, nil
 	}
 	// 新值，需要加密
-	if globalUserPassword == "" {
-		if err := bs.waitForPassword("需要密码来加密" + fieldName); err != nil {
-			return "", err
-		}
-	}
-	encrypted, err := secret.Encrypt(globalUserPassword, newValue)
+	password, err := bs.configService.getPasswordWithPrompt("需要密码来加密" + fieldName)
 	if err != nil {
-		return "", fmt.Errorf("加密%s失败: %v", fieldName, err)
+		return "", err
+	}
+	encrypted, err := secret.Encrypt(password, newValue)
+	if err != nil {
+		return "", fmt.Errorf("failed to encrypt %s: %w", fieldName, err)
 	}
 	return encrypted, nil
 }
@@ -207,13 +159,13 @@ func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existing
 
 	var err error
 	bookmark.PrivateKeyPassword, err = bs.encryptFieldIfNeeded(
-		bookmark.PrivateKeyPassword, existingBookmark.PrivateKeyPassword, "私钥密码")
+		bookmark.PrivateKeyPassword, existingBookmark.PrivateKeyPassword, "private key password")
 	if err != nil {
 		return bookmark, err
 	}
 
 	bookmark.Password, err = bs.encryptFieldIfNeeded(
-		bookmark.Password, existingBookmark.Password, "登录密码")
+		bookmark.Password, existingBookmark.Password, "login password")
 	if err != nil {
 		return bookmark, err
 	}
@@ -223,19 +175,18 @@ func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existing
 
 // decryptField 解密单个字段，如果失败则清空用户密码
 func (bs *BookmarkService) decryptField(encryptedValue, fieldName string) (string, error) {
-	if globalUserPassword == "" {
-		if err := bs.waitForPassword("需要密码来解密" + fieldName); err != nil {
-			return "", err
-		}
-	}
-	if globalUserPassword == "" {
-		Logger.Debug("user password is still empty after waiting, cannot decrypt", zap.String("field", fieldName), zap.String("pwd", globalUserPassword))
-		return "", errors.New("未输入密码")
-	}
-	decrypted, err := secret.Decrypt(globalUserPassword, encryptedValue)
+	password, err := bs.configService.getPasswordWithPrompt("需要密码来解密" + fieldName)
 	if err != nil {
-		globalUserPassword = ""
-		return "", fmt.Errorf("解密%s失败: %v", fieldName, err)
+		return "", err
+	}
+	if password == "" {
+		Logger.Debug("user password is still empty after waiting, cannot decrypt", zap.String("field", fieldName))
+		return "", errors.New("password not entered")
+	}
+	decrypted, err := secret.Decrypt(password, encryptedValue)
+	if err != nil {
+		bs.configService.SetUserPassword("")
+		return "", fmt.Errorf("failed to decrypt %s: %w", fieldName, err)
 	}
 	return decrypted, nil
 }
@@ -243,7 +194,7 @@ func (bs *BookmarkService) decryptField(encryptedValue, fieldName string) (strin
 // decryptBookmark 对书签中的敏感字段进行解密
 func (bs *BookmarkService) decryptBookmark(bookmark SSHBookmark) (SSHBookmark, error) {
 	if bookmark.PrivateKeyPassword != "" {
-		decrypted, err := bs.decryptField(bookmark.PrivateKeyPassword, "私钥密码")
+		decrypted, err := bs.decryptField(bookmark.PrivateKeyPassword, "private key password")
 		if err != nil {
 			return bookmark, err
 		}
@@ -251,7 +202,7 @@ func (bs *BookmarkService) decryptBookmark(bookmark SSHBookmark) (SSHBookmark, e
 	}
 
 	if bookmark.Password != "" {
-		decrypted, err := bs.decryptField(bookmark.Password, "登录密码")
+		decrypted, err := bs.decryptField(bookmark.Password, "login password")
 		if err != nil {
 			return bookmark, err
 		}

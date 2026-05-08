@@ -43,12 +43,13 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 
 	sshService := NewSSHService()
 	sftpService := NewSftpService()
-	bookmarkService := NewBookmarkService(db, sshService)
+	bookmarkService := NewBookmarkService(db, sshService, configService)
 	sshService.setBookmarkService(bookmarkService)
 	sshTunnelService := NewSSHTunnelService(sshService)
 	commandService := NewCommandService(sshService, db)
 	syncService := NewSyncService(configService)
 	toolService := NewToolService()
+	aiService := NewAIService(configService, sshService)
 
 	ConfigSvc = configService
 	DB = db
@@ -62,6 +63,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	app.RegisterService(application.NewService(commandService))
 	app.RegisterService(application.NewService(syncService))
 	app.RegisterService(application.NewService(toolService))
+	app.RegisterService(application.NewService(aiService))
 
 	wsService := NewWebSocketService(app, sshService)
 	wsService.Start()

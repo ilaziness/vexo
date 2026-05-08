@@ -1,17 +1,36 @@
 package services
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
-	"github.com/ilaziness/vexo/internal/sync"
+	internalsync "github.com/ilaziness/vexo/internal/sync"
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"go.uber.org/zap"
 )
+
+const (
+	EventInputPassword      = "eventInputPassword"
+	EventInputPasswordClose = "eventInputPasswordClose"
+)
+
+// 用户密码，用于加密/解密私钥密码和API Key
+var (
+	globalUserPassword string
+	passwordMutex      sync.RWMutex
+)
+
+func init() {
+	application.RegisterEvent[string](EventInputPassword)
+	application.RegisterEvent[string](EventInputPasswordClose)
+}
 
 var (
 	Mode        = "debug"
@@ -46,9 +65,10 @@ var (
 )
 
 type Config struct {
-	General  GeneralConfig   `toml:"general"`
-	Terminal TerminalConfig  `toml:"terminal"`
-	Sync     sync.SyncConfig `toml:"sync"`
+	General  GeneralConfig           `toml:"general"`
+	Terminal TerminalConfig          `toml:"terminal"`
+	Sync     internalsync.SyncConfig `toml:"sync"`
+	AI       AIConfig                `toml:"ai"`
 }
 
 type GeneralConfig struct {
@@ -73,6 +93,8 @@ type ConfigService struct {
 	appConfig      *AppConfig // 应用配置对象
 	userConfigFile string     // UserDataDir 下的用户配置文件路径
 	appConfigFile  string     // 可执行目录下的应用配置文件路径
+	passwordChan   chan struct{}
+	chanMutex      sync.Mutex // 保护 passwordChan 的并发访问
 }
 
 // GetDefaultConfig 获取默认配置
@@ -271,14 +293,101 @@ func (cs *ConfigService) CheckAndUpdateDBVersion() bool {
 }
 
 // GetSyncConfig 获取同步配置
-func (cs *ConfigService) GetSyncConfig() *sync.SyncConfig {
+func (cs *ConfigService) GetSyncConfig() *internalsync.SyncConfig {
 	return &cs.Config.Sync
 }
 
 // SaveSyncConfig 保存同步配置
-func (cs *ConfigService) SaveSyncConfig(syncConfig sync.SyncConfig) error {
+func (cs *ConfigService) SaveSyncConfig(syncConfig internalsync.SyncConfig) error {
 	cs.Config.Sync = syncConfig
 	Logger.Debug("save sync config", zap.Any("syncConfig", syncConfig))
 	cs.saveToFile()
 	return nil
+}
+
+// SetUserPassword 设置用户密码用于加密/解密
+func (cs *ConfigService) SetUserPassword(password string) {
+	Logger.Debug("set user password")
+
+	// 使用写锁保护全局密码变量
+	passwordMutex.Lock()
+	globalUserPassword = password
+	passwordMutex.Unlock()
+
+	// 使用 chanMutex 保护 channel 操作
+	cs.chanMutex.Lock()
+	if cs.passwordChan != nil {
+		select {
+		case cs.passwordChan <- struct{}{}:
+		default:
+			// channel 已满或已关闭，跳过
+		}
+		cs.passwordChan = nil
+	}
+	cs.chanMutex.Unlock()
+
+	Logger.Debug("user password set successfully")
+}
+
+// waitForPassword 触发事件并等待用户输入密码，超时60秒
+func (cs *ConfigService) waitForPassword(reason string) error {
+	Logger.Debug("waiting for user password input", zap.String("reason", reason))
+
+	// 使用读锁检查密码
+	passwordMutex.RLock()
+	if globalUserPassword != "" {
+		passwordMutex.RUnlock()
+		return nil
+	}
+	passwordMutex.RUnlock()
+
+	// 创建新的 channel
+	cs.chanMutex.Lock()
+	cs.passwordChan = make(chan struct{}, 1)
+	cs.chanMutex.Unlock()
+
+	app.Event.Emit(EventInputPassword, reason)
+
+	// 等待密码输入完成，超时60秒
+	select {
+	case <-cs.passwordChan:
+		// 使用读锁检查密码是否已设置
+		passwordMutex.RLock()
+		pwd := globalUserPassword
+		passwordMutex.RUnlock()
+		if pwd == "" {
+			return errors.New("password not entered")
+		}
+		app.Event.Emit(EventInputPasswordClose, "")
+		return nil
+	case <-time.After(60 * time.Second):
+		// 超时，安全地关闭 channel：先设为 nil 阻止新发送，再关闭
+		cs.chanMutex.Lock()
+		ch := cs.passwordChan
+		cs.passwordChan = nil
+		cs.chanMutex.Unlock()
+		if ch != nil {
+			close(ch)
+		}
+		return errors.New("password input timeout")
+	}
+}
+
+// GetUserPassword 获取当前用户密码
+func (cs *ConfigService) GetUserPassword() string {
+	passwordMutex.RLock()
+	defer passwordMutex.RUnlock()
+	return globalUserPassword
+}
+
+// getPasswordWithPrompt 获取密码，如未设置则提示用户输入
+func (cs *ConfigService) getPasswordWithPrompt(reason string) (string, error) {
+	password := cs.GetUserPassword()
+	if password == "" {
+		if err := cs.waitForPassword(reason); err != nil {
+			return "", err
+		}
+		password = cs.GetUserPassword()
+	}
+	return password, nil
 }

@@ -63,11 +63,17 @@ const CommandHistoryList: React.FC<CommandHistoryProps> = ({
                 secondary={formatTimestamp(item.timestamp)}
                 slotProps={{
                   primary: {
-                    noWrap: true,
-                    fontSize: "0.875rem",
+                    sx: {
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      fontSize: "0.875rem",
+                    }
                   },
                   secondary: {
-                    fontSize: "0.75rem",
+                    sx: {
+                      fontSize: "0.75rem",
+                    }
                   },
                 }}
               />

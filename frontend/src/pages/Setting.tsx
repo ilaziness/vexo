@@ -30,6 +30,7 @@ import {
 } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
 import About from "../components/About";
 import SyncSettings from "../components/SyncSettings";
+import AISettings from "../components/AISettings";
 import Message from "../components/Message.tsx";
 import Loading from "../components/Loading.tsx";
 import { useMessageStore } from "../stores/message.ts";
@@ -38,7 +39,7 @@ import OpBar from "../components/OpBar.tsx";
 
 const Setting: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
-    "general" | "terminal" | "sync" | "about"
+    "general" | "terminal" | "sync" | "ai" | "about"
   >("general");
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
@@ -267,6 +268,25 @@ const Setting: React.FC = () => {
               </ListItem>
               <ListItem disablePadding>
                 <ListItemButton
+                  selected={activeTab === "ai"}
+                  onClick={() => setActiveTab("ai")}
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    "&.Mui-selected": {
+                      backgroundColor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": {
+                        backgroundColor: "primary.dark",
+                      },
+                    },
+                  }}
+                >
+                  <ListItemText primary="AI" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton
                   selected={activeTab === "about"}
                   onClick={() => setActiveTab("about")}
                   sx={{
@@ -422,6 +442,8 @@ const Setting: React.FC = () => {
                   onChange={handleSyncSettingSave}
                 />
               )}
+
+              {activeTab === "ai" && <AISettings />}
 
               {activeTab === "about" && (
                 <Paper sx={{ p: 3 }} elevation={1}>

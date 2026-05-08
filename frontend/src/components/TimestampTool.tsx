@@ -110,7 +110,7 @@ export default function TimestampTool() {
               转换失败: {result.error}
             </Alert>
           )}
-          <Stack direction="row" spacing={2} flexWrap="wrap">
+          <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
             {toTimestamp && result.timestamp !== undefined && (
               <Chip label={`时间戳: ${result.timestamp}`} variant="outlined" />
             )}

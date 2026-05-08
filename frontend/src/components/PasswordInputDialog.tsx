@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Events } from "@wailsio/runtime";
-import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/services/bookmarkservice";
+import * as ConfigService from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 
 const PasswordInputDialog: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ const PasswordInputDialog: React.FC = () => {
 
   const handleClose = () => {
     close();
-    BookmarkService.SetUserPassword("").then(() => {});
+    ConfigService.SetUserPassword("").then(() => {});
   };
 
   const handleSubmit = async () => {
@@ -53,8 +53,8 @@ const PasswordInputDialog: React.FC = () => {
     }
 
     try {
-      // 调用SetUserPassword保存密码，这也会通过channel通知后端
-      await BookmarkService.SetUserPassword(password);
+      // 调用ConfigService.SetUserPassword保存密码
+      await ConfigService.SetUserPassword(password);
       console.log("Password set successfully");
       close();
     } catch (error) {

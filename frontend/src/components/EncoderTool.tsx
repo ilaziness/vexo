@@ -149,9 +149,7 @@ export default function EncoderTool() {
             <Box>
               <Stack
                 direction="row"
-                alignItems="center"
-                justifyContent="space-between"
-                sx={{ mb: 1 }}
+                sx={{ mb: 1, alignItems: "center", justifyContent: "space-between" }}
               >
                 <Typography variant="subtitle2">结果</Typography>
                 <Tooltip title="复制结果">

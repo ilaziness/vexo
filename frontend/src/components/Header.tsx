@@ -256,7 +256,7 @@ export default function Header() {
         borderRight: `1px solid ${theme.palette.divider}`,
       })}
     >
-      <Stack direction="column" spacing={1} alignItems="center" padding={0.5}>
+      <Stack direction="column" spacing={1} sx={{ alignItems: "center", padding: 0.5 }}>
         <Box sx={{ "--wails-draggable": "drag", cursor: "move" }}>
           <img
             src="/appicon.png"

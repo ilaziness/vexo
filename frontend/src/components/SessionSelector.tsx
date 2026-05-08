@@ -31,7 +31,6 @@ const SessionSelector: React.FC<SessionSelectorProps> = ({
           size="small"
           slotProps={{
             input: {
-              ...params.InputProps,
               endAdornment: (
                 <InputAdornment position="end">
                   {onRefresh && (

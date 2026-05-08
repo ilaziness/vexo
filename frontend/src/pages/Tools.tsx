@@ -121,7 +121,7 @@ export default function Tools() {
 
       {/* 内容区域 */}
       <Box sx={{ flex: 1, overflow: "auto", p: 4 }}>
-        <Grid container spacing={3} justifyContent="center">
+        <Grid container spacing={3} sx={{ justifyContent: "center" }}>
           {tools.map((tool) => (
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={tool.id}>
               <ToolCard

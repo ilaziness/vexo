@@ -194,33 +194,42 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         ))}
       </Tabs>
 
+      {/* 终端 + AI 面板区域 */}
       <Box
         sx={{
           height: `calc(100% - ${tabHeight} - ${statusBarHeight})`,
           width: "100%",
-          position: "relative",
+          display: "flex",
+          flexDirection: "row",
+          overflow: "hidden",
         }}
       >
-        {/*ssh sftp*/}
-        {tabItems.map(
-          (item, index) =>
-            (index != sftpIndex || sftpLoaded) && (
-              <Box
-                key={item.label}
-                sx={{
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                  position: "absolute",
-                  top: 0,
-                  left: activeTab === index ? 0 : "-9999rem",
-                }}
-              >
-                {item.component}
-              </Box>
-            ),
-        )}
+        {/* SSH/SFTP 内容区域 */}
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            position: "relative",
+          }}
+        >
+          {tabItems.map(
+            (item, index) =>
+              (index != sftpIndex || sftpLoaded) && (
+                <Box
+                  key={item.label}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    display: activeTab === index ? "block" : "none",
+                  }}
+                >
+                  {item.component}
+                </Box>
+              ),
+          )}
+        </Box>
       </Box>
+
       {/*status bar*/}
       <StatusBar sessionID={linkID} height={statusBarHeight} />
     </Box>

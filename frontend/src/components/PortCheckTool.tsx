@@ -98,7 +98,7 @@ export default function PortCheckTool() {
               端口连接失败: {result.error}
             </Alert>
           )}
-          <Stack direction="row" spacing={2} flexWrap="wrap">
+          <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
             <Chip label={`主机: ${result.host}`} variant="outlined" />
             <Chip label={`端口: ${result.port}`} variant="outlined" />
             {result.success && (

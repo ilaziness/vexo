@@ -10,10 +10,11 @@
 | ---------- | ----------------- | -------- |
 | 后端语言   | Go                | ≥ 1.26   |
 | 桌面框架   | Wails             | v3.x     |
-| 前端 UI 库 | Material UI (MUI) | v7.3.x   |
+| 前端 UI 库 | Material UI (MUI) | v9.0.1   |
 | 前端路由   | React Router      | v7.11.x  |
 | 终端模拟器 | XTerm.js          | v6.x.x   |
 | 构建工具   | Wails CLI + Vite  | 默认集成 |
+| AI框架     | Genkit            | v1    |
 
 ---
 
@@ -74,6 +75,10 @@
 
 - 前端记录日志使用go绑定到前端的`LogService`里面的方法。
 - go里面记录日志使用`LogService`里面的方法。
+
+## 2. AI集成
+
+AI相关功能使用`Genkit`AI开发框架来实现，不是直接调用LLM商的API的方式来做。
 
 ---
 
@@ -172,3 +177,6 @@ go build .
 如果没有相应知识，Context7工具可用的情况下使用Context7查询最新知识
 
 ---
+
+相关文档链接：
+- genkit：https://genkit.dev/docs/go/get-started/

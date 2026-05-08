@@ -2,8 +2,10 @@ import React from "react";
 import { Box, Stack, Tooltip } from "@mui/material";
 import MobiledataOffIcon from "@mui/icons-material/MobiledataOff";
 import AltRouteIcon from "@mui/icons-material/AltRoute";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import TransferList from "./TransferList";
 import SSHTunnel from "./SSHTunnel";
+import { useAICommandStore } from "../stores/aiCommand";
 
 interface StatusBarProps {
   sessionID: string;
@@ -11,6 +13,8 @@ interface StatusBarProps {
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
+  const toggleAIPanel = useAICommandStore((state) => state.togglePanel);
+  const aiPanelOpen = useAICommandStore((state) => state.isOpen);
   const [open, setOpen] = React.useState(false);
   const [sshTunnelOpen, setSshTunnelOpen] = React.useState(false);
 
@@ -26,6 +30,10 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
   };
   const handleSshTunnelClose = () => {
     setSshTunnelOpen(false);
+  };
+
+  const handleAIClick = async () => {
+    await toggleAIPanel();
   };
 
   return (
@@ -44,6 +52,20 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
       }}
     >
       <Stack direction="row" spacing={2}>
+        <Tooltip title={aiPanelOpen ? "关闭 AI 助手" : "打开 AI 助手"}>
+          <AutoAwesomeIcon
+            fontSize="small"
+            onClick={handleAIClick}
+            sx={{
+              color: aiPanelOpen ? "primary.main" : "text.secondary",
+              transition: "color 0.2s",
+              "&:hover": {
+                color: "primary.main",
+                cursor: "pointer",
+              },
+            }}
+          />
+        </Tooltip>
         <Tooltip title="隧道">
           <AltRouteIcon
             fontSize="small"
@@ -85,6 +107,7 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
         statusBarHeight={height}
         onClose={handleClose}
       />
+
     </Box>
   );
 };

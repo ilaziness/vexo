@@ -4,7 +4,7 @@ Vexo 数据同步服务端，用于存储和管理用户数据的多版本备份
 
 ## 功能特性
 
-- **多用户支持**: 每个用户通过 sync_id 隔离数据
+- **多用**户支持: 每个用户通过 sync\_id 隔离数据
 - **多版本管理**: 保留最多 500 个历史版本，支持版本恢复和删除
 - **数据加密**: 客户端加密后传输，服务端仅存储加密数据
 - **频率控制**: 限制每分钟最多同步 1 次，防止滥用
@@ -27,6 +27,7 @@ go build -o sync-backend .
 ```
 
 输出示例：
+
 ```
 User created successfully!
 
@@ -87,19 +88,19 @@ name = "vexo_sync"
 
 ### 配置项说明
 
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `server.host` | "0.0.0.0" | HTTP 服务监听地址 |
-| `server.port` | 8080 | HTTP 服务监听端口 |
-| `data.data_dir` | "./data/files" | 数据文件存储目录 |
-| `data.max_versions` | 500 | 每个用户最大版本数 |
-| `data.database.type` | "sqlite" | 数据库类型: sqlite 或 mysql |
-| `data.database.db_path` | "./data/sync.db" | SQLite 数据库路径（SQLite 使用） |
-| `data.database.host` | "localhost" | MySQL 主机（MySQL 使用） |
-| `data.database.port` | 3306 | MySQL 端口（MySQL 使用） |
-| `data.database.user` | "" | MySQL 用户名（MySQL 使用） |
-| `data.database.password` | "" | MySQL 密码（MySQL 使用） |
-| `data.database.name` | "" | MySQL 数据库名（MySQL 使用） |
+| 配置项                      | 默认值              | 说明                      |
+| ------------------------ | ---------------- | ----------------------- |
+| `server.host`            | "0.0.0.0"        | HTTP 服务监听地址             |
+| `server.port`            | 8080             | HTTP 服务监听端口             |
+| `data.data_dir`          | "./data/files"   | 数据文件存储目录                |
+| `data.max_versions`      | 500              | 每个用户最大版本数               |
+| `data.database.type`     | "sqlite"         | 数据库类型: sqlite 或 mysql   |
+| `data.database.db_path`  | "./data/sync.db" | SQLite 数据库路径（SQLite 使用） |
+| `data.database.host`     | "localhost"      | MySQL 主机（MySQL 使用）      |
+| `data.database.port`     | 3306             | MySQL 端口（MySQL 使用）      |
+| `data.database.user`     | ""               | MySQL 用户名（MySQL 使用）     |
+| `data.database.password` | ""               | MySQL 密码（MySQL 使用）      |
+| `data.database.name`     | ""               | MySQL 数据库名（MySQL 使用）    |
 
 ## API 接口
 
@@ -115,11 +116,13 @@ X-User-Key: <user_key>
 ### 接口列表
 
 #### 健康检查
+
 ```
 GET /health
 ```
 
 响应：
+
 ```json
 {
   "status": "ok"
@@ -127,6 +130,7 @@ GET /health
 ```
 
 #### 上传数据
+
 ```
 POST /upload
 Headers:
@@ -137,6 +141,7 @@ Body: <加密后的数据流>
 ```
 
 响应：
+
 ```json
 {
   "version_number": 1,
@@ -146,6 +151,7 @@ Body: <加密后的数据流>
 ```
 
 #### 下载数据
+
 ```
 GET /download?version=<version_number>
 Headers:
@@ -156,9 +162,11 @@ Headers:
 响应：数据流
 
 Headers:
+
 - `X-Version-Number`: 版本号
 
 #### 获取版本列表
+
 ```
 GET /versions?limit=<limit>&offset=<offset>
 Headers:
@@ -167,10 +175,12 @@ Headers:
 ```
 
 参数：
+
 - `limit`: 返回数量限制（0 表示不分页，返回全部）
 - `offset`: 偏移量，用于分页
 
 响应：
+
 ```json
 {
   "versions": [
@@ -191,6 +201,7 @@ Headers:
 ```
 
 #### 删除版本
+
 ```
 DELETE /versions?version=<version_number>
 Headers:
@@ -199,6 +210,7 @@ Headers:
 ```
 
 响应：
+
 ```json
 {
   "message": "version deleted successfully"
@@ -289,6 +301,7 @@ docker run -d -p 8080:8080 -v $(pwd)/data:/root/data vexo-sync
 ## 数据备份
 
 服务端数据包括：
+
 - **SQLite**: 数据库文件 `data/sync.db`
 - **MySQL**: 数据库内容由 MySQL 管理
 - **数据文件目录**: `data/files/`（所有版本数据）
@@ -323,3 +336,4 @@ journalctl -u vexo-sync -f
 1. **上传失败**: 检查 `client_max_body_size` 是否足够大
 2. **磁盘空间不足**: 清理旧版本或扩展存储
 3. **数据库锁定**: 确保只有一个服务实例访问数据库
+

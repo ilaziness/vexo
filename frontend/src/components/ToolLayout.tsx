@@ -94,8 +94,9 @@ export default function ToolLayout({ children }: ToolLayoutProps) {
                       primary={tool.name}
                       slotProps={{
                         primary: {
-                          variant: "body2",
-                          fontWeight: isActive ? "bold" : "normal",
+                          sx: {
+                            fontWeight: isActive ? "bold" : "normal",
+                          }
                         },
                       }}
                     />
