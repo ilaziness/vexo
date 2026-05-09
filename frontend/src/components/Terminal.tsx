@@ -22,7 +22,7 @@ import {
 import useTerminalStore from "../stores/terminal";
 import Loading from "./Loading";
 import TerminalContextMenu from "./TerminalContextMenu";
-import TerminalAICommandPanel from "./TerminalAICommandPanel";
+import TerminalAICommandPanel from "./ai/TerminalAICommandPanel";
 import AIConfigDialog from "./AIConfigDialog";
 import { terminalInstances } from "../stores/terminalInstances";
 import { sleep } from "../func/service";
@@ -62,7 +62,6 @@ function Terminal(props: { readonly linkID: string }) {
     (state) => state.setConnectionStatus,
   );
   const aiPanelOpen = useAICommandStore((state) => state.isOpen);
-  const closeAIPanel = useAICommandStore((state) => state.closePanel);
   const showConfigDialog = useAICommandStore((state) => state.showConfigDialog);
   const closeConfigDialog = useAICommandStore((state) => state.closeConfigDialog);
 
@@ -283,12 +282,9 @@ function Terminal(props: { readonly linkID: string }) {
         open={showConfigDialog}
         onClose={closeConfigDialog}
       />
-      {aiPanelOpen && (
-        <TerminalAICommandPanel
-          sessionID={props.linkID}
-          onClose={closeAIPanel}
-        />
-      )}
+      <TerminalAICommandPanel
+        sessionID={props.linkID}
+      />
       {isInitializing && (
         <Box
           sx={{

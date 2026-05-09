@@ -59,10 +59,11 @@ type Config struct {
 // CommandGenerateRequest 命令生成请求
 type CommandGenerateRequest struct {
 	Input            string   `json:"input"`
-	CurrentDirectory string   `json:"current_directory"`
-	OSInfo           string   `json:"os_info"`
-	UserLevel        string   `json:"user_level"`
-	RecentCommands   []string `json:"recent_commands"`
+	SessionID        string   `json:"session_id"` // SSH会话ID，用于自动获取上下文
+	CurrentDirectory string   `json:"current_directory,omitempty"`
+	OSInfo           string   `json:"os_info,omitempty"`
+	UserLevel        string   `json:"user_level,omitempty"`
+	RecentCommands   []string `json:"recent_commands,omitempty"`
 }
 
 // CommandGenerateResponse 命令生成响应
@@ -77,9 +78,11 @@ type CommandGenerateResponse struct {
 // CommandExplainRequest 命令解释请求
 type CommandExplainRequest struct {
 	Command          string `json:"command"`
-	CurrentDirectory string `json:"current_directory"`
-	OSInfo           string `json:"os_info"`
-	UserLevel        string `json:"user_level"`
+	SessionID        string `json:"session_id"` // SSH会话ID，用于自动获取上下文
+	CurrentDirectory string `json:"current_directory,omitempty"`
+	OSInfo           string `json:"os_info,omitempty"`
+	UserLevel        string `json:"user_level,omitempty"`
+	AdditionalInfo   string `json:"additional_info,omitempty"`
 }
 
 // CommandExplainResponse 命令解释响应

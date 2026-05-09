@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/ilaziness/vexo/internal/ai"
 	"github.com/ilaziness/vexo/internal/secret"
@@ -35,6 +36,8 @@ type AIService struct {
 	configService *ConfigService
 	sshService    *SSHService
 	engine        *ai.AIEngine
+	contextCache  map[string]*SessionContext
+	contextMutex  sync.RWMutex
 }
 
 // NewAIService 创建 AI 服务实例
@@ -45,6 +48,7 @@ func NewAIService(configService *ConfigService, sshService *SSHService) *AIServi
 	s := &AIService{
 		configService: configService,
 		sshService:    sshService,
+		contextCache:  make(map[string]*SessionContext),
 	}
 
 	// 初始化时加载配置，仅在启用 AI 时创建引擎
@@ -147,6 +151,27 @@ func (s *AIService) GenerateCommand(req ai.CommandGenerateRequest) (*ai.CommandG
 	if s.engine == nil {
 		return nil, fmt.Errorf("AI engine not initialized")
 	}
+
+	// 如果请求中没有上下文信息且有 sessionID，自动获取并缓存
+	if req.SessionID != "" && (req.CurrentDirectory == "" || req.OSInfo == "") {
+		ctx, err := s.getSessionContext(req.SessionID)
+		if err == nil && ctx != nil {
+			// 填充缺失的上下文信息
+			if req.CurrentDirectory == "" {
+				req.CurrentDirectory = ctx.CurrentDirectory
+			}
+			if req.OSInfo == "" {
+				req.OSInfo = ctx.OSInfo
+			}
+			if req.UserLevel == "" {
+				req.UserLevel = ctx.UserLevel
+			}
+			if len(req.RecentCommands) == 0 && len(ctx.RecentCommands) > 0 {
+				req.RecentCommands = ctx.RecentCommands
+			}
+		}
+	}
+
 	return s.engine.GenerateCommand(context.Background(), &req)
 }
 
@@ -155,6 +180,24 @@ func (s *AIService) ExplainCommand(req ai.CommandExplainRequest) (*ai.CommandExp
 	if s.engine == nil {
 		return nil, fmt.Errorf("AI engine not initialized")
 	}
+
+	// 如果请求中没有上下文信息且有 sessionID，自动获取并缓存
+	if req.SessionID != "" && (req.CurrentDirectory == "" || req.OSInfo == "") {
+		ctx, err := s.getSessionContext(req.SessionID)
+		if err == nil && ctx != nil {
+			// 填充缺失的上下文信息
+			if req.CurrentDirectory == "" {
+				req.CurrentDirectory = ctx.CurrentDirectory
+			}
+			if req.OSInfo == "" {
+				req.OSInfo = ctx.OSInfo
+			}
+			if req.UserLevel == "" {
+				req.UserLevel = ctx.UserLevel
+			}
+		}
+	}
+
 	return s.engine.ExplainCommand(context.Background(), &req)
 }
 
@@ -252,8 +295,16 @@ type SessionContext struct {
 	RecentCommands   []string `json:"recent_commands"`   // 最近执行的命令
 }
 
-// GetSessionContext 获取指定SSH会话的上下文信息
-func (s *AIService) GetSessionContext(sessionID string) (*SessionContext, error) {
+// getSessionContext 获取指定SSH会话的上下文信息（私有方法，带缓存）
+func (s *AIService) getSessionContext(sessionID string) (*SessionContext, error) {
+	// 先检查缓存
+	s.contextMutex.RLock()
+	if ctx, ok := s.contextCache[sessionID]; ok {
+		s.contextMutex.RUnlock()
+		return ctx, nil
+	}
+	s.contextMutex.RUnlock()
+
 	if s.sshService == nil {
 		return nil, fmt.Errorf("ssh service not initialized")
 	}
@@ -296,7 +347,19 @@ func (s *AIService) GetSessionContext(sessionID string) (*SessionContext, error)
 		}
 	}
 
+	// 缓存结果
+	s.contextMutex.Lock()
+	s.contextCache[sessionID] = ctx
+	s.contextMutex.Unlock()
+
 	return ctx, nil
+}
+
+// clearSessionContext 清除指定会话的缓存
+func (s *AIService) clearSessionContext(sessionID string) {
+	s.contextMutex.Lock()
+	delete(s.contextCache, sessionID)
+	s.contextMutex.Unlock()
 }
 
 // executeCommand 在SSH会话中执行命令并返回输出

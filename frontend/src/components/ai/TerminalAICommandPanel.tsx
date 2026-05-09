@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect } from "react";
+import { useMessageStore } from "../../stores/message";
 import {
   Box,
   Typography,
   TextField,
   IconButton,
-  Paper,
   Alert,
   Chip,
   Tooltip,
   CircularProgress,
-  Fade,
+  Slide,
   InputAdornment,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
@@ -20,22 +20,22 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import EditIcon from "@mui/icons-material/Edit";
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import WarningIcon from "@mui/icons-material/Warning";
-import { useAICommandStore, AIMessage } from "../stores/aiCommand";
+import { useAICommandStore, AIMessage } from "../../stores/aiCommand";
 
 interface TerminalAICommandPanelProps {
   sessionID: string;
-  onClose: () => void;
 }
 
 export default function TerminalAICommandPanel({
   sessionID,
-  onClose,
 }: TerminalAICommandPanelProps) {
-  const [input, setInput] = useState("");
   const [editingCommand, setEditingCommand] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const {
+    input,
     messages,
     isLoading,
     error,
@@ -44,17 +44,38 @@ export default function TerminalAICommandPanel({
     copyToClipboard,
     clearHistory,
     resetError,
+    setInput,
+    isOpen,
+    closePanel,
   } = useAICommandStore();
+
+  const { successMessage } = useMessageStore();
 
   // 滚动到最新消息
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // 初始化时检查 AI 服务状态
+  useEffect(() => {
+    const initialize = async () => {
+      setIsInitializing(true);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setIsInitializing(false);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    };
+    initialize();
+  }, []);
+
   // 发送消息
   const handleSend = async () => {
     if (!input.trim()) return;
-    await generateCommand(sessionID);
+    const success = await generateCommand(sessionID);
+    if (success) {
+      successMessage("命令生成成功");
+    }
     setInput("");
   };
 
@@ -67,13 +88,15 @@ export default function TerminalAICommandPanel({
   };
 
   // 运行命令
-  const handleRun = (command: string) => {
-    sendToTerminal(command, [sessionID]);
+  const handleRun = async (command: string) => {
+    await sendToTerminal(command, [sessionID]);
+    successMessage("命令已发送到终端执行");
   };
 
   // 复制命令
   const handleCopy = async (command: string) => {
     await copyToClipboard(command);
+    successMessage("已复制到剪贴板");
   };
 
   // 编辑命令
@@ -106,6 +129,7 @@ export default function TerminalAICommandPanel({
   // 渲染消息
   const renderMessage = (message: AIMessage) => {
     const isUser = message.role === "user";
+    const commandData = message.customData?.command;
 
     return (
       <Box
@@ -153,19 +177,19 @@ export default function TerminalAICommandPanel({
           </Typography>
 
           {/* 命令展示和操作按钮 */}
-          {message.command && (
+          {commandData && (
             <Box sx={{ mt: 1 }}>
-              <Paper
-                variant="outlined"
+              <Box
                 sx={{
                   p: 1,
                   bgcolor: "background.default",
                   fontFamily: "monospace",
                   fontSize: "0.875rem",
                   position: "relative",
+                  borderRadius: 1,
                 }}
               >
-                {editingCommand === message.command.command ? (
+                {editingCommand === commandData.command ? (
                   <TextField
                     fullWidth
                     size="small"
@@ -181,7 +205,7 @@ export default function TerminalAICommandPanel({
                     variant="body2"
                     sx={{ fontFamily: "monospace", pr: 8 }}
                   >
-                    $ {message.command.command}
+                    $ {commandData.command}
                   </Typography>
                 )}
 
@@ -197,7 +221,7 @@ export default function TerminalAICommandPanel({
                   <Tooltip title="复制">
                     <IconButton
                       size="small"
-                      onClick={() => handleCopy(message.command!.command)}
+                      onClick={() => handleCopy(commandData.command)}
                     >
                       <ContentCopyIcon fontSize="small" />
                     </IconButton>
@@ -206,7 +230,7 @@ export default function TerminalAICommandPanel({
                     <IconButton
                       size="small"
                       color="primary"
-                      onClick={() => handleRun(message.command!.command)}
+                      onClick={() => handleRun(commandData.command)}
                     >
                       <PlayArrowIcon fontSize="small" />
                     </IconButton>
@@ -214,43 +238,43 @@ export default function TerminalAICommandPanel({
                   <Tooltip title="编辑">
                     <IconButton
                       size="small"
-                      onClick={() => handleEdit(message.command!.command)}
+                      onClick={() => handleEdit(commandData.command)}
                     >
                       <EditIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                 </Box>
-              </Paper>
+              </Box>
 
               {/* 安全警告 */}
-              {message.command.safety_warning && (
+              {commandData.safety_warning && (
                 <Alert
                   severity={getWarningColor(
-                    message.command.safety_warning.level
+                    commandData.safety_warning.level
                   )}
                   icon={<WarningIcon />}
                   sx={{ mt: 1 }}
                 >
                   <Typography variant="caption" sx={{ fontWeight: "bold" }}>
-                    {message.command.safety_warning.message}
+                    {commandData.safety_warning.message}
                   </Typography>
                   <Typography variant="caption" sx={{ display: "block" }}>
-                    {message.command.safety_warning.risk_detail}
+                    {commandData.safety_warning.risk_detail}
                   </Typography>
                   <Typography variant="caption" sx={{ display: "block" }}>
-                    建议: {message.command.safety_warning.suggestion}
+                    建议: {commandData.safety_warning.suggestion}
                   </Typography>
                 </Alert>
               )}
 
               {/* 替代方案 */}
-              {message.command.alternatives &&
-                message.command.alternatives.length > 0 && (
+              {commandData.alternatives &&
+                commandData.alternatives.length > 0 && (
                   <Box sx={{ mt: 1 }}>
                     <Typography variant="caption" color="text.secondary">
                       替代方案:
                     </Typography>
-                    {message.command.alternatives.map((alt, index) => (
+                    {commandData.alternatives.map((alt, index) => (
                       <Chip
                         key={index}
                         label={alt}
@@ -269,7 +293,7 @@ export default function TerminalAICommandPanel({
   };
 
   return (
-    <Fade in>
+    <Slide direction="left" in={isOpen} timeout={300}>
       <Box
         sx={{
           width: "40%",
@@ -303,7 +327,7 @@ export default function TerminalAICommandPanel({
               </IconButton>
             </Tooltip>
             <Tooltip title="关闭">
-            <IconButton onClick={onClose}>
+            <IconButton onClick={closePanel}>
               <CloseIcon />
             </IconButton>
             </Tooltip>
@@ -317,8 +341,20 @@ export default function TerminalAICommandPanel({
           </Alert>
         )}
 
+        {/* 初始化加载状态 */}
+        {isInitializing && (
+          <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Box sx={{ textAlign: "center" }}>
+              <CircularProgress sx={{ mb: 2 }} />
+              <Typography variant="body2" color="text.secondary">
+                正在初始化 AI 助手...
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
         {/* 消息区域 */}
-        <Box sx={{ flex: 1, overflow: "auto", p: 2 }}>
+        <Box sx={{ flex: 1, overflow: "auto", p: 2 }} style={{ display: isInitializing ? 'none' : 'block' }}>
           {messages.length === 0 && (
             <Box sx={{ textAlign: "center", py: 4, color: "text.secondary" }}>
               <AutoAwesomeIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
@@ -363,14 +399,14 @@ export default function TerminalAICommandPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isLoading}
+            disabled={isLoading || isInitializing}
             slotProps={{
               input: {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
                       onClick={handleSend}
-                      disabled={!input.trim() || isLoading}
+                      disabled={!input.trim() || isLoading || isInitializing}
                       color="primary"
                     >
                       <SendIcon />
@@ -382,6 +418,6 @@ export default function TerminalAICommandPanel({
           />
         </Box>
       </Box>
-    </Fade>
+    </Slide>
   );
 }

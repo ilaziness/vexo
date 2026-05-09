@@ -42,9 +42,6 @@ var (
 	GitInfo   = "2026-02-06 14:53:25 4cc46033541fe7927208fedf8edea6bf3efafce7"
 	BuildTime = "2026-02-06 07:02:20 AM"
 
-	// CurrentDBVersion 当前数据库版本号
-	CurrentDBVersion = 2
-
 	defaultFontFamily = []string{
 		"'Noto Sans Mono'",
 		"'ui-monospace'",
@@ -84,8 +81,7 @@ type TerminalConfig struct {
 
 // AppConfig 应用配置
 type AppConfig struct {
-	General   GeneralConfig `toml:"general"`
-	DBVersion int           `toml:"db_version,omitempty"`
+	General GeneralConfig `toml:"general"`
 }
 
 type ConfigService struct {
@@ -273,23 +269,6 @@ func (cs *ConfigService) UpdateAppConfig() error {
 	} else {
 		return os.WriteFile(cs.appConfigFile, data, 0644)
 	}
-}
-
-// CheckAndUpdateDBVersion 检查是否需要更新数据库版本
-// 返回 true 表示需要执行数据库初始化（版本号不匹配或首次），false 表示跳过
-func (cs *ConfigService) CheckAndUpdateDBVersion() bool {
-	// 判断是否需要初始化
-	needInit := cs.appConfig.DBVersion < CurrentDBVersion || cs.appConfig.DBVersion == 0
-
-	// 如果需要初始化，更新配置对象和文件中的版本号
-	if needInit {
-		cs.appConfig.DBVersion = CurrentDBVersion
-		if err := cs.UpdateAppConfig(); err != nil {
-			Logger.Error("update app config db version failed", zap.Error(err))
-		}
-	}
-
-	return needInit
 }
 
 // GetSyncConfig 获取同步配置

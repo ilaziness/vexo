@@ -19,8 +19,10 @@ export interface AIMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  command?: CommandGenerateResponse;
   timestamp: number;
+  customData?: {
+    command?: CommandGenerateResponse;
+  };
 }
 
 interface AICommandState {
@@ -128,33 +130,9 @@ export const useAICommandStore = create<AICommandState>((set, get) => ({
     set((state) => ({ messages: [...state.messages, userMessage] }));
 
     try {
-      // 收集上下文信息
-      let currentDirectory = "";
-      let osInfo = "";
-      let userLevel = "intermediate";
-      let recentCommands: string[] = [];
-
-      if (sessionID) {
-        try {
-          const context = await AIService.GetSessionContext(sessionID);
-          if (context) {
-            currentDirectory = context.current_directory || "";
-            osInfo = context.os_info || "";
-            userLevel = context.user_level || "intermediate";
-            recentCommands = context.recent_commands || [];
-          }
-        } catch (ctxErr) {
-          console.warn("Failed to get session context:", ctxErr);
-          // 上下文获取失败不影响主流程，使用默认值
-        }
-      }
-
       const request: CommandGenerateRequest = {
         input: input,
-        current_directory: currentDirectory,
-        os_info: osInfo,
-        user_level: userLevel,
-        recent_commands: recentCommands,
+        session_id: sessionID || "",
       };
 
       const result = await AIService.GenerateCommand(request);
@@ -167,8 +145,10 @@ export const useAICommandStore = create<AICommandState>((set, get) => ({
         id: generateId(),
         role: "assistant",
         content: result.explanation,
-        command: result,
         timestamp: Date.now(),
+        customData: {
+          command: result,
+        },
       };
 
       set((state) => ({
@@ -209,30 +189,9 @@ export const useAICommandStore = create<AICommandState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // 收集上下文信息
-      let currentDirectory = "";
-      let osInfo = "";
-      let userLevel = "intermediate";
-
-      if (sessionID) {
-        try {
-          const context = await AIService.GetSessionContext(sessionID);
-          if (context) {
-            currentDirectory = context.current_directory || "";
-            osInfo = context.os_info || "";
-            userLevel = context.user_level || "intermediate";
-          }
-        } catch (ctxErr) {
-          console.warn("Failed to get session context:", ctxErr);
-          // 上下文获取失败不影响主流程，使用默认值
-        }
-      }
-
       const request: CommandExplainRequest = {
         command: command,
-        current_directory: currentDirectory,
-        os_info: osInfo,
-        user_level: userLevel,
+        session_id: sessionID || "",
       };
 
       const result = await AIService.ExplainCommand(request);

@@ -35,8 +35,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 
 	database.Logger = Logger
 	db := database.NewDatabase(configService.Config.General.UserDataDir)
-	skipCreateTables := !configService.CheckAndUpdateDBVersion()
-	if err := db.Initialize(skipCreateTables); err != nil {
+	if err := db.Initialize(); err != nil {
 		Logger.Error("init db failed", zap.Error(err))
 		return
 	}
