@@ -48,7 +48,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow)
 	commandService := NewCommandService(sshService, db)
 	syncService := NewSyncService(configService)
 	toolService := NewToolService()
-	aiService := NewAIService(configService, sshService)
+	aiService := NewAIService(configService, sshService, db)
 
 	ConfigSvc = configService
 	DB = db

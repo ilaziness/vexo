@@ -130,6 +130,20 @@ try {
 - 主题：使用 `createTheme` 定制深色/浅色模式。
 - 组件：优先使用 MUI 官方组件（如 `Tabs`, `Drawer`, `TextField`, `Button`）。
 
+### 4.4 TypeScript 类型定义规范
+
+- **枚举类型**：对于有限的选项集合（如视图模式、消息角色、状态等），必须使用 `enum` 定义，不要使用联合类型字符串穷举。
+  - ❌ 错误：`view: 'chat' | 'history'`
+  - ✅ 正确：
+    ```typescript
+    enum AIAssistantView {
+      Chat = 'chat',
+      History = 'history',
+    }
+    view: AIAssistantView;
+    ```
+- **类型定义位置**：共享的 TypeScript 类型定义放在 `frontend/src/types` 目录下，组件内部专用的类型可定义在组件文件中。
+
 ---
 
 ## 5. 安全与最佳实践
@@ -178,5 +192,7 @@ go build .
 
 ---
 
-相关文档链接：
-- genkit：https://genkit.dev/docs/go/get-started/
+## 8. 相关文档
+
+- genkit doc：[guid doc](https://genkit.dev/docs/go/get-started)
+- genkit api参考：[api ref](https://pkg.go.dev/github.com/firebase/genkit/go)

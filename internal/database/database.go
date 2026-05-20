@@ -20,6 +20,7 @@ type Database struct {
 	BookmarkRepo       *BookmarkRepository
 	UserCommandRepo    *UserCommandRepository
 	CommandHistoryRepo *CommandHistoryRepository
+	AISessionRepo      AISessionRepository
 }
 
 // NewDatabase 创建数据库实例
@@ -56,6 +57,7 @@ func (d *Database) Initialize() error {
 	d.BookmarkRepo = NewBookmarkRepository(d.db)
 	d.UserCommandRepo = NewUserCommandRepository(d.db)
 	d.CommandHistoryRepo = NewCommandHistoryRepository(d.db)
+	d.AISessionRepo = NewSQLiteAISessionRepository(d.db)
 
 	return nil
 }

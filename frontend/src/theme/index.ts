@@ -1,4 +1,5 @@
 import { createColorScheme, createTheme } from "@mui/material/styles";
+import type {} from "@mui/x-chat/themeAugmentation";
 import light from "./light";
 import blueDark from "./blueDark";
 import atom from "./atom";

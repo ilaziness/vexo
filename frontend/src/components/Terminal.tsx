@@ -22,12 +22,9 @@ import {
 import useTerminalStore from "../stores/terminal";
 import Loading from "./Loading";
 import TerminalContextMenu from "./TerminalContextMenu";
-import TerminalAICommandPanel from "./ai/TerminalAICommandPanel";
-import AIConfigDialog from "./AIConfigDialog";
 import { terminalInstances } from "../stores/terminalInstances";
 import { sleep } from "../func/service";
 import { useSSHTabsStore } from "../stores/ssh";
-import { useAICommandStore } from "../stores/aiCommand";
 
 const isWebgl2Supported = (() => {
   let isSupported = globalThis.WebGL2RenderingContext ? undefined : false;
@@ -61,9 +58,6 @@ function Terminal(props: { readonly linkID: string }) {
   const setConnectionStatus = useSSHTabsStore(
     (state) => state.setConnectionStatus,
   );
-  const aiPanelOpen = useAICommandStore((state) => state.isOpen);
-  const showConfigDialog = useAICommandStore((state) => state.showConfigDialog);
-  const closeConfigDialog = useAICommandStore((state) => state.closeConfigDialog);
 
   const handleContextMenu = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -266,24 +260,16 @@ function Terminal(props: { readonly linkID: string }) {
         className={styles.terminalWrapper}
         onContextMenu={handleContextMenu}
         sx={{
-          flex: aiPanelOpen ? "0 0 60%" : 1,
+          flex: 1,
           width: "100%",
           height: "100%",
           backgroundColor: "var(--term-bg)",
-          transition: "flex 0.3s ease",
         }}
       />
       <TerminalContextMenu
         contextMenu={contextMenu}
         onClose={handleClose}
         linkID={props.linkID}
-      />
-      <AIConfigDialog
-        open={showConfigDialog}
-        onClose={closeConfigDialog}
-      />
-      <TerminalAICommandPanel
-        sessionID={props.linkID}
       />
       {isInitializing && (
         <Box

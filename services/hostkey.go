@@ -51,6 +51,7 @@ func (s *SSHService) appendKnownHost(path, host, keyType, keyBase64 string) erro
 	defer s.hostKeyMu.Unlock()
 	f, err := os.Open(path)
 	if err == nil {
+		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -59,11 +60,12 @@ func (s *SSHService) appendKnownHost(path, host, keyType, keyBase64 string) erro
 			}
 			tokens := strings.Fields(line)
 			if len(tokens) >= 3 && tokens[0] == host && tokens[1] == keyType && tokens[2] == keyBase64 {
-				f.Close()
 				return nil
 			}
 		}
-		f.Close()
+		if err := scanner.Err(); err != nil {
+			return err
+		}
 	}
 	f2, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {

@@ -18,6 +18,7 @@ type Migration struct {
 var migrations = []Migration{
 	{Version: 1, Name: "init schema", Up: migrateInitSchema},
 	{Version: 2, Name: "add proxy_jump_id", Up: migrateAddProxyJumpID},
+	{Version: 3, Name: "add ai sessions", Up: migrateAddAISessions},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -103,6 +104,48 @@ func migrateAddProxyJumpID(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("check column proxy_jump_id failed: %w", err)
 	}
+	return nil
+}
+
+// migrateAddAISessions 添加 AI 会话和消息表（幂等）
+func migrateAddAISessions(db *sql.DB) error {
+	createSessionsTable := `
+	CREATE TABLE IF NOT EXISTS ai_sessions (
+		id TEXT PRIMARY KEY,
+		title TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL
+	);`
+
+	createMessagesTable := `
+	CREATE TABLE IF NOT EXISTS ai_messages (
+		id TEXT PRIMARY KEY,
+		session_id TEXT NOT NULL,
+		role TEXT NOT NULL,
+		content TEXT NOT NULL,
+		parts TEXT DEFAULT '',
+		timestamp INTEGER NOT NULL,
+		FOREIGN KEY (session_id) REFERENCES ai_sessions(id) ON DELETE CASCADE
+	);`
+
+	createIndexes := `
+	CREATE INDEX IF NOT EXISTS idx_ai_messages_session_id ON ai_messages(session_id);
+	CREATE INDEX IF NOT EXISTS idx_ai_sessions_updated_at ON ai_sessions(updated_at DESC);
+	`
+
+	sqls := []string{
+		createSessionsTable,
+		createMessagesTable,
+		createIndexes,
+	}
+
+	for _, sql := range sqls {
+		if _, err := db.Exec(sql); err != nil {
+			return fmt.Errorf("exec sql failed: %w", err)
+		}
+	}
+
+	Logger.Debug("migration: added ai_sessions and ai_messages tables")
 	return nil
 }
 

@@ -2,18 +2,20 @@ import { Box, Menu, MenuItem } from "@mui/material";
 import React, { useRef, useCallback } from "react";
 import SSHTabBody from "./SSHTabBody.tsx";
 import { Events } from "@wailsio/runtime";
-import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh.ts";
+import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 import { useTransferStore } from "../stores/transfer.ts";
+import { useAIAssistantStore } from "../stores/aiAssistant";
 import OpBar from "./OpBar.tsx";
 import { DraggableTab } from "./DraggableTab.tsx";
-import { useSSHContextMenu } from "../hooks/useSSHContextMenu.ts";
-import { genTabIndex } from "../func/service.ts";
-import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models.ts";
+import { useSSHContextMenu } from "../hooks/useSSHContextMenu";
+import { genTabIndex } from "../func/service";
+import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import {
   LogService,
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
+import AISideBar from "./ai/AISideBar";
 
 interface SSHTabsProps {
   onClose?: () => void;
@@ -34,6 +36,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
   const { anchorEl, tabIndex, isOpen, openMenu, closeMenu } =
     useSSHContextMenu();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sidebarOpen = useAIAssistantStore((state) => state.sidebarOpen);
 
   React.useEffect(() => {
     const unsubscribeProgress = Events.On("eventProgress", (event: any) => {
@@ -132,6 +135,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
         flex: 1,
       }}
     >
+      {/* tabs */}
       <Box
         sx={{
           borderBottom: 1,
@@ -201,6 +205,8 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
           <MenuItem onClick={handleRefreshTab}>刷新</MenuItem>
         </Menu>
       </Box>
+
+      {/* content */}
       <Box
         sx={{
           width: "100%",
@@ -208,22 +214,31 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
           position: "relative",
         }}
       >
-        {sshTabs.map((item) => (
-          <Box
-            role="tabpanel"
-            key={item.index}
-            sx={{
-              display: "flex",
-              width: "100%",
-              height: "100%",
-              position: "absolute",
-              top: 0,
-              left: currentTab === item.index ? 0 : "-9999rem",
-            }}
-          >
-            <SSHTabBody tabIndex={item.index} />
-          </Box>
-        ))}
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            position: "relative",
+          }}
+        >
+          {sshTabs.map((item) => (
+            <Box
+              role="tabpanel"
+              key={item.index}
+              sx={{
+                display: "flex",
+                width: "100%",
+                height: "100%",
+                position: "absolute",
+                top: 0,
+                left: currentTab === item.index ? 0 : "-9999rem",
+              }}
+            >
+              <SSHTabBody tabIndex={item.index} />
+            </Box>
+          ))}
+        </Box>
+        {sidebarOpen && <AISideBar />}
       </Box>
     </Box>
   );

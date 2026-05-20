@@ -2,27 +2,30 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/ilaziness/vexo/internal/ai"
+	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/secret"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh"
 )
+
+// AI 流式事件
+const EventAIStreamChunk = "eventAIStreamChunk"
 
 // AIConfig AI 配置结构体 - 用于配置文件持久化
 type AIConfig struct {
-	Enabled          bool    `json:"enabled" toml:"enabled"`
-	Provider         string  `json:"provider" toml:"provider"`
-	Model            string  `json:"model" toml:"model"`
-	APIKey           string  `json:"api_key,omitempty" toml:"api_key,omitempty"`
-	APIKeyEncrypted  string  `json:"api_key_encrypted,omitempty" toml:"api_key_encrypted,omitempty"`
-	Endpoint         string  `json:"endpoint" toml:"endpoint"` // 自定义端点（Ollama/OpenAI-compatible等）
-	Temperature      float64 `json:"temperature" toml:"temperature"`
-	MaxTokens        int     `json:"max_tokens" toml:"max_tokens"`
-	SafetyCheckLevel string  `json:"safety_check_level" toml:"safety_check_level"`
+	Enabled         bool    `json:"enabled" toml:"enabled"`
+	Provider        string  `json:"provider" toml:"provider"`
+	Model           string  `json:"model" toml:"model"`
+	APIKey          string  `json:"api_key,omitempty" toml:"api_key,omitempty"`
+	APIKeyEncrypted string  `json:"api_key_encrypted,omitempty" toml:"api_key_encrypted,omitempty"`
+	Endpoint        string  `json:"endpoint" toml:"endpoint"`
+	Temperature     float64 `json:"temperature" toml:"temperature"`
+	MaxTokens       int     `json:"max_tokens" toml:"max_tokens"`
 }
 
 // ActiveSession 活跃会话信息
@@ -31,33 +34,60 @@ type ActiveSession struct {
 	IsActive bool   `json:"is_active"`
 }
 
+// AIMessage AI 消息结构（用于服务层）
+type AIMessage struct {
+	ID        string `json:"id"`
+	SessionID string `json:"session_id"`
+	Role      string `json:"role"` // 'user' or 'assistant'
+	Content   string `json:"content"`
+	Parts     string `json:"parts"` // JSON array of parts
+	Timestamp int64  `json:"timestamp"`
+}
+
+// AISession AI 会话结构（用于服务层）
+type AISession struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+// ChatRequest 多轮对话请求
+type ChatRequest struct {
+	SessionID  string `json:"session_id"`
+	NewMessage string `json:"new_message"`
+}
+
+// ChatResponse 多轮对话响应
+type ChatResponse struct {
+	Message AIMessage `json:"message"`
+}
+
 // AIService AI 服务 - 前端接口层
 type AIService struct {
 	configService *ConfigService
 	sshService    *SSHService
 	engine        *ai.AIEngine
-	contextCache  map[string]*SessionContext
-	contextMutex  sync.RWMutex
+	sessionRepo   database.AISessionRepository
 }
 
 // NewAIService 创建 AI 服务实例
-func NewAIService(configService *ConfigService, sshService *SSHService) *AIService {
+func NewAIService(configService *ConfigService, sshService *SSHService, db *database.Database) *AIService {
 	// 先设置日志器，确保 AI 包初始化错误能被记录
 	ai.SetLogger(Logger)
 
 	s := &AIService{
 		configService: configService,
 		sshService:    sshService,
-		contextCache:  make(map[string]*SessionContext),
+		sessionRepo:   db.AISessionRepo,
 	}
 
 	// 初始化时加载配置，仅在启用 AI 时创建引擎
 	if cfg, err := s.GetConfig(); err == nil && cfg.Enabled {
-		engine, err := ai.NewAIEngine()
-		if err != nil {
-			Logger.Warn("failed to create AI engine", zap.Error(err))
+		engine := ai.NewAIEngine()
+		if err := engine.SetConfig(s.getEngineConfig(cfg)); err != nil {
+			Logger.Warn("failed to init AI engine", zap.Error(err))
 		} else {
-			engine.SetConfig(s.getEngineConfig(cfg))
 			s.engine = engine
 		}
 	}
@@ -84,15 +114,13 @@ func (s *AIService) getEngineConfig(cfg *AIConfig) *ai.Config {
 	}
 
 	return &ai.Config{
-		Enabled:          cfg.Enabled,
-		Provider:         ai.Provider(cfg.Provider),
-		Model:            cfg.Model,
-		APIKey:           apiKey,
-		APIKeyEncrypted:  cfg.APIKeyEncrypted,
-		Endpoint:         cfg.Endpoint,
-		Temperature:      cfg.Temperature,
-		MaxTokens:        cfg.MaxTokens,
-		SafetyCheckLevel: ai.SafetyLevel(cfg.SafetyCheckLevel),
+		Enabled:     cfg.Enabled,
+		Provider:    ai.Provider(cfg.Provider),
+		Model:       cfg.Model,
+		APIKey:      apiKey,
+		Endpoint:    cfg.Endpoint,
+		Temperature: cfg.Temperature,
+		MaxTokens:   cfg.MaxTokens,
 	}
 }
 
@@ -119,8 +147,11 @@ func (s *AIService) SaveConfig(config AIConfig) error {
 	if runtimeAPIKey != "" {
 		engineConfig.APIKey = runtimeAPIKey
 	}
-	if s.engine != nil {
-		s.engine.SetConfig(engineConfig)
+	if s.engine == nil {
+		s.engine = ai.NewAIEngine()
+	}
+	if err := s.engine.SetConfig(engineConfig); err != nil {
+		return fmt.Errorf("set ai engine config failed: %w", err)
 	}
 
 	// 保存到配置文件
@@ -136,103 +167,19 @@ func (s *AIService) SaveConfig(config AIConfig) error {
 // ResetConfig 重置 AI 配置为默认值
 func (s *AIService) ResetConfig() error {
 	defaultConfig := AIConfig{
-		Enabled:          false,
-		Provider:         string(ai.ProviderOllama),
-		Model:            "llama3.2",
-		Temperature:      0.7,
-		MaxTokens:        2048,
-		SafetyCheckLevel: string(ai.SafetyMedium),
+		Enabled:     false,
+		Provider:    string(ai.ProviderOllama),
+		Model:       "llama3.2",
+		Endpoint:    "http://localhost:11434",
+		Temperature: 0.7,
+		MaxTokens:   2048,
 	}
 	return s.SaveConfig(defaultConfig)
-}
-
-// GenerateCommand 生成命令 - 前端调用接口
-func (s *AIService) GenerateCommand(req ai.CommandGenerateRequest) (*ai.CommandGenerateResponse, error) {
-	if s.engine == nil {
-		return nil, fmt.Errorf("AI engine not initialized")
-	}
-
-	// 如果请求中没有上下文信息且有 sessionID，自动获取并缓存
-	if req.SessionID != "" && (req.CurrentDirectory == "" || req.OSInfo == "") {
-		ctx, err := s.getSessionContext(req.SessionID)
-		if err == nil && ctx != nil {
-			// 填充缺失的上下文信息
-			if req.CurrentDirectory == "" {
-				req.CurrentDirectory = ctx.CurrentDirectory
-			}
-			if req.OSInfo == "" {
-				req.OSInfo = ctx.OSInfo
-			}
-			if req.UserLevel == "" {
-				req.UserLevel = ctx.UserLevel
-			}
-			if len(req.RecentCommands) == 0 && len(ctx.RecentCommands) > 0 {
-				req.RecentCommands = ctx.RecentCommands
-			}
-		}
-	}
-
-	return s.engine.GenerateCommand(context.Background(), &req)
-}
-
-// ExplainCommand 解释命令 - 前端调用接口
-func (s *AIService) ExplainCommand(req ai.CommandExplainRequest) (*ai.CommandExplainResponse, error) {
-	if s.engine == nil {
-		return nil, fmt.Errorf("AI engine not initialized")
-	}
-
-	// 如果请求中没有上下文信息且有 sessionID，自动获取并缓存
-	if req.SessionID != "" && (req.CurrentDirectory == "" || req.OSInfo == "") {
-		ctx, err := s.getSessionContext(req.SessionID)
-		if err == nil && ctx != nil {
-			// 填充缺失的上下文信息
-			if req.CurrentDirectory == "" {
-				req.CurrentDirectory = ctx.CurrentDirectory
-			}
-			if req.OSInfo == "" {
-				req.OSInfo = ctx.OSInfo
-			}
-			if req.UserLevel == "" {
-				req.UserLevel = ctx.UserLevel
-			}
-		}
-	}
-
-	return s.engine.ExplainCommand(context.Background(), &req)
 }
 
 // GetProviders 获取所有支持的提供商列表 - 前端下拉选项
 func (s *AIService) GetProviders() []ai.ProviderInfo {
 	return ai.GetAllProviders()
-}
-
-// ListModels 获取指定提供商的推荐模型列表 - 前端下拉选项
-func (s *AIService) ListModels(provider string) []string {
-	endpoint := ""
-	if cfg, err := s.GetConfig(); err == nil && cfg != nil {
-		endpoint = cfg.Endpoint
-	}
-	return ai.GetProviderModels(ai.Provider(provider), endpoint)
-}
-
-// GetActiveSessions 获取活跃 SSH 会话列表
-func (s *AIService) GetActiveSessions() []ActiveSession {
-	if s.sshService == nil {
-		return []ActiveSession{}
-	}
-
-	sessions := make([]ActiveSession, 0)
-	for _, sess := range s.sshService.GetActiveSessions() {
-		id, ok := sess["id"].(string)
-		if !ok || id == "" {
-			continue
-		}
-		sessions = append(sessions, ActiveSession{
-			ID:       id,
-			IsActive: true,
-		})
-	}
-	return sessions
 }
 
 // encryptAPIKey 加密 API Key 使用用户密码
@@ -259,114 +206,218 @@ func (s *AIService) decryptAPIKey(encrypted string) (string, error) {
 	return secret.Decrypt(password, encrypted)
 }
 
-// SafetyLevelInfo 安全等级信息
-type SafetyLevelInfo struct {
-	Value       string `json:"value"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
+// CreateSession 创建新会话
+func (s *AIService) CreateSession() (*AISession, error) {
+	session := &database.AISession{
+		Title: "新会话",
+	}
+	if err := s.sessionRepo.CreateSession(context.Background(), session); err != nil {
+		return nil, fmt.Errorf("create session failed: %w", err)
+	}
+	return &AISession{
+		ID:        session.ID,
+		Title:     session.Title,
+		CreatedAt: session.CreatedAt.Unix(),
+		UpdatedAt: session.UpdatedAt.Unix(),
+	}, nil
 }
 
-// GetSafetyLevels 获取所有安全检查等级选项
-func (s *AIService) GetSafetyLevels() []SafetyLevelInfo {
-	return []SafetyLevelInfo{
-		{
-			Value:       "low",
-			Label:       "低",
-			Description: "仅警告高风险命令",
-		},
-		{
-			Value:       "medium",
-			Label:       "中",
-			Description: "警告中高风险命令 (推荐)",
-		},
-		{
-			Value:       "high",
-			Label:       "高",
-			Description: "警告所有潜在风险",
-		},
-	}
-}
-
-// SessionContext SSH会话上下文信息
-type SessionContext struct {
-	CurrentDirectory string   `json:"current_directory"` // 当前工作目录
-	OSInfo           string   `json:"os_info"`           // 操作系统信息
-	UserLevel        string   `json:"user_level"`        // 用户级别
-	RecentCommands   []string `json:"recent_commands"`   // 最近执行的命令
-}
-
-// getSessionContext 获取指定SSH会话的上下文信息（私有方法，带缓存）
-func (s *AIService) getSessionContext(sessionID string) (*SessionContext, error) {
-	// 先检查缓存
-	s.contextMutex.RLock()
-	if ctx, ok := s.contextCache[sessionID]; ok {
-		s.contextMutex.RUnlock()
-		return ctx, nil
-	}
-	s.contextMutex.RUnlock()
-
-	if s.sshService == nil {
-		return nil, fmt.Errorf("ssh service not initialized")
-	}
-
-	// 获取会话连接
-	connAny, ok := s.sshService.SSHConnects.Load(sessionID)
-	if !ok {
-		return nil, fmt.Errorf("session %s not found", sessionID)
-	}
-	conn := connAny.(*SSHConnect)
-
-	ctx := &SessionContext{
-		UserLevel:        "intermediate",
-		RecentCommands:   []string{},
-		CurrentDirectory: "~",
-		OSInfo:           "Linux",
-	}
-
-	// 尝试获取当前目录
-	if conn.session != nil {
-		// 发送 pwd 命令获取当前目录
-		output, err := s.executeCommand(conn.session, "pwd")
-		if err == nil && len(output) > 0 {
-			ctx.CurrentDirectory = strings.TrimSpace(output)
-		}
-
-		// 发送 uname 命令获取操作系统信息
-		output, err = s.executeCommand(conn.session, "uname -a")
-		if err == nil && len(output) > 0 {
-			ctx.OSInfo = strings.TrimSpace(output)
-		}
-
-		// 发送 whoami 命令获取当前用户
-		output, err = s.executeCommand(conn.session, "whoami")
-		if err == nil && len(output) > 0 {
-			user := strings.TrimSpace(output)
-			if user == "root" {
-				ctx.UserLevel = "advanced"
-			}
-		}
-	}
-
-	// 缓存结果
-	s.contextMutex.Lock()
-	s.contextCache[sessionID] = ctx
-	s.contextMutex.Unlock()
-
-	return ctx, nil
-}
-
-// clearSessionContext 清除指定会话的缓存
-func (s *AIService) clearSessionContext(sessionID string) {
-	s.contextMutex.Lock()
-	delete(s.contextCache, sessionID)
-	s.contextMutex.Unlock()
-}
-
-// executeCommand 在SSH会话中执行命令并返回输出
-func (s *AIService) executeCommand(session *ssh.Session, command string) (string, error) {
-	output, err := session.CombinedOutput(command + "\n")
+// GetSession 获取会话
+func (s *AIService) GetSession(id string) (*AISession, error) {
+	session, err := s.sessionRepo.GetSession(context.Background(), id)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("get session failed: %w", err)
 	}
-	return string(output), nil
+	return &AISession{
+		ID:        session.ID,
+		Title:     session.Title,
+		CreatedAt: session.CreatedAt.Unix(),
+		UpdatedAt: session.UpdatedAt.Unix(),
+	}, nil
+}
+
+// ListSessions 列出会话
+func (s *AIService) ListSessions(limit int) ([]*AISession, error) {
+	sessions, err := s.sessionRepo.ListSessions(context.Background(), limit)
+	if err != nil {
+		return nil, fmt.Errorf("list sessions failed: %w", err)
+	}
+	result := make([]*AISession, len(sessions))
+	for i, s := range sessions {
+		result[i] = &AISession{
+			ID:        s.ID,
+			Title:     s.Title,
+			CreatedAt: s.CreatedAt.Unix(),
+			UpdatedAt: s.UpdatedAt.Unix(),
+		}
+	}
+	return result, nil
+}
+
+// DeleteSession 删除会话
+func (s *AIService) DeleteSession(id string) error {
+	if err := s.sessionRepo.DeleteSession(context.Background(), id); err != nil {
+		return fmt.Errorf("delete session failed: %w", err)
+	}
+	return nil
+}
+
+// ListMessages 列出会话的消息
+func (s *AIService) ListMessages(sessionID string) ([]*AIMessage, error) {
+	messages, err := s.sessionRepo.ListMessages(context.Background(), sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("list messages failed: %w", err)
+	}
+	result := make([]*AIMessage, len(messages))
+	for i, m := range messages {
+		result[i] = &AIMessage{
+			ID:        m.ID,
+			SessionID: m.SessionID,
+			Role:      m.Role,
+			Content:   m.Content,
+			Parts:     m.Parts,
+			Timestamp: m.Timestamp.Unix(),
+		}
+	}
+	return result, nil
+}
+
+// UpdateSession 更新会话
+func (s *AIService) UpdateSession(session *AISession) error {
+	dbSession := &database.AISession{
+		ID:        session.ID,
+		Title:     session.Title,
+		CreatedAt: time.Unix(session.CreatedAt, 0),
+		UpdatedAt: time.Unix(session.UpdatedAt, 0),
+	}
+	if err := s.sessionRepo.UpdateSession(context.Background(), dbSession); err != nil {
+		return fmt.Errorf("update session failed: %w", err)
+	}
+	return nil
+}
+
+// Chat 多轮对话（流式），通过事件推送 chunk 到前端
+func (s *AIService) Chat(req *ChatRequest) (*ChatResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("chat request is nil")
+	}
+
+	sessionID := strings.TrimSpace(req.SessionID)
+	if sessionID == "" {
+		return nil, fmt.Errorf("session id is required")
+	}
+
+	newMessage := strings.TrimSpace(req.NewMessage)
+	if newMessage == "" {
+		return nil, fmt.Errorf("new message is required")
+	}
+
+	if s.engine == nil {
+		return nil, fmt.Errorf("AI engine not initialized")
+	}
+
+	history, err := s.sessionRepo.ListMessages(context.Background(), sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("list history messages failed: %w", err)
+	}
+
+	messages := make([]ai.ChatMessage, len(history))
+	for i, msg := range history {
+		messages[i] = ai.ChatMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+
+	// 保存用户消息
+	userParts, err := json.Marshal([]map[string]string{{"type": "text", "text": newMessage}})
+	if err != nil {
+		return nil, fmt.Errorf("marshal user message parts failed: %w", err)
+	}
+	userMsg := &database.AIMessage{
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   newMessage,
+		Parts:     string(userParts),
+		Timestamp: time.Now(),
+	}
+	if err := s.sessionRepo.CreateMessage(context.Background(), userMsg); err != nil {
+		return nil, fmt.Errorf("save user message failed: %w", err)
+	}
+
+	aiReq := &ai.ChatRequest{
+		SessionID:  sessionID,
+		Messages:   messages,
+		NewMessage: newMessage,
+	}
+
+	// 会话无标题时，用本次用户输入截取作为标题
+	if session, err := s.sessionRepo.GetSession(context.Background(), sessionID); err == nil && session.Title == "" {
+		title := []rune(newMessage)
+		if len(title) > 20 {
+			title = title[:20]
+		}
+		if len(title) == 0 {
+			session.Title = "新会话"
+		} else {
+			session.Title = string(title)
+		}
+		if err := s.sessionRepo.UpdateSession(context.Background(), session); err != nil {
+			Logger.Warn("failed to update session title", zap.Error(err))
+		}
+	}
+
+	// 流式调用 AI 引擎
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	aiResp, err := s.engine.ChatStream(ctx, aiReq, func(chunk ai.StreamChunk) error {
+		if app != nil {
+			app.Event.Emit(EventAIStreamChunk, map[string]string{
+				"sessionId": sessionID,
+				"type":      chunk.Type,
+				"chunk":     chunk.Text,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("AI chat failed: %w", err)
+	}
+
+	// 保存 AI 回复
+	assistantParts, err := json.Marshal([]map[string]string{{"type": "text", "text": aiResp.Message.Content}})
+	if err != nil {
+		return nil, fmt.Errorf("marshal assistant message parts failed: %w", err)
+	}
+	assistantMsg := &database.AIMessage{
+		SessionID: sessionID,
+		Role:      aiResp.Message.Role,
+		Content:   aiResp.Message.Content,
+		Parts:     string(assistantParts),
+		Timestamp: time.Now(),
+	}
+	if err := s.sessionRepo.CreateMessage(context.Background(), assistantMsg); err != nil {
+		return nil, fmt.Errorf("save assistant message failed: %w", err)
+	}
+
+	// 更新会话时间戳
+	session, err := s.sessionRepo.GetSession(context.Background(), sessionID)
+	if err == nil {
+		session.UpdatedAt = time.Now()
+		if err := s.sessionRepo.UpdateSession(context.Background(), session); err != nil {
+			Logger.Warn("failed to update session timestamp", zap.Error(err))
+		}
+	}
+
+	return &ChatResponse{
+		Message: AIMessage{
+			ID:        assistantMsg.ID,
+			SessionID: assistantMsg.SessionID,
+			Role:      assistantMsg.Role,
+			Content:   assistantMsg.Content,
+			Parts:     assistantMsg.Parts,
+			Timestamp: assistantMsg.Timestamp.Unix(),
+		},
+	}, nil
 }

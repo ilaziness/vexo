@@ -31,7 +31,7 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import HandymanIcon from "@mui/icons-material/Handyman";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import AddToQueueIcon from "@mui/icons-material/AddToQueue";
-
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import {
   AppService,
   BookmarkService,
@@ -44,6 +44,7 @@ import {
 import { UploadSync } from "../../bindings/github.com/ilaziness/vexo/services/syncservice";
 import { ReadConfig } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 import { useSSHTabsStore } from "../stores/ssh";
+import { useAIAssistantStore } from "../stores/aiAssistant";
 import { genTabIndex, parseCallServiceError } from "../func/service";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useMessageStore } from "../stores/message";
@@ -60,6 +61,7 @@ interface BookmarkGroup {
 export default function Header() {
   const { sshTabs, pushTab, setCurrentTab } = useSSHTabsStore();
   const { errorMessage, successMessage } = useMessageStore();
+  const { toggleSidebarOpen } = useAIAssistantStore();
 
   const [bookmarks, setBookmarks] = useState<BookmarkGroup[]>([]);
   const [bookmarkAnchorEl, setBookmarkAnchorEl] = useState<null | HTMLElement>(
@@ -75,6 +77,10 @@ export default function Header() {
   const showSettingWindow = useCallback(() => {
     ConfigService.ShowWindow();
   }, []);
+
+  const handleAIAssistant = useCallback(() => {
+    toggleSidebarOpen();
+  }, [toggleSidebarOpen]);
 
   const handleAddTab = useCallback(() => {
     const number = sshTabs.length + 1;
@@ -132,6 +138,11 @@ export default function Header() {
         onClick: () => CommandService.ShowWindow(),
       },
       {
+        title: "AI助手",
+        icon: <AutoAwesomeIcon />,
+        onClick: handleAIAssistant,
+      },
+      {
         title: "上传备份",
         icon: <CloudUploadIcon />,
         onClick: handleBackupClick,
@@ -149,6 +160,7 @@ export default function Header() {
       handleBookmark,
       handleBackupClick,
       showSettingWindow,
+      handleAIAssistant,
     ],
   );
 

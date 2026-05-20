@@ -194,7 +194,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         ))}
       </Tabs>
 
-      {/* 终端 + AI 面板区域 */}
+      {/* 终端区域 */}
       <Box
         sx={{
           height: `calc(100% - ${tabHeight} - ${statusBarHeight})`,

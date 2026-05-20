@@ -16,7 +16,6 @@ import {
   IconButton,
   InputAdornment,
 } from "@mui/material";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useAIConfigStore } from "../stores/aiConfig";
@@ -28,32 +27,19 @@ export default function AISettings() {
     config,
     isLoading,
     error,
-    availableModels,
     providers,
-    safetyLevels,
     loadConfig,
     saveConfig,
     resetConfig,
-    loadModels,
     loadProviders,
-    loadSafetyLevels,
     updatePartialConfig,
     clearError,
   } = useAIConfigStore();
 
-  // 加载配置、提供商和安全等级
   useEffect(() => {
     loadConfig();
     loadProviders();
-    loadSafetyLevels();
-  }, [loadConfig, loadProviders, loadSafetyLevels]);
-
-  // 当提供商变化时加载模型列表
-  useEffect(() => {
-    if (config?.provider) {
-      loadModels(config.provider);
-    }
-  }, [config?.provider, loadModels]);
+  }, [loadConfig, loadProviders]);
 
   // 处理启用/禁用切换
   const handleEnabledChange = (checked: boolean) => {
@@ -80,12 +66,6 @@ export default function AISettings() {
   };
 
 
-  // 处理刷新模型列表
-  const handleRefreshModels = async () => {
-    if (config?.provider) {
-      await loadModels(config.provider);
-    }
-  };
 
   if (!config) {
     return (
@@ -187,33 +167,18 @@ export default function AISettings() {
         />
       )}
 
-      {/* 模型选择 */}
-      <FormControl fullWidth sx={{ mb: 2 }}>
-        <InputLabel id="model-select-label">模型</InputLabel>
-        <Select
-          labelId="model-select-label"
-          label="模型"
-          value={config.model}
-          onChange={(e) => updatePartialConfig({ model: e.target.value })}
-          disabled={!config.enabled}
-        >
-          {availableModels.map((model) => (
-            <MenuItem key={model} value={model}>
-              {model}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      <Button
-        variant="outlined"
-        size="small"
-        onClick={handleRefreshModels}
+      {/* 模型输入 */}
+      <TextField
+        fullWidth
+        label="模型"
+        value={config.model}
+        onChange={(e) => updatePartialConfig({ model: e.target.value.trim() })}
         disabled={!config.enabled}
-        startIcon={<RefreshIcon />}
-      >
-        刷新模型列表
-      </Button>
+        sx={{ mb: 2 }}
+        helperText="请输入模型名称，如：gpt-4o、llama3.2、gemini-2.5-flash 等"
+        required
+        error={!config.model}
+      />
 
       <Divider sx={{ my: 2 }} />
 
@@ -250,27 +215,7 @@ export default function AISettings() {
         helperText="生成文本的最大长度"
       />
 
-      <FormControl fullWidth sx={{ mb: 3 }}>
-        <InputLabel id="safety-select-label">安全检查等级</InputLabel>
-        <Select
-          labelId="safety-select-label"
-          label="安全检查等级"
-          value={config.safety_check_level}
-          onChange={(e) =>
-            updatePartialConfig({
-              safety_check_level: e.target.value as "low" | "medium" | "high",
-            })
-          }
-          disabled={!config.enabled}
-        >
-          {safetyLevels.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label} - {option.description}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
+      
       <Divider sx={{ my: 2 }} />
 
       {/* 操作按钮 */}
