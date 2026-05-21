@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -249,17 +250,26 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 }
 
 // saveToFile 保存配置到文件
-func (cs *ConfigService) saveToFile() {
+func (cs *ConfigService) saveToFile() error {
 	Logger.Debug("save config to file", zap.Any("config", cs.Config))
 	data, err := toml.Marshal(cs.Config)
 	if err != nil {
 		Logger.Error("save config to file failed", zap.Error(err))
-		return
+		return fmt.Errorf("marshal config failed: %w", err)
 	}
+
+	// 确保用户配置目录存在
+	userConfigDir := filepath.Dir(cs.userConfigFile)
+	if err := os.MkdirAll(userConfigDir, 0755); err != nil {
+		Logger.Error("create user config dir failed", zap.Error(err))
+		return fmt.Errorf("create user config dir failed: %w", err)
+	}
+
 	if err := os.WriteFile(cs.userConfigFile, data, 0644); err != nil {
 		Logger.Error("save config to file failed", zap.Error(err))
-		return
+		return fmt.Errorf("write user config file failed: %w", err)
 	}
+	return nil
 }
 
 // UpdateAppConfig 更新应用配置并持久化到文件
@@ -280,8 +290,49 @@ func (cs *ConfigService) GetSyncConfig() *internalsync.SyncConfig {
 func (cs *ConfigService) SaveSyncConfig(syncConfig internalsync.SyncConfig) error {
 	cs.Config.Sync = syncConfig
 	Logger.Debug("save sync config", zap.Any("syncConfig", syncConfig))
-	cs.saveToFile()
-	return nil
+	return cs.saveToFile()
+}
+
+// SaveGeneralConfig 保存通用配置
+func (cs *ConfigService) SaveGeneralConfig(generalConfig GeneralConfig) error {
+	cs.Config.General = generalConfig
+	Logger.Debug("save general config", zap.Any("generalConfig", generalConfig))
+
+	// 如果 UserDataDir 发生变化，需要更新应用配置文件
+	if generalConfig.UserDataDir != cs.Config.General.UserDataDir {
+		// 更新应用配置文件中的 user_data_dir
+		appConfig := &AppConfig{
+			General: GeneralConfig{
+				UserDataDir: generalConfig.UserDataDir,
+			},
+		}
+		if data, err := toml.Marshal(appConfig); err != nil {
+			return fmt.Errorf("marshal app config failed: %w", err)
+		} else {
+			if err := os.WriteFile(cs.appConfigFile, data, 0644); err != nil {
+				return fmt.Errorf("write app config file failed: %w", err)
+			}
+		}
+
+		// 确保新的 UserDataDir 存在
+		if _, err := os.Stat(generalConfig.UserDataDir); os.IsNotExist(err) {
+			if err := os.MkdirAll(generalConfig.UserDataDir, 0755); err != nil {
+				return fmt.Errorf("create user data dir failed: %w", err)
+			}
+		}
+
+		// 更新用户配置文件路径
+		cs.userConfigFile = filepath.Join(generalConfig.UserDataDir, ConfigFile)
+	}
+
+	return cs.saveToFile()
+}
+
+// SaveTerminalConfig 保存终端配置
+func (cs *ConfigService) SaveTerminalConfig(terminalConfig TerminalConfig) error {
+	cs.Config.Terminal = terminalConfig
+	Logger.Debug("save terminal config", zap.Any("terminalConfig", terminalConfig))
+	return cs.saveToFile()
 }
 
 // SetUserPassword 设置用户密码用于加密/解密

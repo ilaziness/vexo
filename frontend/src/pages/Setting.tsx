@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   ReadConfig,
-  SaveConfig,
 } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 import {
   Config,
@@ -65,21 +64,31 @@ const Setting: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveGeneral = async () => {
     if (!config) return;
 
-    // 验证必填字段
-    const errors: string[] = [];
-
-    // 通用设置验证
-    if (
-      !config.General.UserDataDir ||
-      config.General.UserDataDir.trim() === ""
-    ) {
-      errors.push("用户数据目录不能为空");
+    // 验证通用设置必填字段
+    const userDataDir = config.General.UserDataDir?.trim();
+    if (!userDataDir) {
+      errorMessage("用户数据目录不能为空");
+      return;
     }
 
-    // 终端设置验证
+    try {
+      await ConfigService.SaveGeneralConfig({ ...config.General, UserDataDir: userDataDir });
+      await ConfigService.CloseWindow();
+    } catch (error) {
+      console.error("Failed to save general config:", error);
+      errorMessage("通用配置保存失败");
+    }
+  };
+
+  const handleSaveTerminal = async () => {
+    if (!config) return;
+
+    // 验证终端设置必填字段
+    const errors: string[] = [];
+
     if (
       !config.Terminal.fontFamily ||
       config.Terminal.fontFamily.trim() === ""
@@ -99,18 +108,12 @@ const Setting: React.FC = () => {
     }
 
     try {
-      await SaveConfig(config);
+      await ConfigService.SaveTerminalConfig(config.Terminal);
       await ConfigService.CloseWindow();
     } catch (error) {
-      console.error("Failed to save config:", error);
-      errorMessage("配置保存失败");
+      console.error("Failed to save terminal config:", error);
+      errorMessage("终端配置保存失败");
     }
-  };
-
-  const handleCancel = () => {
-    // 重新加载配置以取消更改
-    loadConfig().then(() => {});
-    ConfigService.CloseWindow().then(() => {});
   };
 
   const handleGeneralChange = (field: keyof Config["General"], value: any) => {
@@ -342,9 +345,10 @@ const Setting: React.FC = () => {
                           onChange={(e) =>
                             handleGeneralChange("UserDataDir", e.target.value)
                           }
-                          placeholder="请输入用户数据目录路径"
+                          placeholder="请选择用户数据目录路径"
                           slotProps={{
                             input: {
+                              readOnly: true,
                               endAdornment: (
                                 <IconButton
                                   size="small"
@@ -358,6 +362,14 @@ const Setting: React.FC = () => {
                         />
                       </Box>
                     </FormRow>
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleSaveGeneral}
+                      >
+                        保存
+                      </Button>
+                    </Box>
                   </Paper>
                 </Box>
               )}
@@ -432,6 +444,14 @@ const Setting: React.FC = () => {
                         />
                       </FormRow>
                     </Stack>
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleSaveTerminal}
+                      >
+                        保存
+                      </Button>
+                    </Box>
                   </Paper>
                 </Box>
               )}
@@ -443,7 +463,11 @@ const Setting: React.FC = () => {
                 />
               )}
 
-              {activeTab === "ai" && <AISettings />}
+              {activeTab === "ai" && (
+                <Paper sx={{ p: 0 }} elevation={1}>
+                  <AISettings />
+                </Paper>
+              )}
 
               {activeTab === "about" && (
                 <Paper sx={{ p: 3 }} elevation={1}>
@@ -454,25 +478,6 @@ const Setting: React.FC = () => {
           </Box>
         </Box>
 
-        {/* 底部按钮 */}
-        <Box
-          sx={{
-            borderTop: 1,
-            borderColor: "divider",
-            p: 2,
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 1,
-            backgroundColor: "background.paper",
-          }}
-        >
-          <Button variant="outlined" onClick={handleCancel}>
-            取消
-          </Button>
-          <Button variant="contained" onClick={handleSave}>
-            保存
-          </Button>
-        </Box>
       </Box>
       <Message />
     </>

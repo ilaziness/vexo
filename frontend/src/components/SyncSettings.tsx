@@ -368,32 +368,34 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
               placeholder="请输入用户密钥"
             />
           </FormRow>
-          <Box sx={{ display: "flex", gap: 2, mt: 2, alignItems: "center" }}>
+          <Box sx={{ display: "flex", gap: 2, mt: 2, alignItems: "center", justifyContent: "flex-end" }}>
             <Button
               variant="contained"
               startIcon={<Save />}
               onClick={handleSaveConfig}
             >
-              保存配置
+              保存
             </Button>
-            {healthStatus && (
-              <Chip
-                label={healthStatus === "connected" ? "已连接" : "未连接"}
-                color={healthStatus === "connected" ? "success" : "error"}
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+              {healthStatus && (
+                <Chip
+                  label={healthStatus === "connected" ? "已连接" : "未连接"}
+                  color={healthStatus === "connected" ? "success" : "error"}
+                  size="small"
+                />
+              )}
+              <Button
+                variant="outlined"
                 size="small"
-              />
-            )}
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={checkHealth}
-              disabled={checkingHealth}
-              startIcon={
-                checkingHealth ? <CircularProgress size={16} /> : <Refresh />
-              }
-            >
-              刷新
-            </Button>
+                onClick={checkHealth}
+                disabled={checkingHealth}
+                startIcon={
+                  checkingHealth ? <CircularProgress size={16} /> : <Refresh />
+                }
+              >
+                刷新
+              </Button>
+            </Box>
           </Box>
         </Stack>
       </Paper>
@@ -439,16 +441,14 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
             </Box>
           )}
 
-          <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mb: 3 }}>
             <Button
-              variant="contained"
-              startIcon={
-                loading ? <CircularProgress size={20} /> : <CloudUpload />
-              }
-              onClick={handleUpload}
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={loadVersions}
               disabled={loading}
             >
-              上传备份
+              刷新版本
             </Button>
             <Button
               variant="outlined"
@@ -460,14 +460,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
             >
               恢复数据
             </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={loadVersions}
-              disabled={loading}
-            >
-              刷新版本
-            </Button>
             {loading && (
               <Button
                 variant="outlined"
@@ -478,6 +470,16 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
                 取消
               </Button>
             )}
+            <Button
+              variant="contained"
+              startIcon={
+                loading ? <CircularProgress size={20} /> : <CloudUpload />
+              }
+              onClick={handleUpload}
+              disabled={loading}
+            >
+              上传备份
+            </Button>
           </Box>
 
           <Divider sx={{ my: 2 }} />

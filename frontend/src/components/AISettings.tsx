@@ -219,15 +219,14 @@ export default function AISettings() {
       <Divider sx={{ my: 2 }} />
 
       {/* 操作按钮 */}
-      <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
+      <Box sx={{ display: "flex", gap: 2, mt: 3, justifyContent: "flex-end" }}>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={isLoading || !config.enabled}
         >
-          {isLoading ? <CircularProgress size={20} /> : "保存配置"}
+          {isLoading ? <CircularProgress size={20} /> : "保存"}
         </Button>
-
         <Button
           variant="outlined"
           color="secondary"
