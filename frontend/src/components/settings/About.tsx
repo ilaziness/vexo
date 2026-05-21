@@ -11,18 +11,18 @@ import {
   DialogActions,
 } from "@mui/material";
 import { GitHub as GitHubIcon } from "@mui/icons-material";
-import { CheckUpdate } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
+import { CheckUpdate } from "../../../bindings/github.com/ilaziness/vexo/services/appservice";
 import {
   AppInfo,
   NewVersion,
-} from "../../bindings/github.com/ilaziness/vexo/services";
-import { useMessageStore } from "../stores/message";
+} from "../../../bindings/github.com/ilaziness/vexo/services";
+import { useMessageStore } from "../../stores/message";
 
-interface Props {
+interface AboutProps {
   appinfo: AppInfo;
 }
 
-const About: React.FC<Props> = ({ appinfo }) => {
+const About: React.FC<AboutProps> = ({ appinfo }) => {
   const { errorMessage, infoMessage } = useMessageStore();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [newVersion, setNewVersion] = useState<NewVersion | null>(null);

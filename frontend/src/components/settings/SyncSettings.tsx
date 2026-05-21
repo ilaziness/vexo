@@ -28,8 +28,8 @@ import {
   Cancel,
   Delete as DeleteIcon,
 } from "@mui/icons-material";
-import FormRow from "./FormRow";
-import { useMessageStore } from "../stores/message";
+import FormRow from "../FormRow";
+import { useMessageStore } from "../../stores/message";
 import {
   UploadSync,
   DownloadSync,
@@ -38,15 +38,14 @@ import {
   HealthCheck,
   GetSyncProgress,
   CancelSync,
-} from "../../bindings/github.com/ilaziness/vexo/services/syncservice";
+} from "../../../bindings/github.com/ilaziness/vexo/services/syncservice";
 import {
   Config,
   SyncProgress,
   LogService,
-} from "../../bindings/github.com/ilaziness/vexo/services";
-import { parseCallServiceError } from "../func/service";
+} from "../../../bindings/github.com/ilaziness/vexo/services";
+import { parseCallServiceError } from "../../func/service";
 
-// SyncConfig 类型从 Config.Sync 推断
 type SyncConfig = Config["Sync"];
 
 interface SyncSettingsProps {
@@ -85,24 +84,21 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [versionToDelete, setVersionToDelete] = useState<number | null>(null);
-  // 恢复弹框无限滚动状态
   const [restoreVersions, setRestoreVersions] = useState<VersionInfo[]>([]);
   const [restorePage, setRestorePage] = useState(0);
   const [restoreHasMore, setRestoreHasMore] = useState(true);
   const [restoreLoading, setRestoreLoading] = useState(false);
-  // 重启提示弹框状态
   const [restartDialogOpen, setRestartDialogOpen] = useState(false);
   const [checkingHealth, setCheckingHealth] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { successMessage, errorMessage } = useMessageStore();
 
-  // 本地状态用于表单编辑
   const [localConfig, setLocalConfig] = useState<SyncConfig>({
     serverUrl: syncConfig.serverUrl || "",
     syncId: syncConfig.syncId || "",
     userKey: syncConfig.userKey || "",
   });
 
-  // 当外部配置变化时更新本地状态
   useEffect(() => {
     setLocalConfig({
       serverUrl: syncConfig.serverUrl || "",
@@ -121,7 +117,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
     }
   }, [isConfigured]);
 
-  // 进度轮询
   useEffect(() => {
     if (!loading) {
       setProgress(null);
@@ -133,7 +128,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
         const p = await GetSyncProgress();
         setProgress(p);
 
-        // 如果已完成或出错，停止轮询
         if (p.isCompleted || p.error) {
           clearInterval(interval);
         }
@@ -146,6 +140,8 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
   }, [loading]);
 
   const checkHealth = async () => {
+    if (!validateSyncConfig()) return;
+
     setCheckingHealth(true);
     try {
       await HealthCheck();
@@ -161,7 +157,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
   const loadVersions = async () => {
     if (!isConfigured) return;
     try {
-      // 设置页面只加载前10个版本
       const result = await ListSyncVersions(10, 0);
       setVersions(result || []);
     } catch (error) {
@@ -170,15 +165,39 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
     }
   };
 
-  const handleSaveConfig = () => {
-    // 保存时添加协议前缀
-    const configToSave: SyncConfig = {
-      ...localConfig,
-      serverUrl: localConfig.serverUrl,
-    };
-    onChange(configToSave);
-    successMessage("同步配置已保存");
-    checkHealth();
+  const validateSyncConfig = (): boolean => {
+    if (!localConfig.serverUrl.trim()) {
+      errorMessage("服务器地址不能为空");
+      return false;
+    }
+    if (!localConfig.syncId.trim()) {
+      errorMessage("同步 ID 不能为空");
+      return false;
+    }
+    if (!localConfig.userKey.trim()) {
+      errorMessage("用户密钥不能为空");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSaveConfig = async () => {
+    if (!validateSyncConfig()) return;
+
+    setSaving(true);
+    try {
+      const configToSave: SyncConfig = {
+        ...localConfig,
+        serverUrl: localConfig.serverUrl,
+      };
+      onChange(configToSave);
+      successMessage("同步配置已保存");
+      checkHealth();
+    } catch (error) {
+      console.error("Failed to save sync config:", error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -205,11 +224,9 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
     setProgress(null);
     try {
       await DownloadSync(selectedVersion);
-      // 恢复成功，显示重启提示
       setRestartDialogOpen(true);
     } catch (error) {
       LogService.Error("Download failed: " + String(error));
-      // 恢复失败也需要重启（数据库已关闭）
       setRestartDialogOpen(true);
     } finally {
       setLoading(false);
@@ -221,7 +238,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
     setRestartDialogOpen(false);
   };
 
-  // 加载恢复弹框的版本列表（支持分页）
   const loadRestoreVersions = async (page: number) => {
     if (!isConfigured || restoreLoading) return;
     setRestoreLoading(true);
@@ -245,7 +261,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
     }
   };
 
-  // 打开恢复弹框时加载初始数据
   const handleOpenRestoreDialog = () => {
     setRestoreDialogOpen(true);
     setRestorePage(0);
@@ -254,10 +269,8 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
     loadRestoreVersions(0);
   };
 
-  // 处理滚动加载更多
   const handleRestoreScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-    // 滚动到底部时加载更多
     if (
       scrollHeight - scrollTop - clientHeight < 50 &&
       restoreHasMore &&
@@ -373,6 +386,8 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
               variant="contained"
               startIcon={<Save />}
               onClick={handleSaveConfig}
+              loading={saving}
+              disabled={!localConfig.serverUrl.trim() || !localConfig.syncId.trim() || !localConfig.userKey.trim()}
             >
               保存
             </Button>
@@ -406,7 +421,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
             同步操作
           </Typography>
 
-          {/* 进度显示 */}
           {loading && progress && (
             <Box sx={{ mb: 3 }}>
               <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -522,7 +536,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
         </Paper>
       )}
 
-      {/* 恢复对话框 */}
       <Dialog
         open={restoreDialogOpen}
         onClose={() => setRestoreDialogOpen(false)}
@@ -586,7 +599,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
         </DialogActions>
       </Dialog>
 
-      {/* 删除确认对话框 */}
       <Dialog
         open={deleteDialogOpen}
         onClose={handleDeleteCancel}
@@ -612,7 +624,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
         </DialogActions>
       </Dialog>
 
-      {/* 重启提示对话框 */}
       <Dialog
         open={restartDialogOpen}
         onClose={handleRestartDialogClose}

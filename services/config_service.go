@@ -205,7 +205,7 @@ func (cs *ConfigService) ReadConfig() (*Config, error) {
 // 1. 如果 UserDataDir 改变，更新应用配置文件
 // 2. 将所有配置保存到用户配置文件
 func (cs *ConfigService) SaveConfig(config Config) error {
-	// 1. 检查 UserDataDir 是否发生变化
+	// 检查 UserDataDir 是否发生变化
 	if config.General.UserDataDir != cs.Config.General.UserDataDir {
 		// 更新应用配置文件中的 user_data_dir
 		appConfig := &AppConfig{
@@ -226,27 +226,11 @@ func (cs *ConfigService) SaveConfig(config Config) error {
 		cs.userConfigFile = filepath.Join(config.General.UserDataDir, ConfigFile)
 	}
 
-	// 2. 保存完整配置到用户配置文件
-	data, err := toml.Marshal(config)
-	if err != nil {
-		return err
-	}
-
-	// 确保用户配置目录存在
-	userConfigDir := filepath.Dir(cs.userConfigFile)
-	if err := os.MkdirAll(userConfigDir, 0755); err != nil {
-		return err
-	}
-
-	// 保存到用户配置文件
-	if err := os.WriteFile(cs.userConfigFile, data, 0644); err != nil {
-		return err
-	}
-
-	// 3. 更新内存中的配置
+	// 更新内存中的配置
 	cs.Config = &config
 
-	return nil
+	// 保存到文件（复用 saveToFile 逻辑）
+	return cs.saveToFile()
 }
 
 // saveToFile 保存配置到文件
@@ -295,11 +279,13 @@ func (cs *ConfigService) SaveSyncConfig(syncConfig internalsync.SyncConfig) erro
 
 // SaveGeneralConfig 保存通用配置
 func (cs *ConfigService) SaveGeneralConfig(generalConfig GeneralConfig) error {
-	cs.Config.General = generalConfig
 	Logger.Debug("save general config", zap.Any("generalConfig", generalConfig))
 
-	// 如果 UserDataDir 发生变化，需要更新应用配置文件
-	if generalConfig.UserDataDir != cs.Config.General.UserDataDir {
+	// 检查 UserDataDir 是否发生变化
+	userDataDirChanged := generalConfig.UserDataDir != cs.Config.General.UserDataDir
+
+	// 如果 UserDataDir 发生变化，先更新应用配置文件和创建目录
+	if userDataDirChanged {
 		// 更新应用配置文件中的 user_data_dir
 		appConfig := &AppConfig{
 			General: GeneralConfig{
@@ -321,10 +307,12 @@ func (cs *ConfigService) SaveGeneralConfig(generalConfig GeneralConfig) error {
 			}
 		}
 
-		// 更新用户配置文件路径
+		// 更新用户配置文件路径（在保存前更新）
 		cs.userConfigFile = filepath.Join(generalConfig.UserDataDir, ConfigFile)
 	}
 
+	cs.Config.General = generalConfig
+	// 保存到文件
 	return cs.saveToFile()
 }
 

@@ -97,7 +97,7 @@ func (bs *BookmarkService) ConnectBookmarkByID(bookmarkID string) (string, error
 
 // encryptField 加密单个字段
 func (bs *BookmarkService) encryptField(value, fieldName string) (string, error) {
-	password, err := bs.configService.getPasswordWithPrompt("需要密码来加密" + fieldName)
+	password, err := bs.configService.getPasswordWithPrompt("需要密码来加密书签相关密码")
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +140,7 @@ func (bs *BookmarkService) encryptFieldIfNeeded(newValue, existingValue, fieldNa
 		return existingValue, nil
 	}
 	// 新值，需要加密
-	password, err := bs.configService.getPasswordWithPrompt("需要密码来加密" + fieldName)
+	password, err := bs.configService.getPasswordWithPrompt("需要密码来加密书签相关密码")
 	if err != nil {
 		return "", err
 	}
@@ -175,7 +175,7 @@ func (bs *BookmarkService) processBookmarkForSave(bookmark SSHBookmark, existing
 
 // decryptField 解密单个字段，如果失败则清空用户密码
 func (bs *BookmarkService) decryptField(encryptedValue, fieldName string) (string, error) {
-	password, err := bs.configService.getPasswordWithPrompt("需要密码来解密" + fieldName)
+	password, err := bs.configService.getPasswordWithPrompt("需要密码来加密书签相关密码")
 	if err != nil {
 		return "", err
 	}
