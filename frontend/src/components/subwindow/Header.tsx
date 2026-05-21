@@ -21,6 +21,7 @@ import {
   SSHBookmark,
 } from "../../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../../stores/ssh";
+import { ConnectionStatus } from "../../types/ssh";
 import { genTabIndex, parseCallServiceError } from "../../func/service";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useMessageStore } from "../../stores/message";
@@ -129,6 +130,7 @@ export default function Header() {
         index: newIndex,
         name: bookmark.title,
         sshInfo,
+        connectionStatus: ConnectionStatus.Connecting,
       });
       setCurrentTab(newIndex);
     } catch (err) {

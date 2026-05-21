@@ -1,7 +1,10 @@
 import type { ITheme } from "@xterm/xterm";
 
-// 连接状态类型定义
-export type ConnectionStatus = "connected" | "disconnected" | "empty";
+export enum ConnectionStatus {
+  Connected = "connected",
+  Disconnected = "disconnected",
+  Connecting = "connecting",
+}
 
 export interface SSHLinkInfo {
   linkID?: string;

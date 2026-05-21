@@ -3,6 +3,7 @@ import React, { useRef, useCallback } from "react";
 import SSHTabBody from "./SSHTabBody.tsx";
 import { Events } from "@wailsio/runtime";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
+import { ConnectionStatus } from "../types/ssh";
 import { useTransferStore } from "../stores/transfer.ts";
 import { useAIAssistantStore } from "../stores/aiAssistant";
 import OpBar from "./OpBar.tsx";
@@ -69,6 +70,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
               user: bookmark.user,
               proxyJumpID: bookmark.proxy_jump_id,
             },
+            connectionStatus: ConnectionStatus.Connecting,
           };
 
           pushTab(newTab);
@@ -94,12 +96,16 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
   const handleDuplicateTab = useCallback(() => {
     closeMenu();
     const currentTabInfo = getByIndex(tabIndex || "");
-    const number = sshTabs.length + 1;
     const newIndex = genTabIndex();
     pushTab({
       index: newIndex,
-      name: `新建连接 ${number}`,
-      sshInfo: currentTabInfo ? currentTabInfo.sshInfo : undefined,
+      name: currentTabInfo?.name || '',
+      sshInfo: currentTabInfo?.sshInfo
+        ? { ...currentTabInfo.sshInfo, linkID: undefined }
+        : undefined,
+      connectionStatus: currentTabInfo?.sshInfo
+        ? ConnectionStatus.Connecting
+        : undefined,
     });
     setCurrentTab(newIndex);
   }, [tabIndex, sshTabs.length, getByIndex, pushTab, setCurrentTab, closeMenu]);

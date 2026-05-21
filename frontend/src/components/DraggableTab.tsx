@@ -35,10 +35,12 @@ export const DraggableTab = React.memo(function DraggableTab({
 
   let connectionStatusColor = "text.disabled";
 
-  if (item.connectionStatus === "connected") {
+  if (item.connectionStatus === ConnectionStatus.Connected) {
     connectionStatusColor = "success.main";
-  } else if (item.connectionStatus === "disconnected") {
+  } else if (item.connectionStatus === ConnectionStatus.Disconnected) {
     connectionStatusColor = "error.main";
+  } else if (item.connectionStatus === ConnectionStatus.Connecting) {
+    connectionStatusColor = "warning.main";
   }
 
   return (

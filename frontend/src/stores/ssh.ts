@@ -13,25 +13,31 @@ export interface SSHTabs {
   setSSHInfo: (index: string, sshInfo: SSHLinkInfo) => void;
   reorderTabs: (sourceIndex: number, destinationIndex: number) => void;
   setConnectionStatus: (linkID: string, status: ConnectionStatus) => void;
+  setTabConnectionStatus: (tabIndex: string, status: ConnectionStatus) => void;
 }
+
+const initialTabIndex = genTabIndex();
 
 export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
   sshTabs: [
     {
-      index: `${genTabIndex()}`,
+      index: initialTabIndex,
       name: "新建连接",
     },
   ] as SSHTab[],
-  currentTab: `${genTabIndex()}`,
+  currentTab: initialTabIndex,
   pushTab: (tab: SSHTab) =>
     set((state: any) => {
-      const emptyIndex = state.sshTabs.findIndex(
-        (t: SSHTab) => !t.connectionStatus || t.connectionStatus === "empty",
-      );
-      if (emptyIndex !== -1) {
-        const newTabs = [...state.sshTabs];
-        newTabs[emptyIndex] = tab;
-        return { sshTabs: newTabs };
+      if (tab.sshInfo) {
+        const emptyIndex = state.sshTabs.findIndex((t: SSHTab) => !t.sshInfo);
+        if (emptyIndex !== -1) {
+          const newTabs = [...state.sshTabs];
+          const replacedIndex = newTabs[emptyIndex].index;
+          newTabs[emptyIndex] = tab;
+          const newCurrentTab =
+            state.currentTab === replacedIndex ? tab.index : state.currentTab;
+          return { sshTabs: newTabs, currentTab: newCurrentTab };
+        }
       }
       return { sshTabs: [...state.sshTabs, tab] };
     }),
@@ -92,6 +98,12 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
         tab.sshInfo?.linkID === linkID
           ? { ...tab, connectionStatus: status }
           : tab,
+      ),
+    })),
+  setTabConnectionStatus: (tabIndex: string, status: ConnectionStatus) =>
+    set((state) => ({
+      sshTabs: state.sshTabs.map((tab) =>
+        tab.index === tabIndex ? { ...tab, connectionStatus: status } : tab,
       ),
     })),
 }));

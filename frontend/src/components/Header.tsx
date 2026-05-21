@@ -44,6 +44,7 @@ import {
 import { UploadSync } from "../../bindings/github.com/ilaziness/vexo/services/syncservice";
 import { ReadConfig } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 import { useSSHTabsStore } from "../stores/ssh";
+import { ConnectionStatus } from "../types/ssh";
 import { useAIAssistantStore } from "../stores/aiAssistant";
 import { genTabIndex, parseCallServiceError } from "../func/service";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -229,6 +230,7 @@ export default function Header() {
         index: newIndex,
         name: bookmark.title,
         sshInfo,
+        connectionStatus: ConnectionStatus.Connecting,
       });
       setCurrentTab(newIndex);
     } catch (err) {

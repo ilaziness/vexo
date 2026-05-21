@@ -5,7 +5,7 @@ import {
   SSHService,
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
-import { SSHLinkInfo } from "../types/ssh";
+import { ConnectionStatus, SSHLinkInfo } from "../types/ssh";
 import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
@@ -27,6 +27,9 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const setSSHInfo = useSSHTabsStore((state) => state.setSSHInfo);
   const getByIndex = useSSHTabsStore((state) => state.getByIndex);
   const reloadTab = useReloadSSHTabStore((state) => state.reloadTab);
+  const setTabConnectionStatus = useSSHTabsStore(
+    (state) => state.setTabConnectionStatus,
+  );
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
@@ -59,6 +62,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     setLastSSHInfo(li);
     try {
       LogService.Debug(`SSHLinkInfo ${JSON.stringify(li)}`);
+      setTabConnectionStatus(tabIndex, ConnectionStatus.Connecting);
       let linkID = "";
       if (li.bookmarkID != "" && li.bookmarkID != undefined) {
         linkID = await BookmarkService.ConnectBookmarkByID(li.bookmarkID);
@@ -82,6 +86,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       const msg = "Connection failed";
       LogService.Error(`${msg}: ${err.message || err}`).then(() => {});
       setConnectionError(parseCallServiceError(err));
+      setTabConnectionStatus(tabIndex, ConnectionStatus.Disconnected);
     } finally {
       setConnecting(false);
       setIsReloading(false);

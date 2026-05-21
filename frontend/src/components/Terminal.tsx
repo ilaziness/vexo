@@ -25,6 +25,7 @@ import TerminalContextMenu from "./TerminalContextMenu";
 import { terminalInstances } from "../stores/terminalInstances";
 import { sleep } from "../func/service";
 import { useSSHTabsStore } from "../stores/ssh";
+import { ConnectionStatus } from "../types/ssh";
 
 const isWebgl2Supported = (() => {
   let isSupported = globalThis.WebGL2RenderingContext ? undefined : false;
@@ -163,7 +164,7 @@ function Terminal(props: { readonly linkID: string }) {
       ws.onopen = async () => {
         LogService.Debug("WebSocket connected for terminal " + props.linkID);
         setIsInitializing(false);
-        setConnectionStatus(props.linkID, "connected");
+        setConnectionStatus(props.linkID, ConnectionStatus.Connected);
 
         if (!mountedRef.current) return;
         term.current?.focus();
@@ -188,7 +189,7 @@ function Terminal(props: { readonly linkID: string }) {
 
       ws.onclose = () => {
         LogService.Debug(`WebSocket closed for terminal ${props.linkID}`);
-        setConnectionStatus(props.linkID, "disconnected");
+        setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
         term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
       };
     }
