@@ -263,6 +263,7 @@ function Terminal(props: { readonly linkID: string }) {
           width: "100%",
           height: "100%",
           backgroundColor: "var(--term-bg)",
+          paddingLeft: "3px",
         }}
       />
       <TerminalContextMenu

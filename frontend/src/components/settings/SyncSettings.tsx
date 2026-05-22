@@ -182,8 +182,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
   };
 
   const handleSaveConfig = async () => {
-    if (!validateSyncConfig()) return;
-
     setSaving(true);
     try {
       const configToSave: SyncConfig = {
@@ -192,7 +190,13 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
       };
       onChange(configToSave);
       successMessage("同步配置已保存");
-      checkHealth();
+      if (localConfig.serverUrl.trim() && localConfig.syncId.trim() && localConfig.userKey.trim()) {
+        checkHealth();
+        loadVersions();
+      } else {
+        setHealthStatus("");
+        setVersions([]);
+      }
     } catch (error) {
       console.error("Failed to save sync config:", error);
     } finally {
@@ -387,7 +391,6 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
               startIcon={<Save />}
               onClick={handleSaveConfig}
               loading={saving}
-              disabled={!localConfig.serverUrl.trim() || !localConfig.syncId.trim() || !localConfig.userKey.trim()}
             >
               保存
             </Button>
