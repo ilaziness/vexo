@@ -43,19 +43,8 @@ export interface MessageStore {
 export type TerminalThemes = {
   light: ITheme;
   dark: ITheme;
-  blueDark: ITheme;
-  atom: ITheme;
-  deep: ITheme;
   eyeCare: ITheme;
-  cyberpunk: ITheme;
 };
 
 // 应用主题类型定义
-export type AppTheme =
-  | "light"
-  | "dark"
-  | "blueDark"
-  | "atom"
-  | "deep"
-  | "eyeCare"
-  | "cyberpunk";
+export type AppTheme = "light" | "dark" | "eyeCare";

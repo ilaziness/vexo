@@ -1,56 +1,60 @@
 import type { ColorSystemOptions } from "@mui/material/styles";
 
+/**
+ * Daylight 主题 - 亮色专业模式
+ * 适合白天使用，清爽专业，类似现代IDE明亮模式
+ */
 const light: ColorSystemOptions = {
   palette: {
     mode: "light",
     primary: {
-      main: "#6442d6", // 紫色主色调
-      light: "#9675dd", // 更亮的紫色变体
-      dark: "#4a2da0",  // 更深的紫色变体
+      main: "#2563eb", // 专业蓝
+      light: "#60a5fa",
+      dark: "#1d4ed8",
       contrastText: "#ffffff",
     },
     secondary: {
-      main: "#7c4dff", // 紫色系的次要色，稍微亮一些
-      light: "#b794f6", // 更亮的紫色
-      dark: "#5e35b1",  // 更深的紫色
+      main: "#0891b2", // 终端青
+      light: "#22d3ee",
+      dark: "#0e7490",
       contrastText: "#ffffff",
     },
     background: {
-      default: "#fafafa",
-      paper: "#ffffff",
+      default: "#f8f9fa", // 轻微暖白 - 终端区域
+      paper: "#eef2f6", // 稍深灰蓝 - 工具栏/状态栏区分
     },
     text: {
-      primary: "rgba(0, 0, 0, 0.87)",
-      secondary: "rgba(0, 0, 0, 0.6)",
-      disabled: "rgba(0, 0, 0, 0.38)",
+      primary: "#1f2937", // 深灰，非纯黑
+      secondary: "#6b7280",
+      disabled: "#9ca3af",
     },
-    divider: "rgba(0, 0, 0, 0.12)",
+    divider: "rgba(31, 41, 55, 0.12)",
     action: {
-      active: "rgba(0, 0, 0, 0.54)",
-      hover: "rgba(0, 0, 0, 0.04)",
-      selected: "rgba(0, 0, 0, 0.08)",
-      disabled: "rgba(0, 0, 0, 0.26)",
-      disabledBackground: "rgba(0, 0, 0, 0.12)",
+      active: "#2563eb",
+      hover: "rgba(37, 99, 235, 0.04)",
+      selected: "rgba(37, 99, 235, 0.08)",
+      disabled: "rgba(31, 41, 55, 0.26)",
+      disabledBackground: "rgba(31, 41, 55, 0.12)",
     },
     success: {
-      main: "#4caf50",
-      light: "#81c784",
-      dark: "#388e3c",
+      main: "#10b981",
+      light: "#34d399",
+      dark: "#059669",
     },
     error: {
-      main: "#f44336",
-      light: "#e57373",
-      dark: "#d32f2f",
+      main: "#ef4444",
+      light: "#f87171",
+      dark: "#dc2626",
     },
     warning: {
-      main: "#ff9800",
-      light: "#ffb74d",
-      dark: "#f57c00",
+      main: "#f59e0b",
+      light: "#fbbf24",
+      dark: "#d97706",
     },
     info: {
-      main: "#2196f3",
-      light: "#64b5f6",
-      dark: "#1976d2",
+      main: "#2563eb",
+      light: "#60a5fa",
+      dark: "#1d4ed8",
     },
   },
 };

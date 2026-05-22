@@ -1,7 +1,6 @@
 import React, { useEffect, useState, memo } from "react";
 import { Box } from "@mui/material";
 import "@xterm/xterm/css/xterm.css";
-import styles from "../styles/Terminal.module.css";
 import { Terminal as TerminalLib } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -258,7 +257,6 @@ function Terminal(props: { readonly linkID: string }) {
     >
       <Box
         ref={termRef}
-        className={styles.terminalWrapper}
         onContextMenu={handleContextMenu}
         sx={{
           flex: 1,

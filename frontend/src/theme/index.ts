@@ -1,38 +1,45 @@
 import { createColorScheme, createTheme } from "@mui/material/styles";
 import type {} from "@mui/x-chat/themeAugmentation";
 import light from "./light";
-import blueDark from "./blueDark";
-import atom from "./atom";
-import deep from "./deep";
+import dark from "./dark";
 import eyeCare from "./eyeCare";
-import cyberpunk from "./cyberpunk";
 import { AppTheme } from "../types/ssh";
 
 declare module "@mui/material/styles" {
   interface ColorSchemeOverrides {
-    blueDark: true;
-    atom: true;
-    deep: true;
     eyeCare: true;
-    cyberpunk: true;
   }
 }
 
 /**
  * 主题选项配置
  */
-export const ThemeOptions: {
+export interface ThemeOption {
   value: AppTheme;
   label: string;
   mode: "light" | "dark";
-}[] = [
-  { value: "light", label: "亮白", mode: "light" },
-  { value: "dark", label: "暗色", mode: "dark" },
-  { value: "blueDark", label: "蓝夜", mode: "dark" },
-  { value: "atom", label: "极黑", mode: "dark" },
-  { value: "deep", label: "深邃", mode: "dark" },
-  { value: "eyeCare", label: "暖棕", mode: "light" },
-  { value: "cyberpunk", label: "赛博朋克", mode: "dark" },
+  color: string;
+}
+
+export const ThemeOptions: ThemeOption[] = [
+  {
+    value: "light",
+    label: "日间",
+    mode: "light",
+    color: "#2563eb",
+  },
+  {
+    value: "dark",
+    label: "夜间",
+    mode: "dark",
+    color: "#60a5fa",
+  },
+  {
+    value: "eyeCare",
+    label: "护眼",
+    mode: "light",
+    color: "#92400e",
+  },
 ];
 
 /**
@@ -42,20 +49,12 @@ export const ThemeOptions: {
 const theme = createTheme({
   // 配置颜色方案
   colorSchemes: {
-    // 亮白主题（自定义偏灰色调）
+    // Daylight - 亮色专业模式
     light,
-    // 暗色（MUI内置）
-    dark: true,
-    // 蓝夜主题
-    blueDark: createColorScheme(blueDark),
-    // 极黑
-    atom: createColorScheme(atom),
-    // 深邃
-    deep: createColorScheme(deep),
-    // 暖棕
+    // Midnight - 暗色夜空模式
+    dark: createColorScheme(dark),
+    // Amber - 护眼复古模式
     eyeCare: createColorScheme(eyeCare),
-    // 赛博朋克
-    cyberpunk: createColorScheme(cyberpunk),
   },
 
   // 字体排版

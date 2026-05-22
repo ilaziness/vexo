@@ -6,21 +6,10 @@ import { TerminalThemes } from "../types/ssh";
  * 本文件定义了终端(XTerm.js)的配色方案，与总体主题系统保持一致的设计理念。
  * 每个终端主题都适配对应的总体主题配色，提供一致的视觉体验。
  *
- * 设计理念：
- * - 护眼舒适：避免高对比度，减少长时间使用时的视觉疲劳
- * - 一致性：终端主题与总体UI主题在色彩上保持协调
- * - 可读性：确保文本在背景上有足够的对比度
- * - 专业性：采用适合终端应用的配色方案
- *
  * 主题映射关系：
- * - light (亮白): 对应总体亮色主题，深色文本，浅色背景
- * - dark (暗色): 对应总体默认暗色主题，经典的终端配色
- * - blueDark (蓝夜): 对应总体蓝色深色主题，护眼蓝色系
- * - atom (极黑): 对应总体极客黑主题，Atom编辑器风格配色
- * - deep (深邃): 对应总体深邃夜主题，纯黑背景高对比度
- * - eyeCare (暖棕): 对应总体护眼模式，暖色系护眼配色
- * - terminal: 对应总体终端CLI模式，经典绿色终端配色
- * - cyberpunk (赛博朋克): 霓虹紫粉色调，未来科技感
+ * - light (Daylight): 对应总体亮色主题，白底深色文本
+ * - dark (Midnight): 对应总体暗色主题，深蓝灰底霓虹蓝青
+ * - eyeCare (Amber): 对应总体护眼主题，暖琥珀底深棕字
  *
  * ANSI颜色说明：
  * - black/red/green/yellow/blue/magenta/cyan/white: 基础ANSI颜色
@@ -32,181 +21,80 @@ import { TerminalThemes } from "../types/ssh";
  * - selection: 选中文本的背景色
  */
 const terminalThemes: TerminalThemes = {
-  // 亮白 - 使用深色文本，浅色背景，适合白天使用
+  // Daylight - 白底黑字，标准ANSI色，清爽专业
   light: {
-    background: "#ffffff",
-    foreground: "#000000",
-    cursor: "#000000",
-    cursorAccent: "#ffffff",
-    selectionBackground: "rgba(100, 149, 237, 0.3)",
+    background: "#f8f9fa",
+    foreground: "#1f2937",
+    cursor: "#2563eb",
+    cursorAccent: "#f8f9fa",
+    selectionBackground: "#2563eb",
     selectionForeground: "#ffffff",
-    black: "#000000",
-    red: "#cd0000",
-    green: "#00cd00",
-    yellow: "#cdcd00",
-    blue: "#0000cd",
-    magenta: "#cd00cd",
-    cyan: "#00cdcd",
-    white: "#e5e5e5",
-    brightBlack: "#7f7f7f",
-    brightRed: "#ff0000",
-    brightGreen: "#00ff00",
-    brightYellow: "#ffff00",
-    brightBlue: "#5c5cff",
-    brightMagenta: "#ff00ff",
-    brightCyan: "#00ffff",
-    brightWhite: "#ffffff",
+    black: "#1f2937",
+    red: "#ef4444",
+    green: "#10b981",
+    yellow: "#f59e0b",
+    blue: "#2563eb",
+    magenta: "#8b5cf6",
+    cyan: "#0891b2",
+    white: "#6b7280",
+    brightBlack: "#9ca3af",
+    brightRed: "#f87171",
+    brightGreen: "#34d399",
+    brightYellow: "#fbbf24",
+    brightBlue: "#60a5fa",
+    brightMagenta: "#a78bfa",
+    brightCyan: "#22d3ee",
+    brightWhite: "#e5e7eb",
   },
-  // 暗色 - 经典的终端配色方案
+  // Midnight - 深蓝灰底，霓虹蓝青，夜空感
   dark: {
-    background: "#1e1e1e",
-    foreground: "#cccccc",
-    cursor: "#ffffff",
-    cursorAccent: "#000000",
-    selectionBackground: "rgba(255, 255, 255, 0.3)",
-    selectionForeground: "#000000",
-    black: "#000000",
-    red: "#cd3131",
-    green: "#0dbc79",
-    yellow: "#e5e510",
-    blue: "#2472c8",
-    magenta: "#bc3fbc",
-    cyan: "#11a8cd",
-    white: "#e5e5e5",
-    brightBlack: "#666666",
-    brightRed: "#f14c4c",
-    brightGreen: "#23d18b",
-    brightYellow: "#f5f543",
-    brightBlue: "#3b8eea",
-    brightMagenta: "#d670d6",
-    brightCyan: "#29b8db",
-    brightWhite: "#ffffff",
+    background: "#0f172a",
+    foreground: "#e2e8f0",
+    cursor: "#22d3ee",
+    cursorAccent: "#0f172a",
+    selectionBackground: "#22d3ee",
+    selectionForeground: "#0f172a",
+    black: "#0f172a",
+    red: "#f87171",
+    green: "#34d399",
+    yellow: "#fbbf24",
+    blue: "#60a5fa",
+    magenta: "#c084fc",
+    cyan: "#22d3ee",
+    white: "#e2e8f0",
+    brightBlack: "#475569",
+    brightRed: "#fca5a5",
+    brightGreen: "#6ee7b7",
+    brightYellow: "#fcd34d",
+    brightBlue: "#93c5fd",
+    brightMagenta: "#d8b4fe",
+    brightCyan: "#67e8f9",
+    brightWhite: "#f8fafc",
   },
-  // 蓝夜 - 护眼蓝色系，适合长时间工作
-  blueDark: {
-    background: "#0a0e27",
-    foreground: "#e3f2fd",
-    cursor: "#90caf9",
-    cursorAccent: "#0a0e27",
-    selectionBackground: "rgba(144, 202, 249, 0.3)",
-    selectionForeground: "#000000",
-    black: "#000000",
-    red: "#f44336",
-    green: "#66bb6a",
-    yellow: "#ffa726",
-    blue: "#29b6f6",
-    magenta: "#ab47bc",
-    cyan: "#26c6da",
-    white: "#e3f2fd",
-    brightBlack: "#546e7a",
-    brightRed: "#ef5350",
-    brightGreen: "#81c784",
-    brightYellow: "#ffb74d",
-    brightBlue: "#4fc3f7",
-    brightMagenta: "#ba68c8",
-    brightCyan: "#4dd0e1",
-    brightWhite: "#ffffff",
-  },
-  // 极黑 - Atom编辑器风格配色，程序员偏好
-  atom: {
-    background: "#282c34",
-    foreground: "#abb2bf",
-    cursor: "#61afef",
-    cursorAccent: "#282c34",
-    selectionBackground: "rgba(97, 175, 239, 0.3)",
-    selectionForeground: "#ffffff",
-    black: "#000000",
-    red: "#e06c75",
-    green: "#98c379",
-    yellow: "#e5c07b",
-    blue: "#61afef",
-    magenta: "#c678dd",
-    cyan: "#56b6c2",
-    white: "#abb2bf",
-    brightBlack: "#5c6370",
-    brightRed: "#e06c75",
-    brightGreen: "#98c379",
-    brightYellow: "#e5c07b",
-    brightBlue: "#61afef",
-    brightMagenta: "#c678dd",
-    brightCyan: "#56b6c2",
-    brightWhite: "#ffffff",
-  },
-  // 深邃 - 纯黑背景，高对比度护眼设计
-  deep: {
-    background: "#000000",
-    foreground: "rgba(255, 255, 255, 0.85)",
-    cursor: "#ffffff",
-    cursorAccent: "#000000",
-    selectionBackground: "rgba(255, 255, 255, 0.2)",
-    selectionForeground: "#000000",
-    black: "#000000",
-    red: "#ff4d4f",
-    green: "#52c41a",
-    yellow: "#faad14",
-    blue: "#1890ff",
-    magenta: "#722ed1",
-    cyan: "#13c2c2",
-    white: "rgba(255, 255, 255, 0.85)",
-    brightBlack: "#434343",
-    brightRed: "#ff7875",
-    brightGreen: "#73d13d",
-    brightYellow: "#ffc069",
-    brightBlue: "#40a9ff",
-    brightMagenta: "#b37feb",
-    brightCyan: "#36cfc9",
-    brightWhite: "#ffffff",
-  },
-  // 暖棕 - 暖色系配色，专门为护眼设计
+  // Amber - 暖琥珀底，深棕字，复古终端感
   eyeCare: {
-    background: "#fdf6e3",
-    foreground: "#423629",
-    cursor: "#5d4037",
-    cursorAccent: "#fdf6e3",
-    selectionBackground: "rgba(93, 64, 55, 0.2)",
-    selectionForeground: "#ffffff",
-    black: "#000000",
-    red: "#a0522d",
-    green: "#556b2f",
-    yellow: "#cd853f",
-    blue: "#5d4037",
-    magenta: "#8b4513",
-    cyan: "#daa520",
-    white: "#423629",
-    brightBlack: "#9c8c74",
-    brightRed: "#daa520",
-    brightGreen: "#556b2f",
-    brightYellow: "#cd853f",
-    brightBlue: "#8b4513",
-    brightMagenta: "#a0522d",
-    brightCyan: "#daa520",
-    brightWhite: "#000000",
-  },
-  // 赛博朋克 - 霓虹电光蓝与紫粉色调，未来科技感
-  // 参考 Tech Innovation 与 Midnight Galaxy 配色方案
-  cyberpunk: {
-    background: "#0f0f1a", // 深蓝紫黑色主背景
-    foreground: "#e8f4f8", // 荧光蓝白色
-    cursor: "#00d4ff", // 霓虹青色光标
-    cursorAccent: "#0f0f1a", // 光标反色
-    selectionBackground: "rgba(0, 212, 255, 0.3)", // 主色透明
-    selectionForeground: "#000000",
-    black: "#0f0f1a",
-    red: "#ff3366", // 霓虹红色
-    green: "#00ff88", // 霓虹绿色
-    yellow: "#ffcc00", // 霓虹黄色
-    blue: "#00d4ff", // 霓虹青色（主色）
-    magenta: "#ff00a0", // 霓虹紫粉色（次要色）
-    cyan: "#00ffff", // 青色
-    white: "#e8f4f8",
-    brightBlack: "#4a5060",
-    brightRed: "#ff6699", // 亮霓虹红
-    brightGreen: "#5cFFB5", // 亮霓虹绿
-    brightYellow: "#ffe066", // 亮霓虹黄
-    brightBlue: "#5ce1ff", // 亮霓虹青
-    brightMagenta: "#ff5cc8", // 亮霓虹紫粉
-    brightCyan: "#5cffff", // 亮青色
-    brightWhite: "#ffffff",
+    background: "#fef3c7",
+    foreground: "#451a03",
+    cursor: "#92400e",
+    cursorAccent: "#fef3c7",
+    selectionBackground: "#92400e",
+    selectionForeground: "#fef3c7",
+    black: "#451a03",
+    red: "#c2410c",
+    green: "#65a30d",
+    yellow: "#d97706",
+    blue: "#78350f",
+    magenta: "#7c2d12",
+    cyan: "#0d9488",
+    white: "#92400e",
+    brightBlack: "#a16207",
+    brightRed: "#ea580c",
+    brightGreen: "#84cc16",
+    brightYellow: "#fbbf24",
+    brightBlue: "#b45309",
+    brightMagenta: "#9a3412",
+    brightCyan: "#14b8a6",
+    brightWhite: "#78350f",
   },
 };
 

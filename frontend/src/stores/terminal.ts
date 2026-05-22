@@ -3,6 +3,12 @@ import type { ITheme } from "@xterm/xterm";
 import { AppTheme } from "../types/ssh";
 import terminalThemes from "../theme/terminalThemes";
 
+const VALID_THEMES: AppTheme[] = ["light", "dark", "eyeCare"];
+
+function normalizeTheme(theme: AppTheme): AppTheme {
+  return VALID_THEMES.includes(theme) ? theme : "dark";
+}
+
 export interface TerminalSettings {
   fontFamily: string;
   fontSize: number;
@@ -25,14 +31,15 @@ export const useTerminalStore = create<TerminalSettings>((set, get) => ({
   setFontFamily: (f: string) => set(() => ({ fontFamily: f })),
   setFontSize: (s: number) => set(() => ({ fontSize: s })),
   setLineHeight: (l: number) => set(() => ({ lineHeight: l })),
-  setTheme: (theme: AppTheme) => set(() => ({ theme })),
+  setTheme: (theme: AppTheme) => set(() => ({ theme: normalizeTheme(theme) })),
   getCurrentTheme: (): ITheme => {
     const { theme } = get();
-    return terminalThemes[theme];
+    const validTheme = normalizeTheme(theme);
+    return terminalThemes[validTheme];
   },
   // 根据总体主题模式自动切换终端主题
   syncWithGlobalTheme: (globalTheme: AppTheme) => {
-    set(() => ({ theme: globalTheme }));
+    set(() => ({ theme: normalizeTheme(globalTheme) }));
   },
 }));
 

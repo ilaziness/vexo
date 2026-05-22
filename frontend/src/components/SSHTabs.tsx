@@ -151,6 +151,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
           width: "100%",
           height: tabHeight,
           pr: 1,
+          bgcolor: "background.paper",
           "--wails-draggable": "drag",
         }}
       >

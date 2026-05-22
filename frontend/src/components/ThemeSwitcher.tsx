@@ -1,20 +1,18 @@
-import {
-  IconButton,
-  Tooltip,
-  Menu,
-  MenuItem,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
-} from "@mui/material";
+import React, { useState } from "react";
+import { IconButton, Menu, ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
 import { useColorScheme } from "@mui/material/styles";
 import PaletteIcon from "@mui/icons-material/Palette";
-import React, { useState } from "react";
 import useTerminalStore from "../stores/terminal";
 import { AppTheme } from "../types/ssh";
 import { ThemeOptions } from "../theme";
 import { SetTheme } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 import { LogService } from "../../bindings/github.com/ilaziness/vexo/services";
+
+const VALID_THEMES: AppTheme[] = ["light", "dark", "eyeCare"];
+
+function isValidTheme(value: string): value is AppTheme {
+  return VALID_THEMES.includes(value as AppTheme);
+}
 
 export default function ThemeSwitcher() {
   const {
@@ -29,59 +27,61 @@ export default function ThemeSwitcher() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  const handleColorModeMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleColorModeMenuClose = () => {
+  const handleMenuClose = () => {
     setAnchorEl(null);
   };
 
-  const changeColorMode = (val: AppTheme) => {
-    console.log("changeColorMode", val);
+  const getCurrentThemeValue = (): AppTheme => {
+    let current: string;
 
+    if (mode === "dark" && !colorScheme) {
+      current = "dark";
+    } else {
+      current = (mode === "dark" ? darkColorScheme : lightColorScheme) || "dark";
+    }
+
+    return isValidTheme(current) ? current : "dark";
+  };
+
+  const handleThemeSelect = (value: AppTheme) => {
     // 保存主题配置
-    SetTheme(val).catch((err) => {
+    SetTheme(value).catch((err) => {
       LogService.Error("Failed to save theme:" + err.message);
     });
 
     // 同步终端主题
-    useTerminalStore.getState().syncWithGlobalTheme(val);
+    useTerminalStore.getState().syncWithGlobalTheme(value);
 
-    const themeConfig = ThemeOptions.find((t) => t.value === val);
+    const themeConfig = ThemeOptions.find((t) => t.value === value);
     if (!themeConfig) return;
 
     setMode(themeConfig.mode);
     if (themeConfig.mode === "light") {
-      setColorScheme({ light: val });
+      setColorScheme({ light: value });
     } else {
-      setColorScheme({ dark: val });
+      setColorScheme({ dark: value });
     }
+
+    handleMenuClose();
   };
 
-  const handleColorModeSelect = (val: AppTheme) => {
-    changeColorMode(val);
-    handleColorModeMenuClose();
-  };
-
-  const getCurrentThemeValue = () => {
-    if (mode === "dark" && !colorScheme) {
-      return "dark";
-    }
-    return mode === "dark" ? darkColorScheme : lightColorScheme;
-  };
+  const currentTheme = getCurrentThemeValue();
 
   return (
     <>
-      <Tooltip title="颜色模式">
-        <IconButton size="small" onClick={handleColorModeMenuOpen}>
+      <Tooltip title="主题切换">
+        <IconButton size="small" onClick={handleMenuOpen}>
           <PaletteIcon />
         </IconButton>
       </Tooltip>
       <Menu
         anchorEl={anchorEl}
         open={open}
-        onClose={handleColorModeMenuClose}
+        onClose={handleMenuClose}
         onClick={(e) => e.stopPropagation()}
         slotProps={{
           paper: {
@@ -89,31 +89,48 @@ export default function ThemeSwitcher() {
             sx: {
               overflow: "visible",
               mt: 1,
+              p: 1,
             },
           },
         }}
       >
-        <RadioGroup
-          value={getCurrentThemeValue()}
-          onChange={(e) => handleColorModeSelect(e.target.value as AppTheme)}
+        <ToggleButtonGroup
+          value={currentTheme}
+          exclusive
+          size="small"
+          sx={{
+            gap: 0.5,
+            "& .MuiToggleButton-root": {
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: "4px !important",
+              px: 1.5,
+              py: 0.5,
+              minWidth: "auto",
+              fontSize: "0.875rem",
+            },
+            "& .Mui-selected": {
+              borderColor: (theme) => theme.palette.primary.main,
+              backgroundColor: (theme) => theme.palette.primary.main,
+              color: (theme) => theme.palette.primary.contrastText,
+              "&:hover": {
+                backgroundColor: (theme) => theme.palette.primary.dark,
+              },
+            },
+          }}
         >
           {ThemeOptions.map((option) => (
-            <MenuItem key={option.value}>
-              <FormControlLabel
-                value={option.value}
-                control={
-                  <Radio
-                    checked={mode !== "system" && colorScheme === option.value}
-                    size="small"
-                  />
-                }
-                label={option.label}
-                sx={{ width: "100%" }}
-              />
-            </MenuItem>
+            <ToggleButton
+              key={option.value}
+              value={option.value}
+              onClick={() => handleThemeSelect(option.value)}
+            >
+              {option.label}
+            </ToggleButton>
           ))}
-        </RadioGroup>
+        </ToggleButtonGroup>
       </Menu>
     </>
   );
 }
+

@@ -10,6 +10,8 @@ import { Config } from "../bindings/github.com/ilaziness/vexo/services";
 import useTerminalStore from "./stores/terminal";
 import type { AppTheme } from "./types/ssh";
 
+const VALID_THEMES: AppTheme[] = ["light", "dark", "eyeCare"];
+
 // 提取终端设置应用函数，降低认知复杂度
 function applyTerminalSettings(t: Config["Terminal"]): void {
   const updates: Partial<{
@@ -33,11 +35,18 @@ function applyTerminalSettings(t: Config["Terminal"]): void {
   }
 }
 
+// 验证主题值并回退到默认值
+function normalizeTheme(theme: string | undefined): AppTheme {
+  if (theme && VALID_THEMES.includes(theme as AppTheme)) {
+    return theme as AppTheme;
+  }
+  return "dark";
+}
+
 // 提取主题同步函数
 function syncTerminalTheme(globalTheme: string | undefined): void {
-  if (globalTheme) {
-    useTerminalStore.getState().syncWithGlobalTheme(globalTheme as AppTheme);
-  }
+  const validTheme = normalizeTheme(globalTheme);
+  useTerminalStore.getState().syncWithGlobalTheme(validTheme);
 }
 
 try {
