@@ -196,3 +196,5 @@ go build .
 
 - genkit doc：[guid doc](https://genkit.dev/docs/go/get-started)
 - genkit api参考：[api ref](https://pkg.go.dev/github.com/firebase/genkit/go)
+- wails V3 api参考: [application api ref](https://pkg.go.dev/github.com/wailsapp/wails/v3/pkg/application)
+- wails v3 event: [event ref](https://pkg.go.dev/github.com/wailsapp/wails/v3/pkg/events)
