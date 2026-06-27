@@ -62,7 +62,7 @@ export class GenkitAdapter implements ChatAdapter {
     } catch (err) {
       const message = parseCallServiceError(err);
       useMessageStore.getState().errorMessage(message);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
 
     return new ReadableStream({

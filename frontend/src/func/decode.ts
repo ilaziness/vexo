@@ -38,6 +38,7 @@ export function decodeBase64(base64Str: string): Uint8Array {
   } catch (e) {
     throw new Error(
       `Invalid base64 string: ${e instanceof Error ? e.message : "Unknown error"}`,
+      { cause: e },
     );
   }
 

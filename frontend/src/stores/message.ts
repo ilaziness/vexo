@@ -8,15 +8,15 @@ export const useMessageStore = create<MessageStore>((set) => ({
       message: { ...state.message, open: false },
     })),
   errorMessage: (message: string) =>
-    set((state) => ({
+    set(() => ({
       message: { open: true, text: message, type: "error" },
     })),
   successMessage: (message: string) =>
-    set((state) => ({
+    set(() => ({
       message: { open: true, text: message, type: "success" },
     })),
   infoMessage: (message: string) =>
-    set((state) => ({
+    set(() => ({
       message: { open: true, text: message, type: "info" },
     })),
 }));

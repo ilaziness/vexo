@@ -25,7 +25,7 @@ const PasswordInputDialog: React.FC = () => {
       setPassword("");
     });
 
-    const unsubscribe2 = Events.On("eventInputPasswordClose", (event: any) => {
+    const unsubscribe2 = Events.On("eventInputPasswordClose", () => {
       close();
     });
 

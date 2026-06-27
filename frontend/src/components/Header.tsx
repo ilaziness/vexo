@@ -167,7 +167,7 @@ export default function Header() {
 
   useEffect(() => {
     loadBookmarks();
-    const unsubscribe = Events.On("eventBookmarkUpdate", (e) => {
+    const unsubscribe = Events.On("eventBookmarkUpdate", () => {
       loadBookmarks();
     });
 

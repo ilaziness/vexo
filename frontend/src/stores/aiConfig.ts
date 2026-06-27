@@ -48,7 +48,7 @@ export const useAIConfigStore = create<AIConfigState>((set) => ({
     try {
       const providers = await AIService.GetProviders();
       set({ providers: providers || [], isLoadingProviders: false });
-    } catch (err) {
+    } catch (_err) {
       set({ providers: [], isLoadingProviders: false });
     }
   },

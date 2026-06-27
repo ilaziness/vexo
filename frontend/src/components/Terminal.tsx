@@ -101,7 +101,7 @@ function Terminal(props: { readonly linkID: string }) {
 
     if (isWebgl2Supported()) {
       const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss((e) => {
+      webglAddon.onContextLoss(() => {
         console.warn("WebGL context lost. Falling back to DOM rendering.");
         webglAddon.dispose();
       });
