@@ -39,6 +39,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
     useSSHContextMenu();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sidebarOpen = useAIAssistantStore((state) => state.sidebarOpen);
+  const sidebarWidth = useAIAssistantStore((state) => state.sidebarWidth);
 
   React.useEffect(() => {
     const unsubscribeProgress = Events.On("eventProgress", (event: any) => {
@@ -227,6 +228,8 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
             width: "100%",
             height: "100%",
             position: "relative",
+            boxSizing: "border-box",
+            paddingRight: sidebarOpen ? `${sidebarWidth}px` : 0,
           }}
         >
           {sshTabs.map((item) => (
@@ -246,7 +249,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
             </Box>
           ))}
         </Box>
-        {sidebarOpen && <AISideBar />}
+        <AISideBar />
       </Box>
     </Box>
   );

@@ -351,8 +351,8 @@ func (s *AIService) Chat(req *ChatRequest) (*ChatResponse, error) {
 		NewMessage: newMessage,
 	}
 
-	// 会话无标题时，用本次用户输入截取作为标题
-	if session, err := s.sessionRepo.GetSession(context.Background(), sessionID); err == nil && session.Title == "" {
+	// 首条消息时将默认标题替换为用户输入摘要
+	if session, err := s.sessionRepo.GetSession(context.Background(), sessionID); err == nil && len(history) == 0 && (session.Title == "" || session.Title == "新会话") {
 		title := []rune(newMessage)
 		if len(title) > 20 {
 			title = title[:20]

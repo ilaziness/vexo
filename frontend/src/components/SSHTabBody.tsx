@@ -12,6 +12,7 @@ import ConnectionForm from "./ConnectionForm";
 import Loading from "./Loading";
 import { parseCallServiceError } from "../func/service";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
+import { SSH_STATUS_BAR_HEIGHT } from "../func/aiSidebar";
 import StatusBar from "./StatusBar";
 
 interface SSHContainerProps {
@@ -19,7 +20,7 @@ interface SSHContainerProps {
 }
 
 const tabHeight = "30px";
-const statusBarHeight = "25px";
+const statusBarHeight = `${SSH_STATUS_BAR_HEIGHT}px`;
 
 // SSH 连接容器组件，管理连接状态和错误处理
 const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {

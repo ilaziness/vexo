@@ -2,9 +2,10 @@
 import type { ChatAdapter, ChatMessageChunk, ChatStreamEnvelope, ChatUser } from '@mui/x-chat/headless';
 import { Events } from '@wailsio/runtime';
 import { AIService } from '../../../bindings/github.com/ilaziness/vexo/services';
-import { ChatRequest, AIMessage, AISession } from '../../../bindings/github.com/ilaziness/vexo/services/models';
+import { ChatRequest, AIMessage } from '../../../bindings/github.com/ilaziness/vexo/services/models';
 import { parseCallServiceError } from '../../func/service';
 import { useMessageStore } from '../../stores/message';
+import { useAIAssistantStore } from '../../stores/aiAssistant';
 
 const EVENT_AI_STREAM_CHUNK = 'eventAIStreamChunk';
 
@@ -19,13 +20,10 @@ export const aiUser: ChatUser = {
 };
 
 type SendMessageInput = Parameters<ChatAdapter['sendMessage']>[0];
-type ListConversationsResult = Awaited<ReturnType<NonNullable<ChatAdapter['listConversations']>>>;
 type ListMessagesInput = Parameters<NonNullable<ChatAdapter['listMessages']>>[0];
 type ListMessagesResult = Awaited<ReturnType<NonNullable<ChatAdapter['listMessages']>>>;
 
 export class GenkitAdapter implements ChatAdapter {
-  lastCreatedSessionId: string | null = null;
-
   async sendMessage(input: SendMessageInput): Promise<ReadableStream<ChatMessageChunk | ChatStreamEnvelope>> {
     const { signal } = input;
     const textPart = input.message.parts.find((part) => part.type === 'text');
@@ -36,28 +34,24 @@ export class GenkitAdapter implements ChatAdapter {
       throw new Error(message);
     }
 
-    let sessionId: string;
+    const sessionId = input.conversationId || '';
+    if (!sessionId) {
+      const message = '会话未就绪，请稍后重试';
+      useMessageStore.getState().errorMessage(message);
+      throw new Error(message);
+    }
+
     let chatPromise: ReturnType<typeof AIService.Chat>;
     let messageId: string;
-    let capturedSessionId: string;
+    const capturedSessionId = sessionId;
 
     try {
-      // 若没有 conversationId，先创建会话
-      sessionId = input.conversationId || '';
-      if (!sessionId) {
-        const session = await AIService.CreateSession();
-        if (!session) throw new Error('create session failed');
-        sessionId = session.id;
-        this.lastCreatedSessionId = sessionId;
-      }
-
       const request = new ChatRequest({
         session_id: sessionId,
         new_message: newMessage,
       });
 
       messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      capturedSessionId = sessionId;
       chatPromise = AIService.Chat(request);
     } catch (err) {
       const message = parseCallServiceError(err);
@@ -74,9 +68,14 @@ export class GenkitAdapter implements ChatAdapter {
         let hasStarted = false;
         let aborted = false;
 
+        const endStreaming = () => {
+          useAIAssistantStore.getState().setStreaming(false);
+        };
+
         const ensureStarted = () => {
           if (!hasStarted) {
             hasStarted = true;
+            useAIAssistantStore.getState().setStreaming(true);
             controller.enqueue({ type: 'start', messageId, author: aiUser } as ChatMessageChunk);
           }
         };
@@ -92,19 +91,20 @@ export class GenkitAdapter implements ChatAdapter {
             controller.enqueue({ type: 'text-end', id: textId } as ChatMessageChunk);
           }
           controller.enqueue({ type: 'abort', messageId } as ChatMessageChunk);
+          endStreaming();
           controller.close();
         };
         signal.addEventListener('abort', onAbort);
 
         const unsubscribe = Events.On(EVENT_AI_STREAM_CHUNK, (event: any) => {
           if (aborted) return;
+          if (useAIAssistantStore.getState().activeSessionId !== capturedSessionId) return;
           const data = event.data;
           if (data?.sessionId !== capturedSessionId) return;
 
           ensureStarted();
           const chunk: string = data.chunk || '';
 
-          // 思考过程 chunk（以 <think> 开头或标记为 reasoning）
           if (data.type === 'reasoning') {
             if (!hasReasoningStarted) {
               hasReasoningStarted = true;
@@ -112,7 +112,6 @@ export class GenkitAdapter implements ChatAdapter {
             }
             controller.enqueue({ type: 'reasoning-delta', id: reasoningId, delta: chunk } as ChatMessageChunk);
           } else {
-            // 普通文本 chunk
             if (!hasTextStarted) {
               hasTextStarted = true;
               controller.enqueue({ type: 'text-start', id: textId } as ChatMessageChunk);
@@ -126,22 +125,32 @@ export class GenkitAdapter implements ChatAdapter {
             if (aborted) return;
             unsubscribe();
             signal.removeEventListener('abort', onAbort);
+            if (useAIAssistantStore.getState().activeSessionId !== capturedSessionId) {
+              endStreaming();
+              controller.close();
+              return;
+            }
             ensureStarted();
             if (hasReasoningStarted) {
               controller.enqueue({ type: 'reasoning-end', id: reasoningId } as ChatMessageChunk);
             }
             if (!hasTextStarted) {
-              // 至少要有一个 text part
               controller.enqueue({ type: 'text-start', id: textId } as ChatMessageChunk);
             }
             controller.enqueue({ type: 'text-end', id: textId } as ChatMessageChunk);
             controller.enqueue({ type: 'finish', messageId } as ChatMessageChunk);
+            endStreaming();
             controller.close();
           })
           .catch((err: any) => {
             if (aborted) return;
             unsubscribe();
             signal.removeEventListener('abort', onAbort);
+            if (useAIAssistantStore.getState().activeSessionId !== capturedSessionId) {
+              endStreaming();
+              controller.close();
+              return;
+            }
             ensureStarted();
             const message = parseCallServiceError(err);
             useMessageStore.getState().errorMessage(message);
@@ -154,29 +163,11 @@ export class GenkitAdapter implements ChatAdapter {
             }
             controller.enqueue({ type: 'text-end', id: textId } as ChatMessageChunk);
             controller.enqueue({ type: 'finish', messageId } as ChatMessageChunk);
+            endStreaming();
             controller.close();
           });
       },
     });
-  }
-
-  async listConversations(): Promise<ListConversationsResult> {
-    try {
-      const sessions = await AIService.ListSessions(50);
-      const conversations: ListConversationsResult['conversations'] = (sessions || [])
-        .filter((s): s is AISession => s !== null)
-        .map((s) => ({
-          id: s.id,
-          title: s.title || '新会话',
-          createdAt: new Date(s.created_at * 1000).toISOString(),
-          lastMessageAt: new Date(s.updated_at * 1000).toISOString(),
-          participants: [currentUser, aiUser],
-        }));
-      return { conversations };
-    } catch (err) {
-      useMessageStore.getState().errorMessage(parseCallServiceError(err));
-      return { conversations: [] };
-    }
   }
 
   async listMessages(input: ListMessagesInput): Promise<ListMessagesResult> {
