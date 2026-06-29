@@ -35,9 +35,11 @@ type SSHConnect struct {
 }
 
 type SSHService struct {
-	clients         *sync.Map        // 客户端连接列表，key是host:port字符串, value是*ssh.Client
-	SSHConnects     *sync.Map        // 终端会话列表，key是SSHConnect.ID，value是*sshConnect
-	bookmarkService *BookmarkService // 书签服务引用
+	clients              *sync.Map // 客户端连接列表，key是host:port字符串, value是*ssh.Client
+	SSHConnects          *sync.Map // 终端会话列表，key是SSHConnect.ID，value是*sshConnect
+	remoteInfoCache      sync.Map  // key: normalized host, value: *system.RemoteSystemInfo
+	remoteInfoFetchLocks sync.Map  // key: normalized host, value: *sync.Mutex
+	bookmarkService      *BookmarkService
 	// host key prompt state
 	hostKeyMu   sync.Mutex
 	hostKeyChan chan bool

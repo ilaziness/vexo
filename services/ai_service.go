@@ -10,6 +10,7 @@ import (
 	"github.com/ilaziness/vexo/internal/ai"
 	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/secret"
+	"github.com/ilaziness/vexo/internal/system"
 	"go.uber.org/zap"
 )
 
@@ -52,10 +53,19 @@ type AISession struct {
 	UpdatedAt int64  `json:"updated_at"`
 }
 
+// SSHContext 当前 SSH 连接上下文（由前端传入）
+type SSHContext struct {
+	LinkID string `json:"link_id,omitempty"`
+	Host   string `json:"host"`
+	Port   int    `json:"port"`
+	User   string `json:"user"`
+}
+
 // ChatRequest 多轮对话请求
 type ChatRequest struct {
-	SessionID  string `json:"session_id"`
-	NewMessage string `json:"new_message"`
+	SessionID  string      `json:"session_id"`
+	NewMessage string      `json:"new_message"`
+	SSHContext *SSHContext `json:"ssh_context,omitempty"`
 }
 
 // ChatResponse 多轮对话响应
@@ -345,10 +355,14 @@ func (s *AIService) Chat(req *ChatRequest) (*ChatResponse, error) {
 		return nil, fmt.Errorf("save user message failed: %w", err)
 	}
 
+	sshCtx, remoteInfo := s.resolveSSHContext(req.SSHContext)
+	systemPrompt := ai.BuildSystemPrompt(sshCtx, remoteInfo)
+
 	aiReq := &ai.ChatRequest{
-		SessionID:  sessionID,
-		Messages:   messages,
-		NewMessage: newMessage,
+		SessionID:    sessionID,
+		Messages:     messages,
+		NewMessage:   newMessage,
+		SystemPrompt: systemPrompt,
 	}
 
 	// 首条消息时将默认标题替换为用户输入摘要
@@ -420,4 +434,32 @@ func (s *AIService) Chat(req *ChatRequest) (*ChatResponse, error) {
 			Timestamp: assistantMsg.Timestamp.Unix(),
 		},
 	}, nil
+}
+
+func (s *AIService) resolveSSHContext(ctx *SSHContext) (*ai.SSHPromptContext, *system.RemoteSystemInfo) {
+	if ctx == nil {
+		return nil, nil
+	}
+
+	linkID := strings.TrimSpace(ctx.LinkID)
+	host := strings.TrimSpace(ctx.Host)
+	user := strings.TrimSpace(ctx.User)
+	if linkID == "" || host == "" || user == "" || ctx.Port <= 0 {
+		return nil, nil
+	}
+
+	if s.sshService == nil {
+		return nil, nil
+	}
+	if _, ok := s.sshService.SSHConnects.Load(linkID); !ok {
+		return nil, nil
+	}
+
+	promptCtx := &ai.SSHPromptContext{
+		Host: host,
+		Port: ctx.Port,
+		User: user,
+	}
+	remoteInfo := s.sshService.GetOrFetchRemoteSystemInfo(linkID, host)
+	return promptCtx, remoteInfo
 }

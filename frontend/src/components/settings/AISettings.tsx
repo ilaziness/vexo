@@ -197,6 +197,7 @@ const AISettings: React.FC = () => {
                 });
               }}
               slotProps={{ htmlInput: { min: 100, max: 8192 } }}
+              helperText="限制单次回复的最大生成长度；数值越大可输出越长，但响应更慢、占用更多资源。"
             />
           </FormRow>
 

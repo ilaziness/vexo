@@ -4,6 +4,7 @@ import { Events } from '@wailsio/runtime';
 import { AIService } from '../../../bindings/github.com/ilaziness/vexo/services';
 import { ChatRequest, AIMessage } from '../../../bindings/github.com/ilaziness/vexo/services/models';
 import { parseCallServiceError } from '../../func/service';
+import { getCurrentSSHContext } from '../../func/aiContext';
 import { useMessageStore } from '../../stores/message';
 import { useAIAssistantStore } from '../../stores/aiAssistant';
 
@@ -46,9 +47,11 @@ export class GenkitAdapter implements ChatAdapter {
     const capturedSessionId = sessionId;
 
     try {
+      const sshContext = getCurrentSSHContext();
       const request = new ChatRequest({
         session_id: sessionId,
         new_message: newMessage,
+        ...(sshContext ? { ssh_context: sshContext } : {}),
       });
 
       messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

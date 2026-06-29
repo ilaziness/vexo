@@ -30,9 +30,10 @@ type ChatMessage struct {
 
 // ChatRequest 聊天请求
 type ChatRequest struct {
-	SessionID  string        `json:"session_id"`
-	Messages   []ChatMessage `json:"messages"`
-	NewMessage string        `json:"new_message"`
+	SessionID    string        `json:"session_id"`
+	Messages     []ChatMessage `json:"messages"`
+	NewMessage   string        `json:"new_message"`
+	SystemPrompt string        `json:"system_prompt"`
 }
 
 // ChatResponse 聊天响应
@@ -166,7 +167,7 @@ func (e *AIEngine) ChatStream(ctx context.Context, req *ChatRequest, onChunk fun
 		return nil, fmt.Errorf("ai engine not initialized or not enabled")
 	}
 
-	messages := buildMessages(req.Messages, req.NewMessage)
+	messages := buildMessages(req.Messages, req.NewMessage, req.SystemPrompt)
 
 	var opts []ai.GenerateOption
 	if model != nil {
@@ -190,11 +191,13 @@ func (e *AIEngine) ChatStream(ctx context.Context, req *ChatRequest, onChunk fun
 			break
 		}
 
+		// 同一 chunk 可能同时带 Reasoning 与 Text；优先走 reasoning，避免思考过程重复写入正文
 		if reasoning := result.Chunk.Reasoning(); reasoning != "" {
 			chunk := StreamChunk{Type: "reasoning", Text: reasoning}
 			if err := onChunk(chunk); err != nil {
 				return nil, err
 			}
+			continue
 		}
 
 		if text := result.Chunk.Text(); text != "" {
@@ -215,8 +218,11 @@ func (e *AIEngine) ChatStream(ctx context.Context, req *ChatRequest, onChunk fun
 }
 
 // buildMessages 构建消息列表
-func buildMessages(history []ChatMessage, newMsg string) []*ai.Message {
+func buildMessages(history []ChatMessage, newMsg, systemPrompt string) []*ai.Message {
 	var msgs []*ai.Message
+	if strings.TrimSpace(systemPrompt) != "" {
+		msgs = append(msgs, ai.NewTextMessage(ai.RoleSystem, systemPrompt))
+	}
 	for _, m := range history {
 		role := ai.RoleUser
 		if m.Role == "assistant" {
