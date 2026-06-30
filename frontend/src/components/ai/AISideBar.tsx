@@ -166,6 +166,7 @@ const AISideBar = () => {
               display: "flex",
               flexDirection: "column",
               position: "relative",
+              bgcolor: "background.default",
             }}
           >
             {showChat ? (

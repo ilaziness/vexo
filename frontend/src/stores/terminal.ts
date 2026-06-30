@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { ITheme } from "@xterm/xterm";
 import { AppTheme } from "../types/ssh";
 import terminalThemes from "../theme/terminalThemes";
+import { CODE_FONT_FAMILY } from "../theme/typography";
 
 const VALID_THEMES: AppTheme[] = ["light", "dark", "eyeCare"];
 
@@ -23,8 +24,7 @@ export interface TerminalSettings {
 }
 
 export const useTerminalStore = create<TerminalSettings>((set, get) => ({
-  fontFamily:
-    '"Noto Sans Mono", "Cascadia Code", "Fira Code", Menlo, Monaco, Consolas, "DejaVu Sans Mono", "Ubuntu Mono", "Courier New", monospace',
+  fontFamily: CODE_FONT_FAMILY,
   fontSize: 14,
   lineHeight: 1,
   theme: "dark", // 默认使用暗色主题

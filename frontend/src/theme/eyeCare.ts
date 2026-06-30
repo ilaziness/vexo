@@ -1,60 +1,64 @@
 import type { ColorSystemOptions } from "@mui/material/styles";
+import { eyeCareTokens as t } from "./paletteTokens";
 
 /**
- * Amber 主题 - 护眼复古模式
- * 复古终端风格，暖琥珀色减少蓝光刺激
+ * Amber 主题 - 护眼暖色模式
+ * 暖琥珀底，teal AI 头像，assistant 气泡带细边框
  */
 const eyeCare: ColorSystemOptions = {
   palette: {
     mode: "light",
     primary: {
-      main: "#92400e", // 深琥珀
-      light: "#b45309",
-      dark: "#78350f",
-      contrastText: "#fef3c7",
+      main: t.primary,
+      light: t.primaryLight,
+      dark: t.primaryDark,
+      contrastText: "#FFFBEB",
     },
     secondary: {
-      main: "#d97706", // 金黄
-      light: "#fbbf24",
-      dark: "#b45309",
-      contrastText: "#451a03",
+      main: t.secondary,
+      light: t.secondaryLight,
+      dark: t.secondaryDark,
+      contrastText: "#FFFFFF",
     },
     background: {
-      default: "#fef3c7", // 暖琥珀 - 终端区域
-      paper: "#fde8a8", // 稍深琥珀 - 工具栏/状态栏区分
+      default: t.bgDefault,
+      paper: t.bgPaper,
     },
     text: {
-      primary: "#451a03", // 深棕
-      secondary: "#78350f",
-      disabled: "#a16207",
+      primary: t.textPrimary,
+      secondary: t.textSecondary,
+      disabled: "#A16207",
     },
-    divider: "rgba(69, 26, 3, 0.12)",
+    grey: {
+      100: t.aiBubble,
+    },
+    divider: t.divider,
     action: {
-      active: "#92400e",
-      hover: "rgba(146, 64, 14, 0.04)",
-      selected: "rgba(146, 64, 14, 0.08)",
+      active: t.primary,
+      hover: "rgba(180, 83, 9, 0.06)",
+      selected: "rgba(180, 83, 9, 0.10)",
       disabled: "rgba(69, 26, 3, 0.26)",
       disabledBackground: "rgba(69, 26, 3, 0.12)",
     },
     success: {
-      main: "#65a30d",
-      light: "#84cc16",
-      dark: "#4d7c0f",
+      main: t.success,
+      light: "#84CC16",
+      dark: "#4D7C0F",
     },
     error: {
-      main: "#c2410c",
-      light: "#ea580c",
-      dark: "#9a3412",
+      main: "#C2410C",
+      light: "#EA580C",
+      dark: "#9A3412",
     },
     warning: {
-      main: "#d97706",
-      light: "#fbbf24",
-      dark: "#b45309",
+      main: "#D97706",
+      light: "#FBBF24",
+      dark: "#B45309",
     },
     info: {
-      main: "#b45309", // 琥珀棕
-      light: "#d97706",
-      dark: "#78350f",
+      main: t.primary,
+      light: t.primaryLight,
+      dark: t.primaryDark,
     },
   },
 };

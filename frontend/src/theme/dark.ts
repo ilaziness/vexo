@@ -1,60 +1,64 @@
 import type { ColorSystemOptions } from "@mui/material/styles";
+import { darkTokens as t } from "./paletteTokens";
 
 /**
- * Midnight 主题 - 暗色夜空模式
- * 深夜工作模式，夜空感深蓝灰，专业终端风格
+ * Midnight 主题 - GitHub Dark 风格
+ * 终端深底，Chrome 抬升，用户蓝 / AI 绿
  */
 const dark: ColorSystemOptions = {
   palette: {
     mode: "dark",
     primary: {
-      main: "#60a5fa", // 明亮蓝
-      light: "#93c5fd",
-      dark: "#3b82f6",
-      contrastText: "#0f172a",
+      main: t.primary,
+      light: t.primaryLight,
+      dark: t.primaryDark,
+      contrastText: "#FFFFFF",
     },
     secondary: {
-      main: "#22d3ee", // 霓虹青
-      light: "#67e8f9",
-      dark: "#06b6d4",
-      contrastText: "#0f172a",
+      main: t.secondary,
+      light: t.secondaryLight,
+      dark: t.secondaryDark,
+      contrastText: "#0D1117",
     },
     background: {
-      default: "#0f172a", // 深 slate - 终端区域
-      paper: "#1a2234", // 稍浅蓝黑 - 工具栏/状态栏区分
+      default: t.bgDefault,
+      paper: t.bgPaper,
     },
     text: {
-      primary: "#e2e8f0", // 柔和白
-      secondary: "#94a3b8",
-      disabled: "#64748b",
+      primary: t.textPrimary,
+      secondary: t.textSecondary,
+      disabled: "#6E7681",
     },
-    divider: "rgba(226, 232, 240, 0.12)",
+    grey: {
+      800: t.aiBubble,
+    },
+    divider: t.divider,
     action: {
-      active: "#60a5fa",
-      hover: "rgba(96, 165, 250, 0.08)",
-      selected: "rgba(96, 165, 250, 0.16)",
-      disabled: "rgba(226, 232, 240, 0.3)",
-      disabledBackground: "rgba(226, 232, 240, 0.12)",
+      active: t.primary,
+      hover: "rgba(88, 166, 255, 0.10)",
+      selected: "rgba(88, 166, 255, 0.18)",
+      disabled: "rgba(230, 237, 243, 0.30)",
+      disabledBackground: "rgba(230, 237, 243, 0.12)",
     },
     success: {
-      main: "#34d399",
-      light: "#6ee7b7",
-      dark: "#10b981",
+      main: t.success,
+      light: "#56D364",
+      dark: "#238636",
     },
     error: {
-      main: "#f87171",
-      light: "#fca5a5",
-      dark: "#ef4444",
+      main: "#F85149",
+      light: "#FF7B72",
+      dark: "#DA3633",
     },
     warning: {
-      main: "#fbbf24",
-      light: "#fcd34d",
-      dark: "#f59e0b",
+      main: "#D29922",
+      light: "#E3B341",
+      dark: "#BB8009",
     },
     info: {
-      main: "#60a5fa",
-      light: "#93c5fd",
-      dark: "#3b82f6",
+      main: t.primary,
+      light: t.primaryLight,
+      dark: t.primaryDark,
     },
   },
 };
