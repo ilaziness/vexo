@@ -226,7 +226,12 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
                   sx={{
                     width: "100%",
                     height: "100%",
-                    display: activeTab === index ? "block" : "none",
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    visibility: activeTab === index ? "visible" : "hidden",
+                    pointerEvents: activeTab === index ? "auto" : "none",
+                    zIndex: activeTab === index ? 1 : 0,
                   }}
                 >
                   {item.component}
