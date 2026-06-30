@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -35,11 +35,13 @@ import {
   UploadFile as UploadIcon,
 } from "@mui/icons-material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { Events } from "@wailsio/runtime";
 import {
   LogService,
   SftpService,
   SSHService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
+import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { formatFileSize, parseCallServiceError } from "../func/service";
 import { sortFileList } from "../func/ftp";
 import { useMessageStore } from "../stores/message";
@@ -78,33 +80,12 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   const [createDirDialogOpen, setCreateDirDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
 
-  // 初始化SFTP连接
-  useEffect(() => {
-    const initSftp = async () => {
-      if (sftpLoaded) return;
-      try {
-        await SSHService.StartSftp(linkID);
-        LogService.Debug("SFTP connection established");
-        // 获取默认的home目录
-        const homePath = await SftpService.GetWd(linkID);
-        setCurrentPath(homePath);
-        await refreshFileList(homePath);
-        setSftpLoaded(true);
-      } catch (err: any) {
-        showMessageError(parseCallServiceError(err));
-        LogService.Error(`Failed to initialize SFTP: ${err.message || err}`);
-      }
-    };
-    initSftp().then(() => {});
-
-    // 组件卸载时关闭SFTP连接
-    return () => {
-      SftpService.Close();
-    };
-  }, [linkID]);
+  const currentPathRef = useRef(currentPath);
+  currentPathRef.current = currentPath;
 
   const refreshFileList = async (path?: string, showHidden?: boolean) => {
-    const targetPath = path ?? currentPath;
+    const targetPath =
+      path !== undefined && path !== "" ? path : currentPath;
     const showHiddenAll = showHidden ?? showHiddenFiles;
     setLoading(true);
     try {
@@ -122,6 +103,70 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       setLoading(false);
     }
   };
+
+  const refreshFileListRef = useRef(refreshFileList);
+  refreshFileListRef.current = refreshFileList;
+
+  // 初始化SFTP连接
+  useEffect(() => {
+    const initSftp = async () => {
+      if (sftpLoaded) return;
+      try {
+        await SSHService.StartSftp(linkID);
+        LogService.Debug("SFTP connection established");
+        const homePath = await SftpService.GetWd(linkID);
+        setCurrentPath(homePath);
+        await refreshFileList(homePath);
+        setSftpLoaded(true);
+      } catch (err: any) {
+        showMessageError(parseCallServiceError(err));
+        LogService.Error(`Failed to initialize SFTP: ${err.message || err}`);
+      }
+    };
+    initSftp().then(() => {});
+
+    return () => {
+      SftpService.Close();
+    };
+  }, [linkID]);
+
+  useEffect(() => {
+    const unsubDrop = Events.On("eventSftpFilesDropped", (event) => {
+      const { sessionID, localPaths } = event.data;
+      if (sessionID !== linkID || !localPaths?.length) return;
+
+      SftpService.UploadPaths(linkID, currentPathRef.current, localPaths)
+        .then(() => showInfoMessage("已添加到传输列表"))
+        .catch((err) => showMessageError(parseCallServiceError(err)));
+    });
+    return unsubDrop;
+  }, [linkID, showInfoMessage, showMessageError]);
+
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const unsubProgress = Events.On("eventProgress", (event) => {
+      const data = event.data as ProgressData;
+      if (
+        !data.Done ||
+        data.SessionID !== linkID ||
+        data.TransferType !== "upload"
+      ) {
+        return;
+      }
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+      refreshTimer = setTimeout(() => {
+        refreshFileListRef.current().catch(() => {});
+      }, 300);
+    });
+    return () => {
+      unsubProgress();
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+    };
+  }, [linkID]);
 
   const handleItemClick = async (file: FileInfo) => {
     if (file.isDir) {
@@ -195,23 +240,16 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   const handleUpload = async (type: "file" | "directory") => {
     handleCloseBlankMenu();
 
-    try {
-      const remotePath = currentPath;
+    const remotePath = currentPath;
+    const uploadPromise =
+      type === "file"
+        ? SftpService.UploadFileDialog(linkID, remotePath)
+        : SftpService.UploadDirectoryDialog(linkID, remotePath);
 
-      if (type === "file") {
-        SftpService.UploadFileDialog(linkID, remotePath).then(() => {
-          refreshFileList();
-        });
-      } else {
-        SftpService.UploadDirectoryDialog(linkID, remotePath).then(() => {
-          refreshFileList();
-        });
-      }
-      showInfoMessage("已添加到传输列表");
-    } catch (err: any) {
+    uploadPromise.catch((err) => {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to upload ${type}: ${err.message || err}`);
-    }
+    });
   };
 
   const handleDelete = async () => {
@@ -349,22 +387,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     }
   };
 
-  // sftpLoaded为false时显示初始加载动画
-  if (!sftpLoaded) {
-    return (
-      <Box
-        sx={{
-          height: "100%",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
     <Box
       sx={{
@@ -374,7 +396,8 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         position: "relative",
       }}
     >
-      <SftpNavbar
+      {sftpLoaded && (
+        <SftpNavbar
         currentPath={currentPath}
         onPathChange={async (path: string) => {
           try {
@@ -400,86 +423,92 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         onToggleShowHidden={() => {
           const newShowHiddenFiles = !showHiddenFiles;
           setShowHiddenFiles(newShowHiddenFiles);
-          refreshFileList("", newShowHiddenFiles).then(() => {}); // 切换显示隐藏文件后立即刷新列表
+          refreshFileList(undefined, newShowHiddenFiles).then(() => {});
         }}
       />
-
-      {loading ? (
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            flex: 1,
-          }}
-        >
-          <CircularProgress />
-        </Box>
-      ) : (
-        <TableContainer
-          component={Paper}
-          onContextMenu={(e) => handleBlankContextMenu(e)}
-          sx={{ flex: 1, overflow: "auto", boxShadow: "none" }}
-        >
-          <Table stickyHeader size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>类型</TableCell>
-                <TableCell>名称</TableCell>
-                <TableCell align="center">大小</TableCell>
-                <TableCell align="center">修改时间</TableCell>
-                <TableCell align="center">操作</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {fileList.map((file, index) => (
-                <TableRow
-                  hover
-                  key={file.name + index}
-                  sx={{
-                    cursor: file.isDir ? "pointer" : "default",
-                  }}
-                  onContextMenu={(e) => handleContextMenu(e, file)}
-                  onDoubleClick={() => handleItemClick(file)}
-                >
-                  <TableCell component="th" scope="row">
-                    {file.isDir ? (
-                      <FolderIcon sx={{ color: "#FFB74D" }} />
-                    ) : (
-                      <FileIcon sx={{ color: "#81C784" }} />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <Typography noWrap sx={{ flex: 1 }}>
-                        {file.name}
-                      </Typography>
-                      <Typography
-                        noWrap
-                        variant="subtitle2"
-                        color="textSecondary"
-                      >
-                        {file.mode}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    {file.isDir ? "-" : formatFileSize(file.size)}
-                  </TableCell>
-                  <TableCell align="center">
-                    {new Date(file.modTime).toLocaleString()}
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton onClick={(e) => handleContextMenu(e, file)}>
-                      <MoreVertIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
       )}
+
+      <Box
+        component="div"
+        id={`sftp-drop-${linkID}`}
+        data-file-drop-target=""
+        className="sftp-drop-zone"
+        onContextMenu={(e) => handleBlankContextMenu(e)}
+        sx={{ flex: 1, overflow: "auto", position: "relative" }}
+      >
+        {!sftpLoaded || loading ? (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          <TableContainer component={Paper} sx={{ boxShadow: "none" }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>类型</TableCell>
+                  <TableCell>名称</TableCell>
+                  <TableCell align="center">大小</TableCell>
+                  <TableCell align="center">修改时间</TableCell>
+                  <TableCell align="center">操作</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {fileList.map((file, index) => (
+                  <TableRow
+                    hover
+                    key={file.name + index}
+                    sx={{
+                      cursor: file.isDir ? "pointer" : "default",
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, file)}
+                    onDoubleClick={() => handleItemClick(file)}
+                  >
+                    <TableCell component="th" scope="row">
+                      {file.isDir ? (
+                        <FolderIcon sx={{ color: "#FFB74D" }} />
+                      ) : (
+                        <FileIcon sx={{ color: "#81C784" }} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <Typography noWrap sx={{ flex: 1 }}>
+                          {file.name}
+                        </Typography>
+                        <Typography
+                          noWrap
+                          variant="subtitle2"
+                          color="textSecondary"
+                        >
+                          {file.mode}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      {file.isDir ? "-" : formatFileSize(file.size)}
+                    </TableCell>
+                    <TableCell align="center">
+                      {new Date(file.modTime).toLocaleString()}
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton onClick={(e) => handleContextMenu(e, file)}>
+                        <MoreVertIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
 
       {/* 文件/文件夹右键菜单 */}
       <Menu

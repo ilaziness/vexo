@@ -20,6 +20,7 @@ func NewApp(a *application.App, mainWindow *application.WebviewWindow) {
 		app:        a,
 		MainWindow: mainWindow,
 	}
+	RegisterFileDropHandler(mainWindow)
 	mainWindow.OnWindowEvent(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		for _, window := range app.Window.GetAll() {
 			window.Close()
@@ -99,7 +100,9 @@ func (cs *App) NewMainWindow() {
 		MinHeight:                  800,
 		DefaultContextMenuDisabled: true,
 		Frameless:                  true,
+		EnableFileDrop:             true,
 	})
+	RegisterFileDropHandler(w)
 	w.Show()
 	w.Focus()
 }

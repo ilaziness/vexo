@@ -188,13 +188,18 @@ func (sft *SftpService) uploadFile(sessionID string, localPathFile, remoteDir st
 // UploadFileDialog opens a file dialog to select a file to upload
 func (sft *SftpService) UploadFileDialog(sessionID string, remotePath string) error {
 	Logger.Debug("UploadFileDialog", zap.String("sessionID", sessionID), zap.String("remotePath", remotePath))
-	// 选择文件
 	localPath, err := app.Dialog.OpenFile().SetTitle("选择文件").PromptForSingleSelection()
 	if err != nil {
 		return err
 	}
+	if localPath == "" {
+		return nil
+	}
 	Logger.Info("UploadFileDialog", zap.String("localPath", localPath), zap.String("remotePath", remotePath))
-	// Calculate file size and create tracker
+	return sft.uploadFileWithTracker(sessionID, localPath, remotePath)
+}
+
+func (sft *SftpService) uploadFileWithTracker(sessionID, localPath, remotePath string) error {
 	info, err := os.Stat(localPath)
 	if err != nil {
 		return err
@@ -203,6 +208,14 @@ func (sft *SftpService) UploadFileDialog(sessionID string, remotePath string) er
 	err = sft.uploadFile(sessionID, localPath, remotePath, tracker)
 	tracker.stopProgress(err)
 	return err
+}
+
+func (sft *SftpService) startUploadFileAsync(sessionID, localPath, remotePath string, size int64) {
+	go func() {
+		tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), size)
+		err := sft.uploadFile(sessionID, localPath, remotePath, tracker)
+		tracker.stopProgress(err)
+	}()
 }
 
 // downloadFile downloads a remote file to the specified local path
@@ -287,7 +300,13 @@ func (sft *SftpService) UploadDirectoryDialog(sessionID, remotePath string) erro
 	if err != nil {
 		return err
 	}
-	// Calculate directory size and create tracker
+	if localPath == "" {
+		return nil
+	}
+	return sft.uploadDirectoryWithTracker(sessionID, localPath, remotePath)
+}
+
+func (sft *SftpService) uploadDirectoryWithTracker(sessionID, localPath, remotePath string) error {
 	total, err := sft.calcLocalDirSize(localPath)
 	if err != nil {
 		return err
@@ -296,6 +315,40 @@ func (sft *SftpService) UploadDirectoryDialog(sessionID, remotePath string) erro
 	err = sft.uploadDirectory(sessionID, localPath, remotePath, tracker)
 	tracker.stopProgress(err)
 	return err
+}
+
+func (sft *SftpService) startUploadDirectoryAsync(sessionID, localPath, remotePath string, total int64) {
+	go func() {
+		tracker := newTransferTracker(sessionID, TransferTypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), total)
+		err := sft.uploadDirectory(sessionID, localPath, remotePath, tracker)
+		tracker.stopProgress(err)
+	}()
+}
+
+// UploadPaths uploads local files or directories to the remote path in parallel.
+func (sft *SftpService) UploadPaths(sessionID, remotePath string, localPaths []string) error {
+	if sessionID == "" || remotePath == "" || len(localPaths) == 0 {
+		return fmt.Errorf("invalid upload parameters")
+	}
+	if _, err := sft.getSftpClient(sessionID); err != nil {
+		return err
+	}
+	for _, p := range localPaths {
+		info, err := os.Stat(p)
+		if err != nil {
+			return fmt.Errorf("local path %s: %w", p, err)
+		}
+		if info.IsDir() {
+			total, err := sft.calcLocalDirSize(p)
+			if err != nil {
+				return fmt.Errorf("local path %s: %w", p, err)
+			}
+			sft.startUploadDirectoryAsync(sessionID, p, remotePath, total)
+		} else {
+			sft.startUploadFileAsync(sessionID, p, remotePath, info.Size())
+		}
+	}
+	return nil
 }
 
 // uploadDirectory recursively uploads a local directory to the specified remote path

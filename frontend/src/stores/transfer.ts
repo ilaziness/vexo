@@ -7,6 +7,7 @@ export interface TransferStore {
   removeProgress: (sessionID: string, id: string) => void;
   getTransfersBySession: (sessionID: string) => ProgressData[];
   clearSession: (sessionID: string) => void;
+  clearCompletedTransfers: (sessionID: string) => void;
 }
 
 export const useTransferStore = create<TransferStore>((set, get) => ({
@@ -49,6 +50,19 @@ export const useTransferStore = create<TransferStore>((set, get) => ({
     set((state) => {
       const newTransfers = new Map(state.transfers);
       newTransfers.delete(sessionID);
+      return { transfers: newTransfers };
+    });
+  },
+  clearCompletedTransfers: (sessionID: string) => {
+    set((state) => {
+      const newTransfers = new Map(state.transfers);
+      const sessionTransfers = newTransfers.get(sessionID) || [];
+      const activeTransfers = sessionTransfers.filter((p) => !p.Done);
+      if (activeTransfers.length === 0) {
+        newTransfers.delete(sessionID);
+      } else {
+        newTransfers.set(sessionID, activeTransfers);
+      }
       return { transfers: newTransfers };
     });
   },

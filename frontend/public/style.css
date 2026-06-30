@@ -50,3 +50,13 @@ body {
   height: 100%;
   overflow: hidden;
 }
+
+.sftp-drop-zone {
+  box-sizing: border-box;
+  border: 2px dashed transparent;
+}
+
+.sftp-drop-zone.file-drop-target-active {
+  border-color: #90caf9;
+  background-color: rgba(144, 202, 249, 0.08);
+}

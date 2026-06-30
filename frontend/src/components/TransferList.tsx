@@ -39,7 +39,7 @@ const TransferList: React.FC<TransferListProps> = ({
   const {
     transfers: transfersMap,
     removeProgress,
-    clearSession,
+    clearCompletedTransfers,
   } = useTransferStore();
   const transfersList = useMemo(() => {
     return transfersMap.get(sessionID) || [];
@@ -48,7 +48,7 @@ const TransferList: React.FC<TransferListProps> = ({
     removeProgress(sessionID, id);
   };
   const handleClear = () => {
-    clearSession(sessionID);
+    clearCompletedTransfers(sessionID);
   };
 
   return (
@@ -91,7 +91,7 @@ const TransferList: React.FC<TransferListProps> = ({
               传输列表
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
-              <Tooltip title="清空列表">
+              <Tooltip title="清空已完成任务">
                 <IconButton onClick={handleClear} size="small">
                   <ClearAll fontSize="small" />
                 </IconButton>

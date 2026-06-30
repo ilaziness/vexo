@@ -40,7 +40,7 @@ const SftpNavbar: React.FC<SftpNavbarProps> = ({
     setPathInput(currentPath);
   }, [currentPath]);
 
-  const handlePathSubmit = (e: React.FormEvent) => {
+  const handlePathSubmit = (e: React.SubmitEvent) => {
     e.preventDefault();
     if (pathInput.trim() && pathInput !== currentPath) {
       onPathChange(pathInput);
@@ -66,7 +66,7 @@ const SftpNavbar: React.FC<SftpNavbarProps> = ({
         gap: 1,
       }}
     >
-      <Tooltip title={showHiddenFiles ? "显示隐藏文件" : "不显示隐藏文件"}>
+      <Tooltip title={showHiddenFiles ? "隐藏点号文件" : "显示隐藏文件"}>
         <IconButton size="small" onClick={onToggleShowHidden}>
           {showHiddenFiles ? (
             <VisibilityIcon fontSize="small" />

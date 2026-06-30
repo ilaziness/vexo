@@ -19,7 +19,7 @@
     "@mui/lab": "^9.0.0-beta.5",
     "@mui/material": "^9.1.2",
     "@mui/x-chat": "^9.0.0-alpha.11",
-    "@wailsio/runtime": "latest",
+    "@wailsio/runtime": "^3.0.0-alpha.94",
     "@xterm/addon-attach": "^0.12.0",
     "@xterm/addon-clipboard": "^0.2.0",
     "@xterm/addon-fit": "^0.11.0",

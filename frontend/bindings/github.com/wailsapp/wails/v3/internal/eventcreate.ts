@@ -13,10 +13,12 @@ import * as services$0 from "../../../../ilaziness/vexo/services/models.js";
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "eventProgress": $$createType0,
+        "eventSftpFilesDropped": $$createType1,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = services$0.ProgressData.createFrom;
+const $$createType1 = services$0.SftpFilesDroppedData.createFrom;
 
 configure();

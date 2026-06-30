@@ -78,6 +78,7 @@ func main() {
 		Height:                     900,
 		Frameless:                  true,
 		DefaultContextMenuDisabled: true,
+		EnableFileDrop:             true,
 	})
 
 	services.NewApp(app, mainWindow)

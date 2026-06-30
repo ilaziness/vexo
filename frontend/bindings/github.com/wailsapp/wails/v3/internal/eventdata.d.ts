@@ -18,6 +18,7 @@ declare module "@wailsio/runtime" {
             "eventInputPassword": string;
             "eventInputPasswordClose": string;
             "eventProgress": services$0.ProgressData;
+            "eventSftpFilesDropped": services$0.SftpFilesDroppedData;
         }
     }
 }
