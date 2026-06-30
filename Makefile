@@ -10,9 +10,31 @@ BUILD_TIME := $(shell date "+%Y-%m-%dT%H:%M:%S%:z" 2>/dev/null || echo "unknown"
 CONFIG_FILE := services/config_service.go
 CONFIG_BACKUP := services/config_service.go.bak
 
-.PHONY: build-windows build-darwin build-linux clean all build-mac build-mac-intel
+.PHONY: help all build-windows build-darwin build-linux clean build-mac build-mac-intel replace-config restore-config
 
-# Default target
+.DEFAULT_GOAL := help
+
+help:
+	@echo "Vexo SSH desktop application — Makefile usage"
+	@echo ""
+	@echo "Usage: make [target] [VAR=value ...]"
+	@echo ""
+	@echo "Variables:"
+	@echo "  VERSION   Release version (default: $(VERSION))"
+	@echo "  MODE      Build mode: debug | release (default: $(MODE))"
+	@echo ""
+	@echo "Targets:"
+	@echo "  help            Show this help (default)"
+	@echo "  all             Build all platforms (windows, darwin amd64/arm64, linux)"
+	@echo "  build-windows   Build for Windows"
+	@echo "  build-mac       Build for macOS (arm64)"
+	@echo "  build-mac-intel Build for macOS (amd64)"
+	@echo "  build-linux     Build for Linux"
+	@echo "  clean           Remove bin/ and config backup"
+	@echo "  replace-config  Inject VERSION/MODE/GIT_INFO/BUILD_TIME into config (internal)"
+	@echo "  restore-config  Restore config_service.go from backup (internal)"
+
+# Build all platforms
 all: build-windows build-darwin build-mac-intel build-linux
 
 # 替换配置文件中的变量
