@@ -133,7 +133,7 @@ function Terminal(props: { readonly linkID: string }) {
     term.current = new TerminalLib({
       allowProposedApi: true,
       cursorBlink: true,
-      cursorStyle: "bar",
+      cursorStyle: "block",
       fontFamily: settings.fontFamily,
       fontSize: settings.fontSize,
       lineHeight: settings.lineHeight,
