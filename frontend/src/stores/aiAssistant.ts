@@ -31,6 +31,7 @@ interface AIAssistantState {
   isStreaming: boolean;
 
   toggleSidebarOpen: () => void;
+  setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number, persist?: boolean) => void;
   setHistoryDrawerOpen: (open: boolean) => void;
   setStreaming: (streaming: boolean) => void;
@@ -51,6 +52,8 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
   isStreaming: false,
 
   toggleSidebarOpen: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
   setSidebarWidth: (width, persist = true) => {
     const clamped = clampSidebarWidth(width);

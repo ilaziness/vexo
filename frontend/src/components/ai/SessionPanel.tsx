@@ -16,7 +16,7 @@ import {
   Button,
   Tooltip,
 } from '@mui/material';
-import { Menu, Add, Delete } from '@mui/icons-material';
+import { Menu, Add, Delete, Close } from '@mui/icons-material';
 import { useAIAssistantStore } from '../../stores/aiAssistant';
 import { getSidebarContentWidth } from '../../func/aiSidebar';
 
@@ -42,6 +42,7 @@ const SessionPanel: React.FC<SessionPanelProps> = ({ drawerContainer }) => {
   const historyDrawerOpen = useAIAssistantStore((s) => s.historyDrawerOpen);
   const isStreaming = useAIAssistantStore((s) => s.isStreaming);
   const setHistoryDrawerOpen = useAIAssistantStore((s) => s.setHistoryDrawerOpen);
+  const setSidebarOpen = useAIAssistantStore((s) => s.setSidebarOpen);
   const selectSession = useAIAssistantStore((s) => s.selectSession);
   const createSession = useAIAssistantStore((s) => s.createSession);
   const deleteSession = useAIAssistantStore((s) => s.deleteSession);
@@ -106,6 +107,15 @@ const SessionPanel: React.FC<SessionPanelProps> = ({ drawerContainer }) => {
               <Add fontSize="small" />
             </IconButton>
           </span>
+        </Tooltip>
+        <Tooltip title="关闭 AI 助手">
+          <IconButton
+            size="small"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="关闭 AI 助手"
+          >
+            <Close fontSize="small" />
+          </IconButton>
         </Tooltip>
       </Box>
 

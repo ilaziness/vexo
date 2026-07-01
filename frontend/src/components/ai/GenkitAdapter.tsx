@@ -3,6 +3,7 @@ import type { ChatAdapter, ChatMessageChunk, ChatStreamEnvelope, ChatUser } from
 import { Events } from '@wailsio/runtime';
 import { AIService } from '../../../bindings/github.com/ilaziness/vexo/services';
 import { ChatRequest, AIMessage } from '../../../bindings/github.com/ilaziness/vexo/services/models';
+import { formatAIChatError } from '../../func/aiChatError';
 import { parseCallServiceError } from '../../func/service';
 import { getCurrentSSHContext } from '../../func/aiContext';
 import { useMessageStore } from '../../stores/message';
@@ -155,14 +156,14 @@ export class GenkitAdapter implements ChatAdapter {
               return;
             }
             ensureStarted();
-            const message = parseCallServiceError(err);
+            const message = formatAIChatError(parseCallServiceError(err));
             useMessageStore.getState().errorMessage(message);
             if (hasReasoningStarted) {
               controller.enqueue({ type: 'reasoning-end', id: reasoningId } as ChatMessageChunk);
             }
             if (!hasTextStarted) {
               controller.enqueue({ type: 'text-start', id: textId } as ChatMessageChunk);
-              controller.enqueue({ type: 'text-delta', id: textId, delta: `Error: ${message}` } as ChatMessageChunk);
+              controller.enqueue({ type: 'text-delta', id: textId, delta: message } as ChatMessageChunk);
             }
             controller.enqueue({ type: 'text-end', id: textId } as ChatMessageChunk);
             controller.enqueue({ type: 'finish', messageId } as ChatMessageChunk);

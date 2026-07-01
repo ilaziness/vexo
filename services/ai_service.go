@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +17,9 @@ import (
 
 // AI 流式事件
 const EventAIStreamChunk = "eventAIStreamChunk"
+
+// ErrAINotEnabled AI 未启用或未就绪
+var ErrAINotEnabled = errors.New("AI 助手尚未启用，请前往「设置 → AI」完成配置并启用后再试")
 
 // AIConfig AI 配置结构体 - 用于配置文件持久化
 type AIConfig struct {
@@ -322,8 +326,9 @@ func (s *AIService) Chat(req *ChatRequest) (*ChatResponse, error) {
 		return nil, fmt.Errorf("new message is required")
 	}
 
-	if s.engine == nil {
-		return nil, fmt.Errorf("AI engine not initialized")
+	cfg, err := s.GetConfig()
+	if err != nil || !cfg.Enabled || s.engine == nil {
+		return nil, ErrAINotEnabled
 	}
 
 	history, err := s.sessionRepo.ListMessages(context.Background(), sessionID)
