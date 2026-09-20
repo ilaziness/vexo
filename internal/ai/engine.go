@@ -51,7 +51,7 @@ type StreamChunk struct {
 type AIEngine struct {
 	genkit    *genkit.Genkit
 	config    *Config
-	model     ai.Model
+	modelName string
 	genConfig any
 	mu        sync.RWMutex
 }
@@ -73,8 +73,6 @@ func NewAIEngine() *AIEngine {
 // Init 初始化插件、定义模型、构建配置
 func (e *AIEngine) Init(ctx context.Context, cfg *Config) error {
 	var ollamaPlugin *ollama.Ollama
-	var compatPlugin *compat_oai.OpenAICompatible
-	var openaiPlugin *openai.OpenAI
 	var g *genkit.Genkit
 
 	switch cfg.Provider {
@@ -93,62 +91,46 @@ func (e *AIEngine) Init(ctx context.Context, cfg *Config) error {
 		g = genkit.Init(ctx, genkit.WithPlugins(&googlegenai.GoogleAI{APIKey: cfg.APIKey}))
 
 	case ProviderOpenAI:
-		openaiPlugin = &openai.OpenAI{
+		g = genkit.Init(ctx, genkit.WithPlugins(&openai.OpenAI{
 			APIKey: cfg.APIKey,
-		}
-		g = genkit.Init(ctx, genkit.WithPlugins(openaiPlugin))
+		}))
 
 	case ProviderOpenAICompatible:
 		if cfg.Endpoint == "" {
 			return fmt.Errorf("endpoint is required for openai_compatible")
 		}
-		compatPlugin = &compat_oai.OpenAICompatible{
+		g = genkit.Init(ctx, genkit.WithPlugins(&compat_oai.OpenAICompatible{
 			Provider: "custom",
 			APIKey:   cfg.APIKey,
 			BaseURL:  cfg.Endpoint,
-		}
-		g = genkit.Init(ctx, genkit.WithPlugins(compatPlugin))
+		}))
 
 	default:
 		return fmt.Errorf("unsupported provider: %s", cfg.Provider)
 	}
 
-	var model ai.Model
 	switch cfg.Provider {
 	case ProviderOllama:
 		if ollamaPlugin == nil {
 			return fmt.Errorf("ollama plugin not initialized")
 		}
+		// 自定义 Ollama 模型需显式注册后才能按名称解析
 		ollamaPlugin.DefineModel(g, ollama.ModelDefinition{
 			Name: cfg.Model,
 			Type: "chat",
 		}, nil)
-		model = ollama.Model(g, cfg.Model)
-
-	case ProviderOpenAI:
-		openaiPlugin.DefineModel(cfg.Model, ai.ModelOptions{})
-
-	case ProviderOpenAICompatible:
-		if compatPlugin == nil {
-			return fmt.Errorf("compat plugin not initialized")
-		}
-		compatPlugin.DefineModel(string(cfg.Provider), cfg.Model, ai.ModelOptions{})
-		model = compatPlugin.Model(g, cfg.Model)
-
-	case ProviderGoogle:
-		model = genkit.LookupModel(g, cfg.Model)
 	}
 
-	var genConfig any
-	if cfg.Provider != ProviderGoogle {
-		genConfig = cfg.buildGenConfig()
+	modelName, err := resolveModelName(cfg)
+	if err != nil {
+		return err
 	}
 
 	e.mu.Lock()
 	e.genkit = g
 	e.config = cfg
-	e.model = model
-	e.genConfig = genConfig
+	e.modelName = modelName
+	e.genConfig = cfg.buildGenConfig()
 	e.mu.Unlock()
 
 	return nil
@@ -157,7 +139,7 @@ func (e *AIEngine) Init(ctx context.Context, cfg *Config) error {
 // ChatStream 流式对话
 func (e *AIEngine) ChatStream(ctx context.Context, req *ChatRequest, onChunk func(StreamChunk) error) (*ChatResponse, error) {
 	e.mu.RLock()
-	model := e.model
+	modelName := e.modelName
 	genConfig := e.genConfig
 	g := e.genkit
 	cfg := e.config
@@ -169,13 +151,10 @@ func (e *AIEngine) ChatStream(ctx context.Context, req *ChatRequest, onChunk fun
 
 	messages := buildMessages(req.Messages, req.NewMessage, req.SystemPrompt)
 
-	var opts []ai.GenerateOption
-	if model != nil {
-		opts = append(opts, ai.WithModel(model))
-	} else {
-		opts = append(opts, ai.WithModelName("googleai/"+cfg.Model))
+	opts := []ai.GenerateOption{
+		ai.WithModelName(modelName),
+		ai.WithMessages(messages...),
 	}
-	opts = append(opts, ai.WithMessages(messages...))
 	if genConfig != nil {
 		opts = append(opts, ai.WithConfig(genConfig))
 	}
@@ -187,8 +166,14 @@ func (e *AIEngine) ChatStream(ctx context.Context, req *ChatRequest, onChunk fun
 		if err != nil {
 			return nil, fmt.Errorf("generate error: %w", err)
 		}
+		if result == nil {
+			continue
+		}
 		if result.Done {
 			break
+		}
+		if result.Chunk == nil {
+			continue
 		}
 
 		// 同一 chunk 可能同时带 Reasoning 与 Text；优先走 reasoning，避免思考过程重复写入正文
@@ -247,7 +232,7 @@ func (e *AIEngine) SetConfig(cfg *Config) error {
 		e.mu.Lock()
 		e.config = cfg
 		e.genkit = nil
-		e.model = nil
+		e.modelName = ""
 		e.genConfig = nil
 		e.mu.Unlock()
 		return nil
@@ -260,4 +245,26 @@ func (e *AIEngine) GetConfig() Config {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return *e.config
+}
+
+func resolveModelName(cfg *Config) (string, error) {
+	name := strings.TrimSpace(cfg.Model)
+	if name == "" {
+		return "", fmt.Errorf("model is required")
+	}
+	if strings.Contains(name, "/") {
+		return name, nil
+	}
+	switch cfg.Provider {
+	case ProviderOllama:
+		return "ollama/" + name, nil
+	case ProviderOpenAI:
+		return "openai/" + name, nil
+	case ProviderOpenAICompatible:
+		return "custom/" + name, nil
+	case ProviderGoogle:
+		return "googleai/" + name, nil
+	default:
+		return "", fmt.Errorf("unsupported provider: %s", cfg.Provider)
+	}
 }

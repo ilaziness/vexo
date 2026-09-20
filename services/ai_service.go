@@ -12,11 +12,23 @@ import (
 	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/ilaziness/vexo/internal/system"
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/zap"
 )
 
 // AI 流式事件
 const EventAIStreamChunk = "eventAIStreamChunk"
+
+// AIStreamChunkData AI 流式输出事件数据
+type AIStreamChunkData struct {
+	SessionID string `json:"sessionId"`
+	Type      string `json:"type"`
+	Chunk     string `json:"chunk"`
+}
+
+func init() {
+	application.RegisterEvent[AIStreamChunkData](EventAIStreamChunk)
+}
 
 // ErrAINotEnabled AI 未启用或未就绪
 var ErrAINotEnabled = errors.New("AI 助手尚未启用，请前往「设置 → AI」完成配置并启用后再试")
@@ -392,10 +404,10 @@ func (s *AIService) Chat(req *ChatRequest) (*ChatResponse, error) {
 
 	aiResp, err := s.engine.ChatStream(ctx, aiReq, func(chunk ai.StreamChunk) error {
 		if app != nil {
-			app.Event.Emit(EventAIStreamChunk, map[string]string{
-				"sessionId": sessionID,
-				"type":      chunk.Type,
-				"chunk":     chunk.Text,
+			app.Event.Emit(EventAIStreamChunk, AIStreamChunkData{
+				SessionID: sessionID,
+				Type:      chunk.Type,
+				Chunk:     chunk.Text,
 			})
 		}
 		return nil
