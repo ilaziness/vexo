@@ -26,7 +26,7 @@ import { useMessageStore } from "../stores/message";
 import {
   TunnelList,
   TunnelInfo,
-} from "../../bindings/github.com/ilaziness/vexo/services/models";
+} from "../../bindings/github.com/ilaziness/vexo/internal/tunnel/models";
 import { SSHTunnelService } from "../../bindings/github.com/ilaziness/vexo/services";
 import TunnelForm from "./TunnelForm";
 import { parseCallServiceError } from "../func/service";
@@ -59,7 +59,7 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
     setLoading(true);
     try {
       const groups = await SSHTunnelService.TunnelList();
-      setTunnelGroups(groups);
+      setTunnelGroups(groups ?? []);
     } catch (err) {
       errorMessage("获取隧道列表失败");
       console.error("Failed to fetch tunnel list:", err);

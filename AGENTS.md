@@ -6,45 +6,55 @@
 
 ## 1. 技术栈概览
 
-| 类别       | 技术/库           | 版本要求   |
-| ---------- | ----------------- | ---------- |
-| 后端语言   | Go                | ≥ 1.26     |
-| 桌面框架   | Wails             | v3.x       |
-| 前端框架   | React             | v19.x      |
-| 前端 UI 库 | Material UI (MUI) | v9.1.x     |
-| 前端路由   | React Router      | v8.x       |
-| 终端模拟器 | XTerm.js          | v6.x       |
-| 构建工具   | Wails CLI + Vite  | Vite v8.x  |
-| AI 框架    | Genkit            | v1.9.x     |
+| 类别       | 技术/库           | 版本要求  |
+| ---------- | ----------------- | --------- |
+| 后端语言   | Go                | ≥ 1.27.1  |
+| 桌面框架   | Wails             | v3.x      |
+| 前端框架   | React             | v19.x     |
+| 前端 UI 库 | Material UI (MUI) | v9.1.x    |
+| 前端路由   | React Router      | v8.x      |
+| 终端模拟器 | XTerm.js          | v6.x      |
+| 构建工具   | Wails CLI + Vite  | Vite v8.x |
+| AI 框架    | Genkit            | v1.9.x    |
 
 ---
 
 ## 2. 项目结构规范
 
 ```
-├── services/                 # Wails 服务层（暴露给前端调用）
-│   ├── service.go            # 服务注册与初始化
-│   ├── app.go                # 应用生命周期
-│   ├── ssh_service.go        # SSH 连接与会话
-│   ├── ssh_tunnel.go         # SSH 隧道
-│   ├── sftp_service.go       # SFTP 文件传输
-│   ├── bookmark_service.go   # 书签管理
-│   ├── command_service.go    # 命令管理
-│   ├── config_service.go     # 应用配置
-│   ├── sync_service.go       # 数据同步
-│   ├── ai_service.go         # AI 助手
-│   ├── tool_service.go       # 工具箱
-│   ├── log_service.go        # 日志
-│   └── ...                   # hostkey、transfer、websocket 等
-├── internal/                 # 应用内部功能包
-│   ├── ai/                   # AI 引擎（Genkit 集成）
-│   ├── secret/               # 加解密相关
-│   ├── sync/                 # 数据同步客户端（上传/下载/版本管理）
-│   ├── updater/              # 自动更新功能
-│   ├── utils/                # 通用工具函数
-│   ├── system/               # 系统相关功能
-│   └── database/             # 数据库访问层（SQLite、迁移、Repository）
-├── sync-backend/             # 同步服务端（独立可部署，独立 go.mod）
+├── services/                 # Wails 适配层（唯一允许 import Wails 的业务代码）
+│   ├── register.go           # 组合根：注入依赖、注册 Service、Shutdown
+│   ├── windows.go            # 多窗口生命周期
+│   ├── app_service.go        # 主窗口/对话框/更新/WS 地址
+│   ├── ssh_service.go        # SSH RPC 转发与关会话编排
+│   ├── ssh_tunnel.go         # 隧道 RPC
+│   ├── sftp_service.go       # SFTP RPC 与系统对话框
+│   ├── bookmark_service.go   # 书签 RPC
+│   ├── command_service.go    # 命令 RPC
+│   ├── config_service.go     # 配置 RPC 与口令提示
+│   ├── sync_service.go       # 同步 RPC
+│   ├── ai_service.go         # AI RPC 与流式事件
+│   ├── tool_service.go       # 工具 RPC
+│   └── log_service.go        # 日志（持有 *zap.Logger）
+├── internal/                 # 引擎与基础设施（禁止 import services / Wails）
+│   ├── ssh/                  # 连接、会话、known_hosts、远程信息
+│   ├── sftp/                 # SFTP 协议
+│   ├── tunnel/               # 端口转发
+│   ├── termws/               # 本机终端 WebSocket
+│   ├── transfer/             # 传输进度
+│   ├── bookmark/             # 书签业务与跳板链解析
+│   ├── command/              # 内置/用户命令
+│   ├── config/               # TOML 配置
+│   ├── secret/               # 加解密与进程内 Vault
+│   ├── ai/                   # Genkit 引擎
+│   ├── sync/                 # 同步客户端
+│   ├── tools/                # 编解码/哈希/端口
+│   ├── database/             # SQLite
+│   ├── buildinfo/            # ldflags 构建信息
+│   ├── updater/
+│   ├── system/               # 可执行目录、SafeGo
+│   └── utils/
+├── sync-backend/             # 同步服务端（独立 go.mod，勿与桌面进程合并）
 │   ├── main.go               # 服务端入口
 │   ├── server.go             # HTTP 服务
 │   ├── config.go             # 服务端配置
@@ -92,22 +102,27 @@
 
 ## 3. 编码规范
 
-模块化，可复用，减少重复模块代码
+模块化，可复用，减少重复模块代码。
 
-可单独封装的包放在`internal`下面，合理取包名称。
+分层硬规则：
 
-和前端交互强相关的功能放在`services`下面对应文件，合理分文件编写，防止一个文件行数太多。
+- `services/`：RPC 导出、Wails 事件、系统对话框、多窗口；把 UI 结果转成引擎入参。不写 SSH handshake、SFTP 拷贝循环、SQL。
+- `internal/`：禁止 import `services` 和 Wails。SSH 引擎只接收已解析的 hop 链（`[]ssh.Endpoint`），不认识书签 ID。
+- 禁止包级可变业务状态。允许：`embed`、ldflags（`internal/buildinfo`）、错误 sentinel、常量。
+- 日志：组合根创建 `*zap.Logger` 并注入 `NewXxx(logger)`；前端仍用 `LogService`。
+- 可单独封装的包放在 `internal` 下；不为小函数膨胀 `utils`。
+- 和前端交互的导出方法放在 `services`，方法名保持稳定。
 
-适当的位置添加注释，注释不要太多
+适当位置添加注释，不要太多。
 
 ### 1. 日志记录
 
-- 前端记录日志使用go绑定到前端的`LogService`里面的方法。
-- go里面记录日志使用`LogService`里面的方法。
+- 前端记录日志使用 go 绑定的 `LogService` 方法。
+- Go 内部记录日志使用注入的 `*zap.Logger`，不要新增包级 `Logger`。
 
-## 2. AI集成
+### 2. AI集成
 
-AI相关功能使用`Genkit`AI开发框架来实现，不是直接调用LLM商的API的方式来做。
+AI 相关功能使用 `Genkit` 框架实现，不要直接调用 LLM 商 API。
 
 ---
 
@@ -169,8 +184,8 @@ try {
   - ✅ 正确：
     ```typescript
     enum AIAssistantView {
-      Chat = 'chat',
-      History = 'history',
+      Chat = "chat",
+      History = "history",
     }
     view: AIAssistantView;
     ```

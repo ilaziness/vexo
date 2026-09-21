@@ -15,12 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var logger *zap.Logger
-
-// SetLogger 设置AI包的日志器
-func SetLogger(l *zap.Logger) {
-	logger = l
-}
 
 // ChatMessage 聊天消息
 type ChatMessage struct {
@@ -49,6 +43,7 @@ type StreamChunk struct {
 
 // AIEngine AI引擎
 type AIEngine struct {
+	logger    *zap.Logger
 	genkit    *genkit.Genkit
 	config    *Config
 	modelName string
@@ -57,8 +52,12 @@ type AIEngine struct {
 }
 
 // NewAIEngine 创建AI引擎
-func NewAIEngine() *AIEngine {
+func NewAIEngine(logger *zap.Logger) *AIEngine {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	return &AIEngine{
+		logger: logger,
 		config: &Config{
 			Enabled:     false,
 			Provider:    ProviderOllama,

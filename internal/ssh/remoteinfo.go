@@ -1,4 +1,4 @@
-package system
+package ssh
 
 import (
 	"strings"
@@ -15,7 +15,6 @@ type RemoteSystemInfo struct {
 	Ready     bool   `json:"ready"`
 }
 
-// HasContent 是否至少有一个有效字段
 func (r *RemoteSystemInfo) HasContent() bool {
 	if r == nil {
 		return false
@@ -24,12 +23,10 @@ func (r *RemoteSystemInfo) HasContent() bool {
 		r.OSVersion != "" || r.Kernel != "" || r.Arch != ""
 }
 
-// NormalizeHost 规范化 host 作为缓存 key
 func NormalizeHost(host string) string {
 	return strings.ToLower(strings.TrimSpace(host))
 }
 
-// ParseRemoteSystemInfo 解析远程采集脚本输出
 func ParseRemoteSystemInfo(output string) RemoteSystemInfo {
 	info := RemoteSystemInfo{Ready: true}
 	lines := strings.Split(output, "\n")

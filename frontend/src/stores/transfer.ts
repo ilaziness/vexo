@@ -15,13 +15,13 @@ export const useTransferStore = create<TransferStore>((set, get) => ({
   addProgress: (progress: ProgressData) => {
     set((state) => {
       const newTransfers = new Map(state.transfers);
-      const sessionID = progress.SessionID;
+      const sessionID = progress.sessionID;
       if (!newTransfers.has(sessionID)) {
         newTransfers.set(sessionID, []);
       }
       const sessionTransfers = newTransfers.get(sessionID)!;
       // 检查是否已有相同ID的progress，如果有则更新，否则添加
-      const existingIndex = sessionTransfers.findIndex((p) => p.ID === progress.ID);
+      const existingIndex = sessionTransfers.findIndex((p) => p.id === progress.id);
       if (existingIndex >= 0) {
         // 创建新的数组以确保React检测到变化
         const updatedTransfers = [...sessionTransfers];
@@ -38,7 +38,7 @@ export const useTransferStore = create<TransferStore>((set, get) => ({
     set((state) => {
       const newTransfers = new Map(state.transfers);
       const sessionTransfers = newTransfers.get(sessionID) || [];
-      const filtered = sessionTransfers.filter((p) => p.ID !== id);
+      const filtered = sessionTransfers.filter((p) => p.id !== id);
       newTransfers.set(sessionID, filtered);
       return { transfers: newTransfers };
     });
@@ -57,7 +57,7 @@ export const useTransferStore = create<TransferStore>((set, get) => ({
     set((state) => {
       const newTransfers = new Map(state.transfers);
       const sessionTransfers = newTransfers.get(sessionID) || [];
-      const activeTransfers = sessionTransfers.filter((p) => !p.Done);
+      const activeTransfers = sessionTransfers.filter((p) => !p.done);
       if (activeTransfers.length === 0) {
         newTransfers.delete(sessionID);
       } else {

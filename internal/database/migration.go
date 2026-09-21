@@ -11,7 +11,7 @@ import (
 type Migration struct {
 	Version int
 	Name    string
-	Up      func(*sql.DB) error
+	Up      func(*sql.DB, *zap.Logger) error
 }
 
 // migrations 注册所有数据库迁移，按版本号升序排列
@@ -22,7 +22,7 @@ var migrations = []Migration{
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
-func migrateInitSchema(db *sql.DB) error {
+func migrateInitSchema(db *sql.DB, logger *zap.Logger) error {
 	createGroupTable := `
 	CREATE TABLE IF NOT EXISTS bookmark_groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,12 +85,12 @@ func migrateInitSchema(db *sql.DB) error {
 		}
 	}
 
-	Logger.Debug("migration: init schema applied")
+	logger.Debug("migration: init schema applied")
 	return nil
 }
 
 // migrateAddProxyJumpID 添加 proxy_jump_id 列（幂等）
-func migrateAddProxyJumpID(db *sql.DB) error {
+func migrateAddProxyJumpID(db *sql.DB, logger *zap.Logger) error {
 	var columnName string
 	err := db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'proxy_jump_id'`).Scan(&columnName)
 	if err == sql.ErrNoRows {
@@ -98,7 +98,7 @@ func migrateAddProxyJumpID(db *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("add column proxy_jump_id failed: %w", err)
 		}
-		Logger.Debug("migration: added proxy_jump_id column")
+		logger.Debug("migration: added proxy_jump_id column")
 		return nil
 	}
 	if err != nil {
@@ -108,7 +108,7 @@ func migrateAddProxyJumpID(db *sql.DB) error {
 }
 
 // migrateAddAISessions 添加 AI 会话和消息表（幂等）
-func migrateAddAISessions(db *sql.DB) error {
+func migrateAddAISessions(db *sql.DB, logger *zap.Logger) error {
 	createSessionsTable := `
 	CREATE TABLE IF NOT EXISTS ai_sessions (
 		id TEXT PRIMARY KEY,
@@ -145,7 +145,7 @@ func migrateAddAISessions(db *sql.DB) error {
 		}
 	}
 
-	Logger.Debug("migration: added ai_sessions and ai_messages tables")
+	logger.Debug("migration: added ai_sessions and ai_messages tables")
 	return nil
 }
 
@@ -187,7 +187,10 @@ func getAppliedMigrations(db *sql.DB) (map[int]bool, error) {
 }
 
 // runMigrations 执行所有未执行的迁移
-func runMigrations(db *sql.DB) error {
+func runMigrations(db *sql.DB, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if err := createSchemaMigrationsTable(db); err != nil {
 		return err
 	}
@@ -202,9 +205,9 @@ func runMigrations(db *sql.DB) error {
 			continue
 		}
 
-		Logger.Debug("running migration", zap.Int("version", m.Version), zap.String("name", m.Name))
+		logger.Debug("running migration", zap.Int("version", m.Version), zap.String("name", m.Name))
 
-		if err := m.Up(db); err != nil {
+		if err := m.Up(db, logger); err != nil {
 			return fmt.Errorf("migration %d (%s) failed: %w", m.Version, m.Name, err)
 		}
 
@@ -213,7 +216,7 @@ func runMigrations(db *sql.DB) error {
 			return fmt.Errorf("record migration %d failed: %w", m.Version, err)
 		}
 
-		Logger.Debug("migration completed", zap.Int("version", m.Version), zap.String("name", m.Name))
+		logger.Debug("migration completed", zap.Int("version", m.Version), zap.String("name", m.Name))
 	}
 
 	return nil

@@ -8,17 +8,22 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as transfer$0 from "../../../../ilaziness/vexo/internal/transfer/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as services$0 from "../../../../ilaziness/vexo/services/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
-        "eventProgress": $$createType0,
-        "eventSftpFilesDropped": $$createType1,
+        "eventAIStreamChunk": $$createType0,
+        "eventProgress": $$createType1,
+        "eventSftpFilesDropped": $$createType2,
     }));
 }
 
 // Private type creation functions
-const $$createType0 = services$0.ProgressData.createFrom;
-const $$createType1 = services$0.SftpFilesDroppedData.createFrom;
+const $$createType0 = services$0.AIStreamChunkData.createFrom;
+const $$createType1 = transfer$0.ProgressData.createFrom;
+const $$createType2 = services$0.SftpFilesDroppedData.createFrom;
 
 configure();

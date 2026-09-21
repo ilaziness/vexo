@@ -12,16 +12,16 @@ var (
 	defaultTemperature = 0.5
 )
 
-// Config AI配置
+// Config AI配置（配置文件与引擎共用）
 type Config struct {
-	Enabled  bool
-	Provider Provider
-	Model    string
-	APIKey   string
-	Endpoint string
-
-	Temperature float64
-	MaxTokens   int
+	Enabled         bool     `json:"enabled" toml:"enabled"`
+	Provider        Provider `json:"provider" toml:"provider"`
+	Model           string   `json:"model" toml:"model"`
+	APIKey          string   `json:"api_key,omitempty" toml:"api_key,omitempty"`
+	APIKeyEncrypted string   `json:"api_key_encrypted,omitempty" toml:"api_key_encrypted,omitempty"`
+	Endpoint        string   `json:"endpoint" toml:"endpoint"`
+	Temperature     float64  `json:"temperature" toml:"temperature"`
+	MaxTokens       int      `json:"max_tokens" toml:"max_tokens"`
 }
 
 // buildGenConfig 构建各供应商的原生配置结构

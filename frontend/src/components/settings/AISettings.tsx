@@ -17,6 +17,7 @@ import {
   Alert,
   CircularProgress,
 } from "@mui/material";
+import { Provider } from "../../../bindings/github.com/ilaziness/vexo/internal/ai/models";
 import { useAIConfigStore } from "../../stores/aiConfig";
 import FormRow from "../FormRow";
 
@@ -112,7 +113,7 @@ const AISettings: React.FC = () => {
                 value={config.provider}
                 label="选择提供商"
                 onChange={(e) =>
-                  updatePartialConfig({ provider: e.target.value })
+                  updatePartialConfig({ provider: e.target.value as Provider })
                 }
                 disabled={isLoadingProviders}
               >

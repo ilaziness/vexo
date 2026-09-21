@@ -124,10 +124,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       }
     };
     initSftp().then(() => {});
-
-    return () => {
-      SftpService.Close();
-    };
   }, [linkID]);
 
   useEffect(() => {
@@ -147,9 +143,9 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     const unsubProgress = Events.On("eventProgress", (event) => {
       const data = event.data as ProgressData;
       if (
-        !data.Done ||
-        data.SessionID !== linkID ||
-        data.TransferType !== "upload"
+        !data.done ||
+        data.sessionID !== linkID ||
+        data.transferType !== "upload"
       ) {
         return;
       }

@@ -7,11 +7,15 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as transfer$0 from "../../../../ilaziness/vexo/internal/transfer/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as services$0 from "../../../../ilaziness/vexo/services/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "eventAIStreamChunk": services$0.AIStreamChunkData;
             "eventBookmarkUpdate": string;
             "eventConnectBookmark": string;
             "eventHostKeyPrompt": string;

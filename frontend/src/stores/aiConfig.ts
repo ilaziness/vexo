@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { AIConfig, AIService } from '../../bindings/github.com/ilaziness/vexo/services';
+import { Provider } from "../../bindings/github.com/ilaziness/vexo/internal/ai/models";
 import { parseCallServiceError } from '../func/service';
 
 interface AIConfigState {
@@ -19,7 +20,7 @@ interface AIConfigState {
 
 const defaultConfig: AIConfig = {
   enabled: false,
-  provider: 'ollama',
+  provider: Provider.ProviderOllama,
   model: 'llama3.2',
   endpoint: 'http://localhost:11434',
   temperature: 0.7,

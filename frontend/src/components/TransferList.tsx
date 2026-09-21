@@ -121,16 +121,16 @@ const TransferList: React.FC<TransferListProps> = ({
             >
               <List sx={{ flex: 1, overflow: "auto" }}>
                 {transfersList.map((transfer: ProgressData) => {
-                  const progress = transfer.Done ? 100 : transfer.Rate;
+                  const progress = transfer.done ? 100 : transfer.rate;
                   const isUpload =
-                    transfer.TransferType.toLowerCase().includes("upload");
-                  const isCompleted = transfer.Done;
+                    transfer.transferType.toLowerCase().includes("upload");
+                  const isCompleted = transfer.done;
                   const hasError =
-                    transfer.Error && transfer.Error.trim() !== "";
+                    transfer.error && transfer.error.trim() !== "";
 
                   return (
                     <ListItem
-                      key={transfer.ID}
+                      key={transfer.id}
                       sx={{
                         border: 1,
                         borderColor: hasError ? "error.main" : "divider",
@@ -183,9 +183,9 @@ const TransferList: React.FC<TransferListProps> = ({
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
                             }}
-                            title={transfer.LocalFile}
+                            title={transfer.localFile}
                           >
-                            {transfer.LocalFile}
+                            {transfer.localFile}
                           </Typography>
 
                           {/* 箭头 */}
@@ -219,9 +219,9 @@ const TransferList: React.FC<TransferListProps> = ({
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
                             }}
-                            title={transfer.RemoteFile}
+                            title={transfer.remoteFile}
                           >
-                            {transfer.RemoteFile}
+                            {transfer.remoteFile}
                           </Typography>
 
                           {/* 进度条 */}
@@ -248,7 +248,7 @@ const TransferList: React.FC<TransferListProps> = ({
                             variant="caption"
                             sx={{ flexShrink: 0, minWidth: "fit-content" }}
                           >
-                            {formatFileSize(transfer.TotalSize)}
+                            {formatFileSize(transfer.totalSize)}
                           </Typography>
 
                           {/* 上传百分比 */}
@@ -260,12 +260,12 @@ const TransferList: React.FC<TransferListProps> = ({
                           </Typography>
 
                           {/* 取消或清除图标 */}
-                          {!transfer.Done ? (
+                          {!transfer.done ? (
                             <Tooltip title="取消传输">
                               <IconButton
                                 size="small"
                                 onClick={() =>
-                                  SftpService.CancelTransfer(transfer.ID)
+                                  SftpService.CancelTransfer(transfer.id)
                                 }
                                 sx={{ flexShrink: 0 }}
                               >
@@ -276,7 +276,7 @@ const TransferList: React.FC<TransferListProps> = ({
                             <Tooltip title="删除">
                               <IconButton
                                 size="small"
-                                onClick={() => handleRemove(transfer.ID)}
+                                onClick={() => handleRemove(transfer.id)}
                                 sx={{ flexShrink: 0 }}
                               >
                                 <Close fontSize="small" />
@@ -295,7 +295,7 @@ const TransferList: React.FC<TransferListProps> = ({
                               wordBreak: "break-word",
                             }}
                           >
-                            错误: {transfer.Error}
+                            错误: {transfer.error}
                           </Typography>
                         )}
                       </Box>

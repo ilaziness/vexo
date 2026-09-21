@@ -1,6 +1,6 @@
 module github.com/ilaziness/vexo
 
-go 1.26.4
+go 1.27.1
 
 require (
 	github.com/coder/websocket v1.8.15
@@ -11,7 +11,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pkg/sftp v1.13.11
 	github.com/things-go/go-socks5 v0.1.3
-	github.com/wailsapp/wails/v3 v3.0.0-beta.23
+	github.com/wailsapp/wails/v3 v3.0.0-beta.24
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.57.0
 	google.golang.org/genai v1.71.0

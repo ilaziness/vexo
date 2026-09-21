@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ilaziness/vexo/internal/system"
+	"github.com/ilaziness/vexo/internal/ssh"
 )
 
 // SSHPromptContext SSH 连接上下文（用于系统提示词）
@@ -38,7 +38,7 @@ const promptNoSSH = `
 用户当前没有打开的 SSH 连接。请提供通用的 Linux/Unix、SSH 使用与故障排查帮助，不要假设特定远程主机或环境。`
 
 // BuildSystemPrompt 构建系统提示词
-func BuildSystemPrompt(ctx *SSHPromptContext, remote *system.RemoteSystemInfo) string {
+func BuildSystemPrompt(ctx *SSHPromptContext, remote *ssh.RemoteSystemInfo) string {
 	if !isValidSSHContext(ctx) {
 		return promptBase + promptNoSSH
 	}

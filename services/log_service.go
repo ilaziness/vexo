@@ -5,31 +5,40 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/ilaziness/vexo/internal/buildinfo"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-// defaultLogLevel 全局默认日志级别
-var defaultLogLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
-
-// Logger 包级别 logger 供全局使用
-var Logger *zap.Logger
-
 type LogService struct {
 	logger *zap.Logger
+	level  zap.AtomicLevel
 }
 
-// InitLogger 初始化全局 logger。
-// logPath: 日志文件路径（例如 "logs/vexo.log"），会在该目录下按月生成轮转文件。
-// level: zap.AtomicLevel，用于运行时调整日志级别。
-func InitLogger(logPath string, level zap.AtomicLevel) error {
+func NewLogService() *LogService {
+	level := zap.NewAtomicLevelAt(zap.DebugLevel)
+	if buildinfo.IsRelease() {
+		level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	}
+	logger, err := newLogger("logs/vexo.log", level)
+	if err != nil {
+		logger = zap.NewNop()
+	} else {
+		logger.Info("Logger initialized",
+			zap.String("mode", buildinfo.Mode),
+			zap.String("logPath", "logs/vexo.log"),
+			zap.String("logLevel", level.String()),
+		)
+	}
+	return &LogService{logger: logger, level: level}
+}
+
+func newLogger(logPath string, level zap.AtomicLevel) (*zap.Logger, error) {
 	dir := filepath.Dir(logPath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return nil, err
 	}
-
-	// 按月轮转，文件名示例: vexo.log.2025-12
 	writer, err := rotatelogs.New(
 		logPath+".%Y-%m",
 		rotatelogs.WithLinkName(logPath),
@@ -37,74 +46,28 @@ func InitLogger(logPath string, level zap.AtomicLevel) error {
 		rotatelogs.WithMaxAge(365*24*time.Hour),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "ts"
 	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
-
-	// JSON 文件输出到轮转 writer，同时控制台也输出便于开发时查看
-	fileCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderCfg),
-		zapcore.AddSync(writer),
-		level,
-	)
-
-	consoleCore := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderCfg),
-		zapcore.AddSync(os.Stdout),
-		level,
-	)
-
-	// debug模式才输出到控制台，release模式只输出到文件
+	fileCore := zapcore.NewCore(zapcore.NewJSONEncoder(encoderCfg), zapcore.AddSync(writer), level)
+	consoleCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.AddSync(os.Stdout), level)
 	var core zapcore.Core
-	if Mode == ModeRelease {
+	if buildinfo.IsRelease() {
 		core = fileCore
 	} else {
 		core = zapcore.NewTee(fileCore, consoleCore)
 	}
-	// debug模式添加调用者和堆栈跟踪
-	var zlogger *zap.Logger
-	if Mode == ModeRelease {
-		zlogger = zap.New(core)
-	} else {
-		zlogger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	if buildinfo.IsRelease() {
+		return zap.New(core), nil
 	}
-
-	// 替换全局 logger 与 LogLevel
-	Logger = zlogger
-	defaultLogLevel = level
-	return nil
+	return zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)), nil
 }
 
-func NewLogService() *LogService {
-	logLevel := defaultLogLevel
-	if Mode == ModeRelease {
-		logLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
-	}
-	if Logger == nil {
-		// 若未显式初始化，则使用默认路径和默认级别进行初始化（忽略错误）
-		_ = InitLogger("logs/vexo.log", logLevel)
-	}
-	Logger.Info("Logger initialized", zap.String("mode", Mode), zap.String("logPath", "logs/vexo.log"), zap.String("logLevel", logLevel.String()))
-	return &LogService{
-		logger: Logger,
-	}
-}
+func (ls *LogService) Logger() *zap.Logger { return ls.logger }
 
-func (ls *LogService) Debug(msg string) {
-	ls.logger.Debug(msg)
-}
-
-func (ls *LogService) Info(msg string) {
-	ls.logger.Info(msg)
-}
-
-func (ls *LogService) Warn(msg string) {
-	ls.logger.Warn(msg)
-}
-
-func (ls *LogService) Error(msg string) {
-	ls.logger.Error(msg)
-}
+func (ls *LogService) Debug(msg string) { ls.logger.Debug(msg) }
+func (ls *LogService) Info(msg string)  { ls.logger.Info(msg) }
+func (ls *LogService) Warn(msg string)  { ls.logger.Warn(msg) }
+func (ls *LogService) Error(msg string) { ls.logger.Error(msg) }

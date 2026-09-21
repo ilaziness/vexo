@@ -18,7 +18,7 @@ func init() {
 	application.RegisterEvent[SftpFilesDroppedData](EventSftpFilesDropped)
 }
 
-func RegisterFileDropHandler(window *application.WebviewWindow) {
+func RegisterFileDropHandler(app *application.App, window *application.WebviewWindow) {
 	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 		files := event.Context().DroppedFiles()
 		if len(files) == 0 {
@@ -34,9 +34,6 @@ func RegisterFileDropHandler(window *application.WebviewWindow) {
 		}
 		sessionID := strings.TrimPrefix(details.ElementID, prefix)
 		if sessionID == "" {
-			return
-		}
-		if app == nil {
 			return
 		}
 		app.Event.Emit(EventSftpFilesDropped, SftpFilesDroppedData{
