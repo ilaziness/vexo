@@ -7,8 +7,8 @@ GIT_INFO := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 # RFC3339 格式，带时区偏移 (如 2026-02-10T18:56:45+08:00)
 BUILD_TIME := $(shell date "+%Y-%m-%dT%H:%M:%S%:z" 2>/dev/null || echo "unknown")
 
-CONFIG_FILE := services/config_service.go
-CONFIG_BACKUP := services/config_service.go.bak
+CONFIG_FILE := internal/buildinfo/buildinfo.go
+CONFIG_BACKUP := internal/buildinfo/buildinfo.go.bak
 
 .PHONY: help all build-windows build-darwin build-linux clean build-mac build-mac-intel replace-config restore-config
 
@@ -26,10 +26,10 @@ help:
 	@echo "Targets:"
 	@echo "  help            Show this help (default)"
 	@echo "  all             Build all platforms (windows, darwin amd64/arm64, linux)"
-	@echo "  build-windows   Build for Windows"
-	@echo "  build-mac       Build for macOS (arm64)"
-	@echo "  build-mac-intel Build for macOS (amd64)"
-	@echo "  build-linux     Build for Linux"
+	@echo "  build-windows   Build for Windows $(VERSION)"
+	@echo "  build-mac       Build for macOS (arm64) $(VERSION)"
+	@echo "  build-mac-intel Build for macOS (amd64) $(VERSION)"
+	@echo "  build-linux     Build for Linux $(VERSION)"
 	@echo "  clean           Remove bin/ and config backup"
 	@echo "  replace-config  Inject VERSION/MODE/GIT_INFO/BUILD_TIME into config (internal)"
 	@echo "  restore-config  Restore config_service.go from backup (internal)"
@@ -55,25 +55,25 @@ restore-config:
 
 # Build for Windows
 build-windows: replace-config
-	@echo "Building for Windows..."
+	@echo "Building for Windows $(VERSION)..."
 	@wails3 build GOOS=windows VERSION=$(VERSION) MODE=$(MODE) || true
 	@$(MAKE) restore-config
 
 # Build for macOS ARM64 (Darwin)
 build-mac: replace-config
-	@echo "Building for macOS (Darwin)..."
+	@echo "Building for macOS (Darwin) $(VERSION)..."
 	@wails3 build GOOS=darwin GOARCH=arm64 VERSION=$(VERSION) MODE=$(MODE) || true
 	@$(MAKE) restore-config
 
 # Build for macOS Intel (Darwin)
 build-mac-intel: replace-config
-	@echo "Building for macOS Intel (Darwin)..."
+	@echo "Building for macOS Intel (Darwin) $(VERSION)..."
 	@wails3 build GOOS=darwin GOARCH=amd64 VERSION=$(VERSION) MODE=$(MODE) || true
 	@$(MAKE) restore-config
 
 # Build for Linux
 build-linux: replace-config
-	@echo "Building for Linux..."
+	@echo "Building for Linux $(VERSION)..."
 	@wails3 build GOOS=linux VERSION=$(VERSION) MODE=$(MODE) || true
 	@$(MAKE) restore-config
 
