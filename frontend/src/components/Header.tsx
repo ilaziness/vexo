@@ -32,6 +32,7 @@ import HandymanIcon from "@mui/icons-material/Handyman";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import AddToQueueIcon from "@mui/icons-material/AddToQueue";
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import UpgradeIcon from "@mui/icons-material/Upgrade";
 import {
   AppService,
   BookmarkService,
@@ -40,6 +41,7 @@ import {
   CommandService,
   LogService,
   ToolService,
+  NewVersion,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { UploadSync } from "../../bindings/github.com/ilaziness/vexo/services/syncservice";
 import { ReadConfig } from "../../bindings/github.com/ilaziness/vexo/services/configservice";
@@ -53,6 +55,7 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import { Events } from "@wailsio/runtime";
 import BookmarkManager from "./Bookmark";
 import Loading from "./Loading";
+import UpdateAvailableDialog from "./UpdateAvailableDialog";
 
 interface BookmarkGroup {
   name: string;
@@ -74,6 +77,8 @@ export default function Header() {
   const [bookmarkManageOpen, setBookmarkManageOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [newVersion, setNewVersion] = useState<NewVersion | null>(null);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
   const showSettingWindow = useCallback(() => {
     ConfigService.ShowWindow();
@@ -153,30 +158,17 @@ export default function Header() {
         icon: <HandymanIcon />,
         onClick: () => ToolService.ShowWindow(),
       },
-      { title: "设置", icon: <SettingsIcon />, onClick: showSettingWindow },
     ],
     [
       handleAddTab,
       handleNewMainWindow,
       handleBookmark,
       handleBackupClick,
-      showSettingWindow,
       handleAIAssistant,
     ],
   );
 
-  useEffect(() => {
-    loadBookmarks();
-    const unsubscribe = Events.On("eventBookmarkUpdate", () => {
-      loadBookmarks();
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
-  const loadBookmarks = async () => {
+  const loadBookmarks = useCallback(async () => {
     try {
       const config = await BookmarkService.ListBookmarks();
       if (config && Array.isArray(config)) {
@@ -192,7 +184,25 @@ export default function Header() {
       console.error("Failed to load bookmarks:", error);
       errorMessage(`Failed to load bookmarks:${error}`);
     }
-  };
+  }, [errorMessage]);
+
+  useEffect(() => {
+    loadBookmarks();
+    const unsubscribeBookmark = Events.On("eventBookmarkUpdate", () => {
+      loadBookmarks();
+    });
+    const unsubscribeUpdate = Events.On("eventNewVersion", (event: any) => {
+      const data = event?.data as NewVersion | undefined;
+      if (data?.Version) {
+        setNewVersion(data);
+      }
+    });
+
+    return () => {
+      unsubscribeBookmark();
+      unsubscribeUpdate();
+    };
+  }, [loadBookmarks]);
 
   const closeBookmarkMenu = () => {
     setBookmarkAnchorEl(null);
@@ -265,12 +275,17 @@ export default function Header() {
       component={"header"}
       sx={(theme) => ({
         width: "42px",
+        height: "100%",
         overflow: "hidden",
         backgroundColor: theme.palette.background.paper,
         borderRight: `1px solid ${theme.palette.divider}`,
       })}
     >
-      <Stack direction="column" spacing={1} sx={{ alignItems: "center", padding: 0.5 }}>
+      <Stack
+        direction="column"
+        spacing={1}
+        sx={{ alignItems: "center", padding: 0.5, height: "100%" }}
+      >
         <Box sx={{ "--wails-draggable": "drag", cursor: "move" }}>
           <img
             src="/appicon.png"
@@ -287,7 +302,33 @@ export default function Header() {
           </Tooltip>
         ))}
 
+        <Box sx={{ flex: 1 }} />
+
         <ThemeSwitcher />
+
+        {newVersion ? (
+          <Tooltip title="发现新版本">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => setUpdateDialogOpen(true)}
+            >
+              <UpgradeIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+
+        <Tooltip title="设置">
+          <IconButton size="small" onClick={showSettingWindow}>
+            <SettingsIcon />
+          </IconButton>
+        </Tooltip>
+
+        <UpdateAvailableDialog
+          open={updateDialogOpen}
+          onClose={() => setUpdateDialogOpen(false)}
+          newVersion={newVersion}
+        />
 
         <Menu
           anchorEl={bookmarkAnchorEl}

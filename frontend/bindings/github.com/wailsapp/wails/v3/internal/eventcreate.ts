@@ -16,14 +16,16 @@ import * as services$0 from "../../../../ilaziness/vexo/services/models.js";
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "eventAIStreamChunk": $$createType0,
-        "eventProgress": $$createType1,
-        "eventSftpFilesDropped": $$createType2,
+        "eventNewVersion": $$createType1,
+        "eventProgress": $$createType2,
+        "eventSftpFilesDropped": $$createType3,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = services$0.AIStreamChunkData.createFrom;
-const $$createType1 = transfer$0.ProgressData.createFrom;
-const $$createType2 = services$0.SftpFilesDroppedData.createFrom;
+const $$createType1 = services$0.NewVersion.createFrom;
+const $$createType2 = transfer$0.ProgressData.createFrom;
+const $$createType3 = services$0.SftpFilesDroppedData.createFrom;
 
 configure();

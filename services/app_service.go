@@ -1,11 +1,21 @@
 package services
 
 import (
+	"time"
+
 	"github.com/ilaziness/vexo/internal/buildinfo"
+	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/internal/termws"
 	"github.com/ilaziness/vexo/internal/updater"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"go.uber.org/zap"
 )
+
+const EventNewVersion = "eventNewVersion"
+
+func init() {
+	application.RegisterEvent[NewVersion](EventNewVersion)
+}
 
 type AppInfo struct {
 	Version   string
@@ -26,10 +36,14 @@ type AppService struct {
 	windows    *Windows
 	termWS     *termws.Server
 	mainWindow *application.WebviewWindow
+	logger     *zap.Logger
 }
 
-func NewAppService(app *application.App, windows *Windows, termWS *termws.Server) *AppService {
-	return &AppService{app: app, windows: windows, termWS: termWS, mainWindow: windows.Main}
+func NewAppService(app *application.App, windows *Windows, termWS *termws.Server, logger *zap.Logger) *AppService {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &AppService{app: app, windows: windows, termWS: termWS, mainWindow: windows.Main, logger: logger}
 }
 
 func (cs *AppService) MainWindowMin() {
@@ -71,15 +85,36 @@ func (cs *AppService) GetAppInfo() AppInfo {
 	}
 }
 
-func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion) {
+func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion, err error) {
 	ok, rel, err := updater.CheckUpdate("ilaziness/vexo", buildinfo.Version)
 	if err != nil {
-		return false, NewVersion{}
+		return false, NewVersion{}, err
 	}
 	if ok {
-		return true, NewVersion{Version: rel.Tag, Notes: rel.Body, URL: rel.HTMLURL}
+		return true, NewVersion{Version: rel.Tag, Notes: rel.Body, URL: rel.HTMLURL}, nil
 	}
-	return false, NewVersion{}
+	return false, NewVersion{}, nil
+}
+
+// StartBackgroundUpdateCheck waits 10s for the frontend to initialize, then
+// silently checks for updates and emits EventNewVersion when a newer release exists.
+func (cs *AppService) StartBackgroundUpdateCheck() {
+	system.SafeGo(func() {
+		time.Sleep(10 * time.Second)
+		ok, rel, err := updater.CheckUpdate("ilaziness/vexo", buildinfo.Version)
+		if err != nil {
+			cs.logger.Debug("background update check failed", zap.Error(err))
+			return
+		}
+		if !ok {
+			return
+		}
+		cs.app.Event.Emit(EventNewVersion, NewVersion{
+			Version: rel.Tag,
+			Notes:   rel.Body,
+			URL:     rel.HTMLURL,
+		})
+	})
 }
 
 func (cs *AppService) GetWSAddr() string {

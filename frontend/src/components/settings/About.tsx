@@ -1,15 +1,6 @@
 import React, { useState } from "react";
 import { Browser } from "@wailsio/runtime";
-import {
-  Button,
-  Typography,
-  Box,
-  Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-} from "@mui/material";
+import { Button, Typography, Box, Stack } from "@mui/material";
 import { GitHub as GitHubIcon } from "@mui/icons-material";
 import { CheckUpdate } from "../../../bindings/github.com/ilaziness/vexo/services/appservice";
 import {
@@ -17,6 +8,7 @@ import {
   NewVersion,
 } from "../../../bindings/github.com/ilaziness/vexo/services";
 import { useMessageStore } from "../../stores/message";
+import UpdateAvailableDialog from "../UpdateAvailableDialog";
 
 interface AboutProps {
   appinfo: AppInfo;
@@ -32,7 +24,6 @@ const About: React.FC<AboutProps> = ({ appinfo }) => {
     try {
       setCheckingUpdate(true);
       const [ok, ver] = await CheckUpdate();
-      setCheckingUpdate(false);
       if (ok) {
         setNewVersion(ver);
         setUpdateDialogOpen(true);
@@ -40,9 +31,10 @@ const About: React.FC<AboutProps> = ({ appinfo }) => {
         infoMessage("当前已是最新版本");
       }
     } catch (err) {
-      setCheckingUpdate(false);
       console.error("CheckUpdate failed", err);
       errorMessage("检查更新失败");
+    } finally {
+      setCheckingUpdate(false);
     }
   };
 
@@ -93,32 +85,11 @@ const About: React.FC<AboutProps> = ({ appinfo }) => {
             </Button>
           </Box>
 
-          <Dialog
+          <UpdateAvailableDialog
             open={updateDialogOpen}
             onClose={() => setUpdateDialogOpen(false)}
-          >
-            <DialogTitle>发现新版本</DialogTitle>
-            <DialogContent>
-              <Typography sx={{ fontWeight: 600 }}>
-                {newVersion?.Version}
-              </Typography>
-              <Typography sx={{ whiteSpace: "pre-wrap", mt: 1 }}>
-                {newVersion?.Notes}
-              </Typography>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setUpdateDialogOpen(false)}>关闭</Button>
-              <Button
-                onClick={() => {
-                  if (newVersion?.URL) {
-                    Browser.OpenURL(newVersion.URL);
-                  }
-                }}
-              >
-                打开下载页
-              </Button>
-            </DialogActions>
-          </Dialog>
+            newVersion={newVersion}
+          />
 
           <Typography
             color="text.secondary"

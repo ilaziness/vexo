@@ -58,7 +58,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	syncService := NewSyncService(configService, db, log)
 	toolService := NewToolService(windows)
 	aiService := NewAIService(a, log, configService, sshService, db)
-	appService := NewAppService(a, windows, termWS)
+	appService := NewAppService(a, windows, termWS, log)
 	tunnelService := NewSSHTunnelService(tunnelMgr)
 
 	a.RegisterService(application.NewService(appService))
@@ -71,6 +71,8 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	a.RegisterService(application.NewService(syncService))
 	a.RegisterService(application.NewService(toolService))
 	a.RegisterService(application.NewService(aiService))
+
+	appService.StartBackgroundUpdateCheck()
 
 	if err := termWS.Start(); err != nil {
 		return err
