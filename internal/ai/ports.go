@@ -1,0 +1,46 @@
+package ai
+
+import "context"
+
+type toolDepsCtxKey struct{}
+
+// SSHExecutor runs remote commands and optional terminal annotations.
+// Implemented by services layer; never imports Wails.
+type SSHExecutor interface {
+	Exec(ctx context.Context, linkID, command string) (output string, err error)
+	// Annotate is display-only (no remote execution). May be a no-op when echo is off.
+	Annotate(ctx context.Context, linkID, notice string) error
+}
+
+// ApprovalGate parks a tool until the UI responds.
+type ApprovalGate interface {
+	// Open registers approvalID before the UI event is emitted so a fast
+	// RespondToolApproval cannot miss the channel.
+	Open(approvalID string)
+	Wait(ctx context.Context, approvalID string) (approved bool, reason string, err error)
+}
+
+// ToolDeps is injected per Run via context (not shared engine state).
+type ToolDeps struct {
+	LinkID   string
+	Echo     bool
+	SSH      SSHExecutor
+	Approval ApprovalGate
+	Emit     func(StreamEvent)
+}
+
+func withToolDeps(ctx context.Context, d ToolDeps) context.Context {
+	return context.WithValue(ctx, toolDepsCtxKey{}, d)
+}
+
+func depsFromCtx(ctx context.Context) ToolDeps {
+	if ctx == nil {
+		return ToolDeps{}
+	}
+	d, _ := ctx.Value(toolDepsCtxKey{}).(ToolDeps)
+	return d
+}
+
+func (d ToolDeps) EnableSSHTool() bool {
+	return d.LinkID != "" && d.SSH != nil && d.Approval != nil
+}

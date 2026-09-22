@@ -17,5 +17,11 @@ export const formatAIChatError = (raw: string): string => {
   if (message.startsWith("AI 助手")) {
     return AI_NOT_ENABLED;
   }
+  if (/could not parse tool args|unmarshal failed to parse json|工具参数 JSON 无效/i.test(message)) {
+    return "工具参数 JSON 无效（命令过长或引号未转义）。请改用更短的单条命令后重试。";
+  }
+  if (message.length > 400) {
+    return `${message.slice(0, 400)}…`;
+  }
   return message;
 };

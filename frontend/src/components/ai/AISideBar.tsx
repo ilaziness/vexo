@@ -4,6 +4,7 @@ import { ChatBox, ChatMessageAvatar } from "@mui/x-chat";
 import { useAIAssistantStore } from "../../stores/aiAssistant";
 import { LogService } from "../../../bindings/github.com/ilaziness/vexo/services/index";
 import { GenkitAdapter, aiUser, currentUser } from "./GenkitAdapter";
+import { aiPartRenderers } from "./aiPartRenderers";
 import SessionPanel from "./SessionPanel";
 import {
   clampSidebarWidth,
@@ -177,6 +178,7 @@ const AISideBar = () => {
                 members={[currentUser, aiUser]}
                 activeConversationId={activeSessionId}
                 onActiveConversationChange={() => {}}
+                partRenderers={aiPartRenderers}
                 features={{
                   attachments: false,
                   conversationHeader: false,

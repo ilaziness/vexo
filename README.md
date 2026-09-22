@@ -1,6 +1,6 @@
 # Vexo — 跨平台 SSH & SFTP GUI 客户端
 
-[![Go Version](https://img.shields.io/badge/Go-1.26%2B-blue)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.27%2B-blue)](https://golang.org)
 [![Wails Version](https://img.shields.io/badge/Wails-v3-8A2BE2)](https://wails.io)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
@@ -28,6 +28,7 @@
 - 命令库功能，建立自己的命令库，一键发送到多个会话
 - 自建数据远程备份功能，在多台设备间恢复配置，本地加密，支持历史版本恢复
 - 自动更新检查，及时获取最新版本
+- AI侧边栏功能，自主分析问题，执行命令
 
 ---
 
@@ -56,6 +57,10 @@ _服务器连接配置管理_
 ### 命令库
 
 ![命令库](screenshots/command.png)
+
+### AI侧边栏
+
+![AI侧边栏](screenshots/ai.png)
 
 ---
 

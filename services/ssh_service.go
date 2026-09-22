@@ -1,9 +1,12 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ilaziness/vexo/internal/bookmark"
 	"github.com/ilaziness/vexo/internal/sftp"
@@ -75,6 +78,20 @@ func (s *SSHService) testHops(hops []ssh.Endpoint) error {
 
 func (s *SSHService) hasSession(id string) bool {
 	return s.mgr.HasSession(id)
+}
+
+func (s *SSHService) exec(ctx context.Context, linkID, command string, timeout time.Duration, maxOut int) (string, error) {
+	if s == nil || s.mgr == nil {
+		return "", fmt.Errorf("ssh manager unavailable")
+	}
+	return s.mgr.Exec(ctx, linkID, command, timeout, maxOut)
+}
+
+func (s *SSHService) annotateSession(linkID, notice string) error {
+	if s == nil || s.mgr == nil {
+		return nil
+	}
+	return s.mgr.AnnotateSession(linkID, notice)
 }
 
 func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword, proxyJumpID string) (string, error) {

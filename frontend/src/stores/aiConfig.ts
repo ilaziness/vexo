@@ -25,6 +25,9 @@ const defaultConfig: AIConfig = {
   endpoint: 'http://localhost:11434',
   temperature: 0.7,
   max_tokens: 2048,
+  echo_ssh_commands: false,
+  max_agent_turns: 8,
+  exec_timeout_sec: 30,
 };
 
 export const useAIConfigStore = create<AIConfigState>((set) => ({

@@ -46,7 +46,7 @@
 │   ├── command/              # 内置/用户命令
 │   ├── config/               # TOML 配置
 │   ├── secret/               # 加解密与进程内 Vault
-│   ├── ai/                   # Genkit 引擎
+│   ├── ai/                   # Genkit 引擎、Agent 工具、流式事件模型
 │   ├── sync/                 # 同步客户端
 │   ├── tools/                # 编解码/哈希/端口
 │   ├── database/             # SQLite
@@ -122,9 +122,11 @@
 
 ### 2. AI集成
 
-AI 相关功能使用 `Genkit` 框架实现，不要直接调用 LLM 商 API。
-
-前端AI UI交互使用的是`MUI X Chat`库。
+- 使用 `Genkit` 实现，禁止直接调用 LLM 厂商 API。
+- `internal/ai`：引擎 Init、`Run`（含 tools / MaxTurns）、工具定义、结构化流事件；会话按 Genkit Message（`user` / `model` / `tool`）落库并原样回放，不 flatten。通过 `SSHExecutor` / `ApprovalGate` 端口访问 SSH，不 import `services`。
+- `services/ai_service`：会话 RPC、流事件、`RespondToolApproval` / `StopGeneration`；适配 SSH `Exec` 与终端注解回显。
+- 前端：`MUI X Chat` + `GenkitAdapter`（Genkit transcript → Chat 气泡）；tool approval / step / 计划列表用库能力，不自造聊天协议。
+- `run_ssh_command` 走独立 Exec 回传模型，须用户批准；`echo_ssh_commands`（默认关）仅向终端 `OutputChan` 写注解，不写 Stdin、不重复执行。
 
 ---
 

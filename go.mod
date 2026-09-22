@@ -5,7 +5,6 @@ go 1.27.1
 require (
 	github.com/coder/websocket v1.8.15
 	github.com/firebase/genkit/go v1.13.1
-	github.com/google/uuid v1.6.0
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/openai/openai-go v1.12.0
 	github.com/pelletier/go-toml/v2 v2.4.3
@@ -36,6 +35,7 @@ require (
 	github.com/google/dotprompt/go v0.0.0-20260918022926-df612903a877 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.10 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.22 // indirect
 	github.com/googleapis/gax-go/v2 v2.24.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

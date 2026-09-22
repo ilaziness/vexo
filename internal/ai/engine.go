@@ -6,40 +6,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/firebase/genkit/go/ai"
+	genkitAI "github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/firebase/genkit/go/plugins/compat_oai"
 	"github.com/firebase/genkit/go/plugins/compat_oai/openai"
 	"github.com/firebase/genkit/go/plugins/googlegenai"
 	"github.com/firebase/genkit/go/plugins/ollama"
 	"go.uber.org/zap"
+	"uuid"
 )
-
-
-// ChatMessage 聊天消息
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// ChatRequest 聊天请求
-type ChatRequest struct {
-	SessionID    string        `json:"session_id"`
-	Messages     []ChatMessage `json:"messages"`
-	NewMessage   string        `json:"new_message"`
-	SystemPrompt string        `json:"system_prompt"`
-}
-
-// ChatResponse 聊天响应
-type ChatResponse struct {
-	Message ChatMessage `json:"message"`
-}
-
-// StreamChunk 流式数据块
-type StreamChunk struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-}
 
 // AIEngine AI引擎
 type AIEngine struct {
@@ -48,6 +23,8 @@ type AIEngine struct {
 	config    *Config
 	modelName string
 	genConfig any
+	planTool  genkitAI.ToolRef
+	sshTool   genkitAI.ToolRef
 	mu        sync.RWMutex
 }
 
@@ -59,12 +36,14 @@ func NewAIEngine(logger *zap.Logger) *AIEngine {
 	return &AIEngine{
 		logger: logger,
 		config: &Config{
-			Enabled:     false,
-			Provider:    ProviderOllama,
-			Model:       "llama3.2",
-			Endpoint:    "http://localhost:11434",
-			Temperature: 0.7,
-			MaxTokens:   2048,
+			Enabled:        false,
+			Provider:       ProviderOllama,
+			Model:          "llama3.2",
+			Endpoint:       "http://localhost:11434",
+			Temperature:    0.7,
+			MaxTokens:      2048,
+			MaxAgentTurns:  DefaultMaxAgentTurns,
+			ExecTimeoutSec: DefaultExecTimeoutSec,
 		},
 	}
 }
@@ -113,7 +92,6 @@ func (e *AIEngine) Init(ctx context.Context, cfg *Config) error {
 		if ollamaPlugin == nil {
 			return fmt.Errorf("ollama plugin not initialized")
 		}
-		// 自定义 Ollama 模型需显式注册后才能按名称解析
 		ollamaPlugin.DefineModel(g, ollama.ModelDefinition{
 			Name: cfg.Model,
 			Type: "chat",
@@ -125,97 +103,170 @@ func (e *AIEngine) Init(ctx context.Context, cfg *Config) error {
 		return err
 	}
 
+	tools := registerTools(g)
+
 	e.mu.Lock()
 	e.genkit = g
 	e.config = cfg
 	e.modelName = modelName
 	e.genConfig = cfg.buildGenConfig()
+	e.planTool = tools.plan
+	e.sshTool = tools.ssh
 	e.mu.Unlock()
 
 	return nil
 }
 
-// ChatStream 流式对话
-func (e *AIEngine) ChatStream(ctx context.Context, req *ChatRequest, onChunk func(StreamChunk) error) (*ChatResponse, error) {
+// Run executes one agent turn (text + optional tools). onEvent receives stream events.
+func (e *AIEngine) Run(ctx context.Context, req *AgentRequest, deps ToolDeps, onEvent func(StreamEvent) error) (*AgentResponse, error) {
 	e.mu.RLock()
 	modelName := e.modelName
 	genConfig := e.genConfig
 	g := e.genkit
 	cfg := e.config
+	planTool := e.planTool
+	sshTool := e.sshTool
 	e.mu.RUnlock()
 
 	if g == nil || !cfg.Enabled {
 		return nil, fmt.Errorf("ai engine not initialized or not enabled")
 	}
+	if req == nil {
+		return nil, fmt.Errorf("agent request is nil")
+	}
+	if onEvent == nil {
+		onEvent = func(StreamEvent) error { return nil }
+	}
+	if planTool == nil {
+		return nil, fmt.Errorf("ai tools not registered")
+	}
 
-	messages := buildMessages(req.Messages, req.NewMessage, req.SystemPrompt)
+	deps.Emit = func(ev StreamEvent) { _ = onEvent(ev) }
+	deps.Echo = cfg.EchoSSHCommands
+	if !req.EnableSSH {
+		deps.LinkID = ""
+	} else if deps.LinkID == "" {
+		deps.LinkID = req.LinkID
+	}
+	ctx = withToolDeps(ctx, deps)
 
-	opts := []ai.GenerateOption{
-		ai.WithModelName(modelName),
-		ai.WithMessages(messages...),
+	messages := buildGenkitMessages(req.Messages, req.NewMessage, req.SystemPrompt)
+	promptLen := len(messages)
+	fail := func(resp *genkitAI.ModelResponse, err error) (*AgentResponse, error) {
+		return storedTurn(resp, promptLen), err
+	}
+
+	activeTools := []genkitAI.ToolRef{planTool}
+	if deps.EnableSSHTool() && sshTool != nil {
+		activeTools = append(activeTools, sshTool)
+	}
+
+	opts := []genkitAI.GenerateOption{
+		genkitAI.WithModelName(modelName),
+		genkitAI.WithMessages(messages...),
+		genkitAI.WithMaxTurns(cfg.EffectiveMaxAgentTurns()),
+	}
+	if len(activeTools) > 0 {
+		opts = append(opts, genkitAI.WithTools(activeTools...))
 	}
 	if genConfig != nil {
-		opts = append(opts, ai.WithConfig(genConfig))
+		opts = append(opts, genkitAI.WithConfig(genConfig))
 	}
 
-	var fullText strings.Builder
-	stream := genkit.GenerateStream(ctx, g, opts...)
+	textID := "text-" + uuid.New().String()
+	reasoningID := "reasoning-" + uuid.New().String()
 
+	resp, err := e.consumeStream(ctx, g, opts, onEvent, textID, reasoningID)
+	if err != nil && len(activeTools) > 0 && isNoToolSupport(err) {
+		e.logger.Warn("model does not support tools, retrying without tools", zap.Error(err))
+		optsNoTools := []genkitAI.GenerateOption{
+			genkitAI.WithModelName(modelName),
+			genkitAI.WithMessages(messages...),
+			genkitAI.WithMaxTurns(cfg.EffectiveMaxAgentTurns()),
+		}
+		if genConfig != nil {
+			optsNoTools = append(optsNoTools, genkitAI.WithConfig(genConfig))
+		}
+		resp, err = e.consumeStream(ctx, g, optsNoTools, onEvent, textID, reasoningID)
+	}
+	if err != nil {
+		return fail(resp, fmt.Errorf("generate error: %w", err))
+	}
+	return storedTurn(resp, promptLen), nil
+}
+
+func (e *AIEngine) consumeStream(
+	ctx context.Context,
+	g *genkit.Genkit,
+	opts []genkitAI.GenerateOption,
+	onEvent func(StreamEvent) error,
+	textID, reasoningID string,
+) (*genkitAI.ModelResponse, error) {
+	stream := genkit.GenerateStream(ctx, g, opts...)
 	for result, err := range stream {
 		if err != nil {
-			return nil, fmt.Errorf("generate error: %w", err)
+			var resp *genkitAI.ModelResponse
+			if result != nil {
+				resp = result.Response
+			}
+			return resp, err
 		}
 		if result == nil {
 			continue
 		}
 		if result.Done {
-			break
+			return result.Response, nil
 		}
 		if result.Chunk == nil {
 			continue
 		}
 
-		// 同一 chunk 可能同时带 Reasoning 与 Text；优先走 reasoning，避免思考过程重复写入正文
 		if reasoning := result.Chunk.Reasoning(); reasoning != "" {
-			chunk := StreamChunk{Type: "reasoning", Text: reasoning}
-			if err := onChunk(chunk); err != nil {
-				return nil, err
-			}
+			_ = onEvent(StreamEvent{Type: EventReasoningDelta, ID: reasoningID, Delta: reasoning})
 			continue
 		}
-
 		if text := result.Chunk.Text(); text != "" {
-			chunk := StreamChunk{Type: "text", Text: text}
-			if err := onChunk(chunk); err != nil {
-				return nil, err
-			}
-			fullText.WriteString(text)
+			_ = onEvent(StreamEvent{Type: EventTextDelta, ID: textID, Delta: text})
 		}
 	}
-
-	return &ChatResponse{
-		Message: ChatMessage{
-			Role:    "assistant",
-			Content: fullText.String(),
-		},
-	}, nil
+	return nil, nil
 }
 
-// buildMessages 构建消息列表
-func buildMessages(history []ChatMessage, newMsg, systemPrompt string) []*ai.Message {
-	var msgs []*ai.Message
-	if strings.TrimSpace(systemPrompt) != "" {
-		msgs = append(msgs, ai.NewTextMessage(ai.RoleSystem, systemPrompt))
+func isNoToolSupport(err error) bool {
+	if err == nil {
+		return false
 	}
-	for _, m := range history {
-		role := ai.RoleUser
-		if m.Role == "assistant" {
-			role = ai.RoleModel
-		}
-		msgs = append(msgs, ai.NewTextMessage(role, m.Content))
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "does not support tool use") || strings.Contains(msg, "does not support tools")
+}
+
+func isToolArgsParseError(err error) bool {
+	if err == nil {
+		return false
 	}
-	msgs = append(msgs, ai.NewUserTextMessage(newMsg))
-	return msgs
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "could not parse tool args") ||
+		strings.Contains(msg, "unmarshal failed to parse json string")
+}
+
+// PublicGenerateError is a short message for the chat UI. Full detail belongs in logs.
+func PublicGenerateError(err error) string {
+	if err == nil {
+		return "generate failed"
+	}
+	if isToolArgsParseError(err) {
+		return "工具参数 JSON 无效（命令过长或引号未转义），请改用更短的单条命令"
+	}
+	msg := err.Error()
+	msg = strings.TrimPrefix(msg, "AI chat failed: ")
+	msg = strings.TrimPrefix(msg, "generate error: ")
+	if strings.Contains(msg, `{"`) || strings.Contains(strings.ToLower(msg), "json string") {
+		return "生成失败：模型输出无法解析"
+	}
+	if len(msg) > 240 {
+		return msg[:240] + "…"
+	}
+	return msg
 }
 
 // IsEnabled 是否启用
@@ -227,12 +278,17 @@ func (e *AIEngine) IsEnabled() bool {
 
 // SetConfig 更新配置
 func (e *AIEngine) SetConfig(cfg *Config) error {
-	if !cfg.Enabled {
+	if cfg == nil || !cfg.Enabled {
+		if cfg == nil {
+			cfg = &Config{Enabled: false}
+		}
 		e.mu.Lock()
 		e.config = cfg
 		e.genkit = nil
 		e.modelName = ""
 		e.genConfig = nil
+		e.planTool = nil
+		e.sshTool = nil
 		e.mu.Unlock()
 		return nil
 	}

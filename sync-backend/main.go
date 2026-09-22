@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/google/uuid"
+	"uuid"
 )
 
 // Command 命令接口

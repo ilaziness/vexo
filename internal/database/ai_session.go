@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
 )
 
 // AISession represents an AI chat session
@@ -21,9 +21,9 @@ type AISession struct {
 type AIMessage struct {
 	ID        string    `json:"id"`
 	SessionID string    `json:"session_id"`
-	Role      string    `json:"role"` // 'user' or 'assistant'
+	Role      string    `json:"role"` // Genkit: user | model | tool | system
 	Content   string    `json:"content"`
-	Parts     string    `json:"parts"` // JSON array of ChatMessagePart
+	Parts     string    `json:"parts"` // JSON []*genkit Part
 	Timestamp time.Time `json:"timestamp"`
 }
 
@@ -35,6 +35,7 @@ type AISessionRepository interface {
 	UpdateSession(ctx context.Context, session *AISession) error
 	DeleteSession(ctx context.Context, id string) error
 	CreateMessage(ctx context.Context, msg *AIMessage) error
+	CreateMessages(ctx context.Context, msgs []*AIMessage) error
 	ListMessages(ctx context.Context, sessionID string) ([]*AIMessage, error)
 }
 
@@ -108,6 +109,9 @@ func (r *SQLiteAISessionRepository) ListSessions(ctx context.Context, limit int)
 		session.UpdatedAt = time.Unix(updatedAt, 0)
 		sessions = append(sessions, &session)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list sessions failed: %w", err)
+	}
 
 	return sessions, nil
 }
@@ -148,16 +152,42 @@ func (r *SQLiteAISessionRepository) DeleteSession(ctx context.Context, id string
 
 // CreateMessage creates a new message
 func (r *SQLiteAISessionRepository) CreateMessage(ctx context.Context, msg *AIMessage) error {
-	msg.ID = uuid.New().String()
-	if msg.Timestamp.IsZero() {
-		msg.Timestamp = time.Now()
+	if msg == nil {
+		return fmt.Errorf("message is nil")
 	}
+	return r.CreateMessages(ctx, []*AIMessage{msg})
+}
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO ai_messages (id, session_id, role, content, parts, timestamp) VALUES (?, ?, ?, ?, ?, ?)`,
-		msg.ID, msg.SessionID, msg.Role, msg.Content, msg.Parts, msg.Timestamp.Unix())
+// CreateMessages inserts messages in one transaction so a tool round is never stored half-written.
+func (r *SQLiteAISessionRepository) CreateMessages(ctx context.Context, msgs []*AIMessage) error {
+	if len(msgs) == 0 {
+		return nil
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("create message failed: %w", err)
+		return fmt.Errorf("begin message tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+	for _, msg := range msgs {
+		if msg == nil {
+			continue
+		}
+		if msg.ID == "" {
+			msg.ID = uuid.New().String()
+		}
+		if msg.Timestamp.IsZero() {
+			msg.Timestamp = now
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO ai_messages (id, session_id, role, content, parts, timestamp) VALUES (?, ?, ?, ?, ?, ?)`,
+			msg.ID, msg.SessionID, msg.Role, msg.Content, msg.Parts, msg.Timestamp.Unix()); err != nil {
+			return fmt.Errorf("create message failed: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit messages failed: %w", err)
 	}
 	return nil
 }
@@ -165,7 +195,7 @@ func (r *SQLiteAISessionRepository) CreateMessage(ctx context.Context, msg *AIMe
 // ListMessages lists messages for a session ordered by timestamp ASC
 func (r *SQLiteAISessionRepository) ListMessages(ctx context.Context, sessionID string) ([]*AIMessage, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, session_id, role, content, parts, timestamp FROM ai_messages WHERE session_id = ? ORDER BY timestamp ASC`,
+		`SELECT id, session_id, role, content, parts, timestamp FROM ai_messages WHERE session_id = ? ORDER BY timestamp ASC, rowid ASC`,
 		sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("list messages failed: %w", err)
@@ -181,6 +211,9 @@ func (r *SQLiteAISessionRepository) ListMessages(ctx context.Context, sessionID 
 		}
 		msg.Timestamp = time.Unix(timestamp, 0)
 		messages = append(messages, &msg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list messages failed: %w", err)
 	}
 
 	return messages, nil

@@ -18,6 +18,15 @@ type ProviderInfo struct {
 	NeedsEndpoint bool   `json:"needs_endpoint"`
 }
 
+func (p Provider) NeedsAPIKey() bool {
+	switch p {
+	case ProviderGoogle, ProviderOpenAI, ProviderOpenAICompatible:
+		return true
+	default:
+		return false
+	}
+}
+
 // GetAllProviders 获取所有支持的供应商列表
 func GetAllProviders() []ProviderInfo {
 	return []ProviderInfo{

@@ -51,33 +51,7 @@ func (m *Manager) fetchRemoteSystemInfo(linkID string) *RemoteSystemInfo {
 }
 
 func runRemoteCommand(client *cryptossh.Client, command string) (string, error) {
-	session, err := client.NewSession()
-	if err != nil {
-		return "", err
-	}
-	defer session.Close()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	type cmdResult struct {
-		out []byte
-		err error
-	}
-	done := make(chan cmdResult, 1)
-	go func() {
-		out, runErr := session.CombinedOutput(command)
-		done <- cmdResult{out: out, err: runErr}
-	}()
-
-	select {
-	case r := <-done:
-		if r.err != nil && len(r.out) == 0 {
-			return "", r.err
-		}
-		return string(r.out), r.err
-	case <-ctx.Done():
-		_ = session.Close()
-		return "", ctx.Err()
-	}
+	return runRemoteCommandCtx(ctx, client, command, DefaultExecMaxOut)
 }

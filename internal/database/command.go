@@ -56,6 +56,9 @@ func (r *UserCommandRepository) GetAllCommands() ([]*UserCommandDB, error) {
 		}
 		commands = append(commands, &cmd)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(errQuery, tableNameUserCommands, err)
+	}
 
 	return commands, nil
 }
@@ -179,6 +182,9 @@ func (r *CommandHistoryRepository) GetHistory() ([]*CommandHistoryDB, error) {
 			continue
 		}
 		history = append(history, &h)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(errQuery, tableNameCommandHistory, err)
 	}
 
 	return history, nil

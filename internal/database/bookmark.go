@@ -63,6 +63,9 @@ func (r *BookmarkRepository) GetAllGroups() ([]*BookmarkGroupDB, error) {
 		}
 		groups = append(groups, &g)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(errQuery, tableNameGroups, err)
+	}
 
 	return groups, nil
 }
@@ -89,6 +92,9 @@ func (r *BookmarkRepository) GetAllBookmarks() ([]*BookmarkDB, error) {
 			continue
 		}
 		bookmarks = append(bookmarks, &b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(errQuery, tableNameBookmarks, err)
 	}
 
 	return bookmarks, nil
@@ -213,6 +219,9 @@ func (r *BookmarkRepository) GetBookmarksByGroupID(groupID int) ([]*BookmarkDB, 
 			continue
 		}
 		bookmarks = append(bookmarks, &b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(errQuery, "bookmarks by group id", err)
 	}
 
 	return bookmarks, nil
@@ -375,4 +384,3 @@ func (r *BookmarkRepository) DeleteGroup(name string) error {
 	r.logger.Debug("group deleted", zap.String("name", name))
 	return nil
 }
-

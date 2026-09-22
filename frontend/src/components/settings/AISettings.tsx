@@ -202,6 +202,22 @@ const AISettings: React.FC = () => {
             />
           </FormRow>
 
+          <Divider />
+
+          <FormRow label="命令回显到终端">
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={Boolean(config.echo_ssh_commands)}
+                  onChange={(e) =>
+                    updatePartialConfig({ echo_ssh_commands: e.target.checked })
+                  }
+                />
+              }
+              label="将 AI 批准执行的命令注解显示到当前 SSH 终端（默认关闭；不会重复执行）"
+            />
+          </FormRow>
+
           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 3 }}>
             <Button variant="outlined" onClick={handleReset} loading={resetting}>
               重置为默认
