@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
-Comment=A vexo application
+Name=Vexo
+Comment=Vexo is an SSH desktop client
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/vexo.exe %u
+Exec=/usr/local/bin/Vexo %u
 Terminal=false
 Type=Application
-Icon=vexo.exe
+Icon=Vexo
 Categories=Utility;
-StartupWMClass=vexo.exe
+StartupWMClass=Vexo
 
  

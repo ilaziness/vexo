@@ -1,59 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>vexo.exe</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.example.vexo</string>
-    <key>CFBundleName</key>
-    <string>My Product</string>
-    <key>CFBundleDisplayName</key>
-    <string>My Product</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
-    <key>CFBundleVersion</key>
-    <string>0.1.0</string>
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-    <key>MinimumOSVersion</key>
-    <string>15.0</string>
-    <key>UILaunchStoryboardName</key>
-    <string>LaunchScreen</string>
-    <key>UIRequiredDeviceCapabilities</key>
-    <array>
-        <string>armv7</string>
-        <string>arm64</string>
-    </array>
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-    <key>UISupportedInterfaceOrientations~ipad</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationPortraitUpsideDown</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <false/>
-        <key>NSAllowsLocalNetworking</key>
-        <true/>
-    </dict>
-    
-    <key>NSHumanReadableCopyright</key>
-    <string>© 2025, My Company</string>
-    
-    
-    <key>CFBundleGetInfoString</key>
-    <string>This is a comment</string>
-    
-</dict>
+	<dict>
+		<key>CFBundleDisplayName</key>
+		<string>Vexo</string>
+		<key>CFBundleExecutable</key>
+		<string>Vexo</string>
+		<key>CFBundleGetInfoString</key>
+		<string>Vexo is a web-based SSH desktop client that allows users to access and manage their servers through a web interface. It provides a secure and convenient way to interact with remote servers without the need for traditional SSH clients.</string>
+		<key>CFBundleIdentifier</key>
+		<string>com.ilaziness.vexo</string>
+		<key>CFBundleName</key>
+		<string>Vexo</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>{{.VERSION}}</string>
+		<key>CFBundleVersion</key>
+		<string>{{.VERSION}}</string>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>MinimumOSVersion</key>
+		<string>15.0</string>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoads</key>
+			<false/>
+			<key>NSAllowsLocalNetworking</key>
+			<true/>
+		</dict>
+		<key>NSHumanReadableCopyright</key>
+		<string>(c) 2026, Vexo Team</string>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIRequiredDeviceCapabilities</key>
+		<array>
+			<string>arm64</string>
+		</array>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>UISupportedInterfaceOrientations~ipad</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationPortraitUpsideDown</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+	</dict>
 </plist>

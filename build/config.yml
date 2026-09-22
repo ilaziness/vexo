@@ -5,12 +5,12 @@ version: '3'
 
 # This information is used to generate the build assets.
 info:
-  companyName: "My Company" # The name of the company
-  productName: "My Product" # The name of the application
-  productIdentifier: "com.mycompany.myproduct" # The unique product identifier
-  description: "A program that does X" # The application description
-  copyright: "(c) 2025, My Company" # Copyright text
-  comments: "Some Product Comments" # Comments
+  companyName: "Vexo Team" # The name of the company
+  productName: "Vexo" # The name of the application
+  productIdentifier: "com.ilaziness.vexo" # The unique product identifier
+  description: "Vexo is an SSH desktop client" # The application description
+  copyright: "(c) 2026, Vexo Team" # Copyright text
+  comments: "Vexo is a web-based SSH desktop client that allows users to access and manage their servers through a web interface. It provides a secure and convenient way to interact with remote servers without the need for traditional SSH clients." # Comments
   version: "{{.VERSION}}" # The application version
 
 # iOS build configuration (uncomment to customise iOS project generation)

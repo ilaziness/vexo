@@ -1,6 +1,7 @@
 # Makefile for vexo SSH desktop application
 VERSION ?= v1.0.0
 MODE ?= release
+APP_NAME ?= Vexo
 
 # 获取 Git 信息（完整 hash）
 GIT_INFO := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -10,7 +11,7 @@ BUILD_TIME := $(shell date "+%Y-%m-%dT%H:%M:%S%:z" 2>/dev/null || echo "unknown"
 CONFIG_FILE := internal/buildinfo/buildinfo.go
 CONFIG_BACKUP := internal/buildinfo/buildinfo.go.bak
 
-.PHONY: help all build-windows build-darwin build-linux clean build-mac build-mac-intel replace-config restore-config
+.PHONY: help all build-windows build-darwin build-linux clean build-mac build-mac-intel replace-config restore-config update-build-assets
 
 .DEFAULT_GOAL := help
 
@@ -31,6 +32,7 @@ help:
 	@echo "  build-mac-intel Build for macOS (amd64) $(VERSION)"
 	@echo "  build-linux     Build for Linux $(VERSION)"
 	@echo "  clean           Remove bin/ and config backup"
+	@echo "  update-build-assets Update build directory assets with the current Wails CLI"
 	@echo "  replace-config  Inject VERSION/MODE/GIT_INFO/BUILD_TIME into config (internal)"
 	@echo "  restore-config  Restore config_service.go from backup (internal)"
 
@@ -52,6 +54,11 @@ restore-config:
 	@if [ -f $(CONFIG_BACKUP) ]; then \
 		mv $(CONFIG_BACKUP) $(CONFIG_FILE); \
 	fi
+
+# Update generated build assets with the installed Wails CLI
+update-build-assets:
+	@echo "Updating build assets for $(APP_NAME)..."
+	@cd build && wails3 update build-assets -name "$(APP_NAME)" -binaryname "$(APP_NAME)" -config config.yml -dir .
 
 # Build for Windows
 build-windows: replace-config
