@@ -124,6 +124,8 @@
 
 AI 相关功能使用 `Genkit` 框架实现，不要直接调用 LLM 商 API。
 
+前端AI UI交互使用的是`MUI X Chat`库。
+
 ---
 
 ## 4. 前端集成规范
@@ -245,3 +247,4 @@ go build .
 - genkit api参考：[api ref](https://pkg.go.dev/github.com/firebase/genkit/go)
 - wails V3 api参考: [application api ref](https://pkg.go.dev/github.com/wailsapp/wails/v3/pkg/application)
 - wails v3 event: [event ref](https://pkg.go.dev/github.com/wailsapp/wails/v3/pkg/events)
+- MUI [llms.txt](https://mui.com/material-ui/llms.txt)
