@@ -1,18 +1,17 @@
+import React, { Suspense } from "react";
 import { useParams } from "react-router";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import ToolLayout from "../components/ToolLayout";
-import PortCheckTool from "../components/PortCheckTool";
-import EncoderTool from "../components/EncoderTool";
-import RegexTool from "../components/RegexTool";
-import HashTool from "../components/HashTool";
-import TimestampTool from "../components/TimestampTool";
-import { Box, Typography } from "@mui/material";
 
-const toolComponents: Record<string, React.ComponentType> = {
-  "port-check": PortCheckTool,
-  encoder: EncoderTool,
-  regex: RegexTool,
-  hash: HashTool,
-  timestamp: TimestampTool,
+const toolComponents: Record<
+  string,
+  React.LazyExoticComponent<React.ComponentType>
+> = {
+  "port-check": React.lazy(() => import("../components/PortCheckTool")),
+  encoder: React.lazy(() => import("../components/EncoderTool")),
+  regex: React.lazy(() => import("../components/RegexTool")),
+  hash: React.lazy(() => import("../components/HashTool")),
+  timestamp: React.lazy(() => import("../components/TimestampTool")),
 };
 
 export default function ToolDetail() {
@@ -22,7 +21,15 @@ export default function ToolDetail() {
   return (
     <ToolLayout>
       {ToolComponent ? (
-        <ToolComponent />
+        <Suspense
+          fallback={
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
+              <CircularProgress size={28} />
+            </Box>
+          }
+        >
+          <ToolComponent />
+        </Suspense>
       ) : (
         <Box sx={{ textAlign: "center", mt: 8 }}>
           <Typography variant="h6" color="text.secondary">

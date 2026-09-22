@@ -1,4 +1,4 @@
-import { Terminal } from "@xterm/xterm";
+import type { Terminal } from "@xterm/xterm";
 
 class TerminalInstances {
   private static instance: TerminalInstances;

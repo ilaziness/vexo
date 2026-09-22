@@ -1,16 +1,9 @@
 import React, { useEffect, useState, memo } from "react";
 import { Box } from "@mui/material";
-import "@xterm/xterm/css/xterm.css";
-import { Terminal as TerminalLib } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
-import { WebLinksAddon } from "@xterm/addon-web-links";
-import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { ImageAddon } from "@xterm/addon-image";
-import { LigaturesAddon } from "@xterm/addon-ligatures";
-import { ClipboardAddon } from "@xterm/addon-clipboard";
-import { SearchAddon } from "@xterm/addon-search";
-import { AttachAddon } from "@xterm/addon-attach";
+import type { Terminal as TerminalLib } from "@xterm/xterm";
+import type { FitAddon } from "@xterm/addon-fit";
+import type { WebglAddon } from "@xterm/addon-webgl";
+import type { SearchAddon } from "@xterm/addon-search";
 import { Browser } from "@wailsio/runtime";
 import {
   LogService,
@@ -25,6 +18,70 @@ import { terminalInstances } from "../stores/terminalInstances";
 import { sleep } from "../func/service";
 import { useSSHTabsStore } from "../stores/ssh";
 import { ConnectionStatus } from "../types/ssh";
+
+type XtermModules = {
+  Terminal: typeof import("@xterm/xterm").Terminal;
+  FitAddon: typeof import("@xterm/addon-fit").FitAddon;
+  WebglAddon: typeof import("@xterm/addon-webgl").WebglAddon;
+  WebLinksAddon: typeof import("@xterm/addon-web-links").WebLinksAddon;
+  Unicode11Addon: typeof import("@xterm/addon-unicode11").Unicode11Addon;
+  ImageAddon: typeof import("@xterm/addon-image").ImageAddon;
+  LigaturesAddon: typeof import("@xterm/addon-ligatures").LigaturesAddon;
+  ClipboardAddon: typeof import("@xterm/addon-clipboard").ClipboardAddon;
+  SearchAddon: typeof import("@xterm/addon-search").SearchAddon;
+  AttachAddon: typeof import("@xterm/addon-attach").AttachAddon;
+};
+
+let xtermModulesPromise: Promise<XtermModules> | null = null;
+
+function loadXtermModules(): Promise<XtermModules> {
+  if (!xtermModulesPromise) {
+    xtermModulesPromise = Promise.all([
+      import("@xterm/xterm"),
+      import("@xterm/addon-fit"),
+      import("@xterm/addon-webgl"),
+      import("@xterm/addon-web-links"),
+      import("@xterm/addon-unicode11"),
+      import("@xterm/addon-image"),
+      import("@xterm/addon-ligatures"),
+      import("@xterm/addon-clipboard"),
+      import("@xterm/addon-search"),
+      import("@xterm/addon-attach"),
+      import("@xterm/xterm/css/xterm.css"),
+    ])
+      .then(
+        ([
+          xterm,
+          fit,
+          webgl,
+          webLinks,
+          unicode11,
+          image,
+          ligatures,
+          clipboard,
+          search,
+          attach,
+        ]) => ({
+          Terminal: xterm.Terminal,
+          FitAddon: fit.FitAddon,
+          WebglAddon: webgl.WebglAddon,
+          WebLinksAddon: webLinks.WebLinksAddon,
+          Unicode11Addon: unicode11.Unicode11Addon,
+          ImageAddon: image.ImageAddon,
+          LigaturesAddon: ligatures.LigaturesAddon,
+          ClipboardAddon: clipboard.ClipboardAddon,
+          SearchAddon: search.SearchAddon,
+          AttachAddon: attach.AttachAddon,
+        }),
+      )
+      .catch((err) => {
+        // Allow subsequent mounts to retry after a failed dynamic import.
+        xtermModulesPromise = null;
+        throw err;
+      });
+  }
+  return xtermModulesPromise;
+}
 
 const isWebgl2Supported = (() => {
   let isSupported = globalThis.WebGL2RenderingContext ? undefined : false;
@@ -82,25 +139,25 @@ function Terminal(props: { readonly linkID: string }) {
     }
   };
 
-  const loadAddon = () => {
+  const loadAddon = (mods: XtermModules) => {
     LogService.Debug("loadAddon");
-    termFit.current = new FitAddon();
+    termFit.current = new mods.FitAddon();
     term.current?.loadAddon(termFit.current);
     term.current?.loadAddon(
-      new WebLinksAddon((event, uri) => {
+      new mods.WebLinksAddon((event, uri) => {
         event.preventDefault();
         Browser.OpenURL(uri);
       }),
     );
-    termSearch.current = new SearchAddon();
+    termSearch.current = new mods.SearchAddon();
     term.current?.loadAddon(termSearch.current);
-    term.current?.loadAddon(new Unicode11Addon());
+    term.current?.loadAddon(new mods.Unicode11Addon());
     term.current && (term.current.unicode.activeVersion = "11");
-    term.current?.loadAddon(new ImageAddon());
-    term.current?.loadAddon(new ClipboardAddon());
+    term.current?.loadAddon(new mods.ImageAddon());
+    term.current?.loadAddon(new mods.ClipboardAddon());
 
     if (isWebgl2Supported()) {
-      const webglAddon = new WebglAddon();
+      const webglAddon = new mods.WebglAddon();
       webglAddon.onContextLoss(() => {
         console.warn("WebGL context lost. Falling back to DOM rendering.");
         webglAddon.dispose();
@@ -108,7 +165,7 @@ function Terminal(props: { readonly linkID: string }) {
       webglRef.current = webglAddon;
       term.current?.loadAddon(webglAddon);
     } else {
-      term.current?.loadAddon(new LigaturesAddon());
+      term.current?.loadAddon(new mods.LigaturesAddon());
     }
   };
 
@@ -122,34 +179,46 @@ function Terminal(props: { readonly linkID: string }) {
       return;
     }
     LogService.Debug("Initializing terminal for link ID: " + props.linkID);
-    const config = await ConfigService.ReadConfig();
-    if (!mountedRef.current) return;
-    const settings = config?.Terminal || useTerminalStore.getState();
-    LogService.Debug(`Terminal setting ${JSON.stringify(settings)}`);
-    if (term.current) return;
-    // 获取当前终端主题
-    const terminalTheme = useTerminalStore.getState().getCurrentTheme();
-    applyThemeVars(terminalTheme);
-    term.current = new TerminalLib({
-      allowProposedApi: true,
-      cursorBlink: true,
-      cursorStyle: "block",
-      fontFamily: settings.fontFamily,
-      fontSize: settings.fontSize,
-      lineHeight: settings.lineHeight,
-      rightClickSelectsWord: true,
-      theme: terminalTheme,
-    });
-    if (termRef.current) {
-      loadAddon();
+    try {
+      const [config, mods] = await Promise.all([
+        ConfigService.ReadConfig(),
+        loadXtermModules(),
+      ]);
+      if (!mountedRef.current) return;
+      const settings = config?.Terminal || useTerminalStore.getState();
+      LogService.Debug(`Terminal setting ${JSON.stringify(settings)}`);
+      if (term.current) return;
+      if (!termRef.current) {
+        LogService.Error(
+          `Terminal DOM node missing for link ID: ${props.linkID}`,
+        );
+        setIsInitializing(false);
+        return;
+      }
+      // 获取当前终端主题
+      const terminalTheme = useTerminalStore.getState().getCurrentTheme();
+      applyThemeVars(terminalTheme);
+      term.current = new mods.Terminal({
+        allowProposedApi: true,
+        cursorBlink: true,
+        cursorStyle: "block",
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize,
+        lineHeight: settings.lineHeight,
+        rightClickSelectsWord: true,
+        theme: terminalTheme,
+      });
+      loadAddon(mods);
       term.current.open(termRef.current);
       terminalInstances.set(props.linkID, term.current);
       await sleep(50);
+      if (!mountedRef.current) return;
       termFit.current?.fit();
 
       const cols = term.current?.cols || 80;
       const rows = term.current?.rows || 24;
       const wsAddr = await AppService.GetWSAddr();
+      if (!mountedRef.current) return;
       const wsUrl = `ws://${wsAddr}/ws/terminal?id=${props.linkID}&cols=${cols}&rows=${rows}`;
       LogService.Debug(
         `Connecting to WebSocket at ${wsUrl} for terminal ${props.linkID}`,
@@ -157,24 +226,26 @@ function Terminal(props: { readonly linkID: string }) {
       const ws = new WebSocket(wsUrl);
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
-      const attachAddon = new AttachAddon(ws);
+      const attachAddon = new mods.AttachAddon(ws);
       term.current?.loadAddon(attachAddon);
 
       ws.onopen = async () => {
+        if (!mountedRef.current) return;
         LogService.Debug("WebSocket connected for terminal " + props.linkID);
         setIsInitializing(false);
         setConnectionStatus(props.linkID, ConnectionStatus.Connected);
 
-        if (!mountedRef.current) return;
         term.current?.focus();
         term.current?.onResize(onResize);
         sleep(1000).then(() => {
+          if (!mountedRef.current) return;
           LogService.Debug("Fitting terminal after WebSocket connection");
           termFit.current?.fit();
         });
       };
 
       ws.onerror = (error) => {
+        if (!mountedRef.current) return;
         // WebSocket error event is an Event object, use message property if available
         const errorMessage =
           "message" in error
@@ -187,10 +258,24 @@ function Terminal(props: { readonly linkID: string }) {
       };
 
       ws.onclose = () => {
+        if (!mountedRef.current) return;
         LogService.Debug(`WebSocket closed for terminal ${props.linkID}`);
         setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
         term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
       };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      LogService.Error(
+        `Failed to initialize terminal ${props.linkID}: ${message}`,
+      );
+      if (!mountedRef.current) return;
+      if (term.current) {
+        term.current.write(
+          `\r\n*** Failed to initialize terminal: ${message} ***\r\n`,
+        );
+      }
+      setIsInitializing(false);
+      setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
     }
   };
 

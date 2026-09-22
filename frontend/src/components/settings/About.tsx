@@ -8,7 +8,10 @@ import {
   NewVersion,
 } from "../../../bindings/github.com/ilaziness/vexo/services";
 import { useMessageStore } from "../../stores/message";
-import UpdateAvailableDialog from "../UpdateAvailableDialog";
+
+const UpdateAvailableDialog = React.lazy(
+  () => import("../UpdateAvailableDialog"),
+);
 
 interface AboutProps {
   appinfo: AppInfo;
@@ -19,6 +22,13 @@ const About: React.FC<AboutProps> = ({ appinfo }) => {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [newVersion, setNewVersion] = useState<NewVersion | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [updateDialogMounted, setUpdateDialogMounted] = useState(false);
+
+  React.useEffect(() => {
+    if (updateDialogOpen) {
+      setUpdateDialogMounted(true);
+    }
+  }, [updateDialogOpen]);
 
   const handleCheckUpdate = async () => {
     try {
@@ -85,11 +95,15 @@ const About: React.FC<AboutProps> = ({ appinfo }) => {
             </Button>
           </Box>
 
-          <UpdateAvailableDialog
-            open={updateDialogOpen}
-            onClose={() => setUpdateDialogOpen(false)}
-            newVersion={newVersion}
-          />
+          {updateDialogMounted && (
+            <React.Suspense fallback={null}>
+              <UpdateAvailableDialog
+                open={updateDialogOpen}
+                onClose={() => setUpdateDialogOpen(false)}
+                newVersion={newVersion}
+              />
+            </React.Suspense>
+          )}
 
           <Typography
             color="text.secondary"

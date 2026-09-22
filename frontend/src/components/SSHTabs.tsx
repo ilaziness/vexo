@@ -1,5 +1,5 @@
-import { Box, Menu, MenuItem } from "@mui/material";
-import React, { useRef, useCallback } from "react";
+import { Box, Menu, MenuItem, CircularProgress } from "@mui/material";
+import React, { Suspense, useEffect, useRef, useCallback, useState } from "react";
 import SSHTabBody from "./SSHTabBody.tsx";
 import { Events } from "@wailsio/runtime";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
@@ -16,7 +16,8 @@ import {
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
-import AISideBar from "./ai/AISideBar";
+
+const AISideBar = React.lazy(() => import("./ai/AISideBar"));
 
 interface SSHTabsProps {
   onClose?: () => void;
@@ -40,6 +41,13 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sidebarOpen = useAIAssistantStore((state) => state.sidebarOpen);
   const sidebarWidth = useAIAssistantStore((state) => state.sidebarWidth);
+  const [aiSidebarMounted, setAiSidebarMounted] = useState(false);
+
+  useEffect(() => {
+    if (sidebarOpen) {
+      setAiSidebarMounted(true);
+    }
+  }, [sidebarOpen]);
 
   React.useEffect(() => {
     const unsubscribeProgress = Events.On("eventProgress", (event: any) => {
@@ -249,7 +257,34 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
             </Box>
           ))}
         </Box>
-        <AISideBar />
+        {aiSidebarMounted && (
+          <Suspense
+            fallback={
+              sidebarOpen ? (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    width: sidebarWidth,
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: "background.paper",
+                    borderLeft: 1,
+                    borderColor: "divider",
+                    zIndex: (theme) => theme.zIndex.drawer,
+                  }}
+                >
+                  <CircularProgress size={24} />
+                </Box>
+              ) : null
+            }
+          >
+            <AISideBar />
+          </Suspense>
+        )}
       </Box>
     </Box>
   );

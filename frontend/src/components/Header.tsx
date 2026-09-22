@@ -55,7 +55,10 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import { Events } from "@wailsio/runtime";
 import BookmarkManager from "./Bookmark";
 import Loading from "./Loading";
-import UpdateAvailableDialog from "./UpdateAvailableDialog";
+
+const UpdateAvailableDialog = React.lazy(
+  () => import("./UpdateAvailableDialog"),
+);
 
 interface BookmarkGroup {
   name: string;
@@ -79,6 +82,13 @@ export default function Header() {
   const [uploading, setUploading] = useState(false);
   const [newVersion, setNewVersion] = useState<NewVersion | null>(null);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [updateDialogMounted, setUpdateDialogMounted] = useState(false);
+
+  useEffect(() => {
+    if (updateDialogOpen) {
+      setUpdateDialogMounted(true);
+    }
+  }, [updateDialogOpen]);
 
   const showSettingWindow = useCallback(() => {
     ConfigService.ShowWindow();
@@ -324,11 +334,15 @@ export default function Header() {
           </IconButton>
         </Tooltip>
 
-        <UpdateAvailableDialog
-          open={updateDialogOpen}
-          onClose={() => setUpdateDialogOpen(false)}
-          newVersion={newVersion}
-        />
+        {updateDialogMounted && (
+          <React.Suspense fallback={null}>
+            <UpdateAvailableDialog
+              open={updateDialogOpen}
+              onClose={() => setUpdateDialogOpen(false)}
+              newVersion={newVersion}
+            />
+          </React.Suspense>
+        )}
 
         <Menu
           anchorEl={bookmarkAnchorEl}

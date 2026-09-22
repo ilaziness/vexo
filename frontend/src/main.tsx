@@ -4,7 +4,7 @@ import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { RouterProvider } from "react-router/dom";
-import routes from "./routes.ts";
+import routes from "./routes.tsx";
 import theme from "./theme";
 import { ReadConfig } from "../bindings/github.com/ilaziness/vexo/services/configservice";
 import { Config } from "../bindings/github.com/ilaziness/vexo/services";
