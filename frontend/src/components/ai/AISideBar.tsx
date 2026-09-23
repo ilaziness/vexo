@@ -70,7 +70,6 @@ const AISideBar = () => {
 
   useEffect(() => {
     if (!sidebarOpen) {
-      useAIAssistantStore.getState().setStreaming(false);
       useAIAssistantStore.getState().setHistoryDrawerOpen(false);
       return;
     }
@@ -115,11 +114,13 @@ const AISideBar = () => {
     };
   }, [isResizing, setSidebarWidth]);
 
-  const showChat = Boolean(activeSessionId) && !loadingSessions;
+  const showChat = Boolean(activeSessionId);
 
   return (
-    <Slide in={sidebarOpen} direction="left" mountOnEnter unmountOnExit>
+    <Slide in={sidebarOpen} direction="left" mountOnEnter>
       <Box
+        aria-hidden={!sidebarOpen}
+        inert={!sidebarOpen || undefined}
         sx={(theme) => ({
           width: sidebarWidth,
           minWidth: SIDEBAR_WIDTH.MIN,
@@ -130,6 +131,7 @@ const AISideBar = () => {
           zIndex: theme.zIndex.drawer,
           display: "flex",
           bgcolor: "background.paper",
+          pointerEvents: sidebarOpen ? "auto" : "none",
         })}
       >
         <Box

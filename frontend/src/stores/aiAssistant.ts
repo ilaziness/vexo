@@ -69,7 +69,10 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
 
   loadSessions: async () => {
     if (get().loadingSessions) return;
-    set({ loadingSessions: true });
+    const soft = Boolean(get().activeSessionId) || get().sessions.length > 0;
+    if (!soft) {
+      set({ loadingSessions: true });
+    }
     try {
       const sessions = await AIService.ListSessions(50);
       const items = (sessions || [])
@@ -77,7 +80,7 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
         .map(mapSession);
 
       if (items.length === 0) {
-        set({ sessions: [], activeSessionId: '' });
+        set({ sessions: [] });
         await get().createSession();
         set({ loadingSessions: false });
         return;
