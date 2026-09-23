@@ -24,6 +24,15 @@ interface SessionPanelProps {
   drawerContainer: HTMLDivElement | null;
 }
 
+function pad2(n: number): string {
+  return n.toString().padStart(2, '0');
+}
+
+function formatAbsoluteTime(unixSeconds: number): string {
+  const d = new Date(unixSeconds * 1000);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
 function formatRelativeTime(unixSeconds: number): string {
   const diff = Date.now() - unixSeconds * 1000;
   const minutes = Math.floor(diff / 60000);
@@ -32,7 +41,8 @@ function formatRelativeTime(unixSeconds: number): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} 小时前`;
   const days = Math.floor(hours / 24);
-  return `${days} 天前`;
+  if (days <= 7) return `${days} 天前`;
+  return formatAbsoluteTime(unixSeconds);
 }
 
 const SessionPanel: React.FC<SessionPanelProps> = ({ drawerContainer }) => {
