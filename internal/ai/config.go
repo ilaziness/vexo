@@ -13,7 +13,9 @@ var (
 )
 
 const (
-	DefaultMaxAgentTurns  = 8
+	// DefaultMaxAgentTurns 单次请求中模型↔工具交互的最大轮次，超出后终止生成。
+	DefaultMaxAgentTurns = 30
+	// DefaultExecTimeoutSec 单次 SSH 工具命令执行超时（秒）。
 	DefaultExecTimeoutSec = 30
 )
 

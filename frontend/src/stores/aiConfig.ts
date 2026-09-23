@@ -11,7 +11,7 @@ interface AIConfigState {
   isLoadingProviders: boolean;
 
   loadConfig: () => Promise<void>;
-  saveConfig: (config: AIConfig) => Promise<boolean>;
+  saveConfig: (config: AIConfig) => Promise<void>;
   resetConfig: () => Promise<void>;
   loadProviders: () => Promise<void>;
   updatePartialConfig: (partial: Partial<AIConfig>) => void;
@@ -26,7 +26,7 @@ const defaultConfig: AIConfig = {
   temperature: 0.7,
   max_tokens: 2048,
   echo_ssh_commands: false,
-  max_agent_turns: 8,
+  max_agent_turns: 30,
   exec_timeout_sec: 30,
 };
 
@@ -58,26 +58,14 @@ export const useAIConfigStore = create<AIConfigState>((set) => ({
   },
 
   saveConfig: async (config: AIConfig) => {
-    set({ isLoading: true, error: null });
-    try {
-      await AIService.SaveConfig(config);
-      set({ config, isLoading: false });
-      return true;
-    } catch (err) {
-      set({ error: parseCallServiceError(err), isLoading: false });
-      return false;
-    }
+    await AIService.SaveConfig(config);
+    set({ config, error: null });
   },
 
   resetConfig: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      await AIService.ResetConfig();
-      const config = await AIService.GetConfig();
-      set({ config: config || defaultConfig, isLoading: false });
-    } catch (err) {
-      set({ error: parseCallServiceError(err), isLoading: false });
-    }
+    await AIService.ResetConfig();
+    const config = await AIService.GetConfig();
+    set({ config: config || defaultConfig, error: null });
   },
 
   updatePartialConfig: (partial: Partial<AIConfig>) => {
@@ -88,4 +76,3 @@ export const useAIConfigStore = create<AIConfigState>((set) => ({
 
   clearError: () => set({ error: null }),
 }));
-

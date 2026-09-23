@@ -19,6 +19,8 @@ import {
 } from "@mui/material";
 import { Provider } from "../../../bindings/github.com/ilaziness/vexo/internal/ai/models";
 import { useAIConfigStore } from "../../stores/aiConfig";
+import { useMessageStore } from "../../stores/message";
+import { parseCallServiceError } from "../../func/service";
 import FormRow from "../FormRow";
 
 const AISettings: React.FC = () => {
@@ -35,6 +37,7 @@ const AISettings: React.FC = () => {
     updatePartialConfig,
     clearError,
   } = useAIConfigStore();
+  const { successMessage, errorMessage } = useMessageStore();
 
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -48,10 +51,10 @@ const AISettings: React.FC = () => {
     if (!config) return;
     setSaving(true);
     try {
-      const success = await saveConfig(config);
-      if (success) {
-        // success message is handled by store
-      }
+      await saveConfig(config);
+      successMessage("AI 配置保存成功");
+    } catch (err) {
+      errorMessage(parseCallServiceError(err) || "AI 配置保存失败");
     } finally {
       setSaving(false);
     }
@@ -61,6 +64,9 @@ const AISettings: React.FC = () => {
     setResetting(true);
     try {
       await resetConfig();
+      successMessage("已重置为默认配置");
+    } catch (err) {
+      errorMessage(parseCallServiceError(err) || "重置配置失败");
     } finally {
       setResetting(false);
     }
