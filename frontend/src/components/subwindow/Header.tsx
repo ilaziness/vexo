@@ -18,7 +18,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import {
   BookmarkService,
-  SSHBookmark,
+  BookmarkGroup,
 } from "../../../bindings/github.com/ilaziness/vexo/services";
 import { useSSHTabsStore } from "../../stores/ssh";
 import { ConnectionStatus } from "../../types/ssh";
@@ -26,11 +26,10 @@ import { genTabIndex, parseCallServiceError } from "../../func/service";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useMessageStore } from "../../stores/message";
 import { Events } from "@wailsio/runtime";
-
-interface BookmarkGroup {
-  name: string;
-  bookmarks: SSHBookmark[];
-}
+import {
+  BookmarkIconView,
+  GroupIconView,
+} from "../icons/bookmarkIcons";
 
 export default function Header() {
   const { sshTabs, pushTab, setCurrentTab } = useSSHTabsStore();
@@ -192,6 +191,9 @@ export default function Header() {
                         <ChevronRightIcon fontSize="small" />
                       )}
                     </ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <GroupIconView icon={group.icon} fontSize={18} />
+                    </ListItemIcon>
                     <ListItemText primary={group.name} />
                   </ListItemButton>
                 </ListItem>
@@ -208,7 +210,10 @@ export default function Header() {
                           onClick={() => handleBookmarkSelect(bookmark.id)}
                         >
                           <ListItemIcon sx={{ minWidth: 24 }}>
-                            <BookmarkIcon fontSize="small" />
+                            <BookmarkIconView
+                              icon={bookmark.icon}
+                              fontSize={16}
+                            />
                           </ListItemIcon>
                           <ListItemText primary={bookmark.title} />
                         </ListItemButton>

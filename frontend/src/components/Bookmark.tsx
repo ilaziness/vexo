@@ -4,16 +4,12 @@ import {
   BookmarkService,
   LogService,
   SSHBookmark,
+  BookmarkGroup,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import BookmarkTree from "./BookmarkTree";
 import BookmarkForm from "./BookmarkForm";
 import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
-
-interface BookmarkGroup {
-  name: string;
-  bookmarks: SSHBookmark[];
-}
 
 interface BookmarkProps {
   onRequestClose?: () => void;
@@ -57,11 +53,31 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
     newGroupName: string,
   ) => {
     try {
-      await BookmarkService.UpdateGroup(oldGroupName, newGroupName);
+      const group = bookmarks.find((g) => g.name === oldGroupName);
+      await BookmarkService.UpdateGroup(
+        oldGroupName,
+        newGroupName,
+        group?.icon || "",
+      );
       await loadBookmarks();
+      setSelectedBookmark((prev) =>
+        prev?.group_name === oldGroupName
+          ? { ...prev, group_name: newGroupName }
+          : prev,
+      );
     } catch (error) {
       LogService.Warn(`Failed to rename group: ${error}`);
       errorMessage("重命名分组失败: " + parseCallServiceError(error));
+    }
+  };
+
+  const handleGroupIconChange = async (groupName: string, icon: string) => {
+    try {
+      await BookmarkService.UpdateGroup(groupName, groupName, icon);
+      await loadBookmarks();
+    } catch (error) {
+      LogService.Warn(`Failed to update group icon: ${error}`);
+      errorMessage("更新分组图标失败: " + parseCallServiceError(error));
     }
   };
 
@@ -102,8 +118,23 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       proxy_jump_id: "",
       user: "",
       password: "",
+      icon: "",
     };
     setSelectedBookmark(newBookmark);
+  };
+
+  const handleBookmarkCopy = async (bookmarkId: string) => {
+    try {
+      const copied = await BookmarkService.CopyBookmark(bookmarkId);
+      await loadBookmarks();
+      if (copied) {
+        setSelectedBookmark(copied);
+      }
+      successMessage("书签复制成功");
+    } catch (error) {
+      LogService.Warn(`Failed to copy bookmark: ${error}`);
+      errorMessage("复制书签失败: " + parseCallServiceError(error));
+    }
   };
 
   const handleBookmarkDelete = async (bookmarkId: string) => {
@@ -185,9 +216,11 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
           selectedBookmark={selectedBookmark}
           onBookmarkSelect={handleBookmarkSelect}
           onGroupRename={handleGroupRename}
+          onGroupIconChange={handleGroupIconChange}
           onGroupAdd={handleGroupAdd}
           onGroupDelete={handleGroupDelete}
           onBookmarkAdd={handleBookmarkAdd}
+          onBookmarkCopy={handleBookmarkCopy}
           onBookmarkDelete={handleBookmarkDelete}
         />
       </Paper>

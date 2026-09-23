@@ -64,7 +64,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
           LogService.Debug(`Connecting to bookmark: ${bookmarkID}`);
 
           const bookmark =
-            await BookmarkService.GetBookmarkForConnect(bookmarkID);
+            await BookmarkService.GetBookmarkByID(bookmarkID);
           if (!bookmark) {
             LogService.Warn(`Bookmark not found: ${bookmarkID}`);
             return;

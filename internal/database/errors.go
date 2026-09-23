@@ -7,7 +7,6 @@ const (
 	errInsertQuery = "insert %s failed: %w"
 	errQuery       = "query %s failed: %w"
 
-	tableNameGroups         = "groups"
 	tableNameBookmarks      = "bookmarks"
 	tableNameBookmarkGroups = "bookmark_groups"
 	tableNameUserCommands   = "user commands"

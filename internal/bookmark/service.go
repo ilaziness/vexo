@@ -13,6 +13,7 @@ import (
 )
 
 const PasswordMask = "********"
+const DefaultGroupName = "默认书签"
 
 type PasswordFn func(reason string) (string, error)
 
@@ -27,6 +28,7 @@ type Bookmark struct {
 	ProxyJumpID        string `json:"proxy_jump_id"`
 	User               string `json:"user"`
 	Password           string `json:"password"`
+	Icon               string `json:"icon"`
 }
 
 func (b Bookmark) Endpoint() ssh.Endpoint {
@@ -38,6 +40,7 @@ func (b Bookmark) Endpoint() ssh.Endpoint {
 
 type Group struct {
 	Name      string     `json:"name"`
+	Icon      string     `json:"icon"`
 	Bookmarks []Bookmark `json:"bookmarks"`
 }
 
@@ -177,7 +180,7 @@ func fromDB(b *database.BookmarkDB, groupName string) *Bookmark {
 	return &Bookmark{
 		ID: b.ID, GroupName: groupName, Title: b.Title, Host: b.Host, Port: b.Port,
 		User: b.User, Password: b.Password, PrivateKey: b.PrivateKey,
-		PrivateKeyPassword: b.PrivateKeyPassword, ProxyJumpID: b.ProxyJumpID,
+		PrivateKeyPassword: b.PrivateKeyPassword, ProxyJumpID: b.ProxyJumpID, Icon: b.Icon,
 	}
 }
 
@@ -250,16 +253,14 @@ func (s *Service) ListGrouped() ([]*Group, error) {
 	groupMap := make(map[int]*Group)
 	for _, g := range dbGroups {
 		groupIDToName[g.ID] = g.Name
-		groupMap[g.ID] = &Group{Name: g.Name, Bookmarks: []Bookmark{}}
+		groupMap[g.ID] = &Group{Name: g.Name, Icon: g.Icon, Bookmarks: []Bookmark{}}
 	}
 	for _, b := range dbBookmarks {
-		item := Bookmark{
-			ID: b.ID, GroupName: groupIDToName[b.GroupID], Title: b.Title, Host: b.Host, Port: b.Port,
-			User: b.User, Password: mask(b.Password), PrivateKey: b.PrivateKey,
-			PrivateKeyPassword: mask(b.PrivateKeyPassword), ProxyJumpID: b.ProxyJumpID,
-		}
+		item := fromDB(b, groupIDToName[b.GroupID])
+		item.Password = mask(item.Password)
+		item.PrivateKeyPassword = mask(item.PrivateKeyPassword)
 		if g, ok := groupMap[b.GroupID]; ok {
-			g.Bookmarks = append(g.Bookmarks, item)
+			g.Bookmarks = append(g.Bookmarks, *item)
 		}
 	}
 	groups := make([]*Group, 0, len(dbGroups))
@@ -308,20 +309,26 @@ func (s *Service) update(b Bookmark, existing *database.BookmarkDB) error {
 	}
 	groupID := existing.GroupID
 	if b.GroupName != "" {
-		if g, err := s.db.BookmarkRepo.GetGroupByName(b.GroupName); err == nil {
-			groupID = g.ID
+		g, err := s.db.BookmarkRepo.GetGroupByName(b.GroupName)
+		if err != nil {
+			return fmt.Errorf("未找到分组 '%s'", b.GroupName)
 		}
+		groupID = g.ID
 	}
 	if existing.Title != b.Title || existing.GroupID != groupID {
 		dup, err := s.db.BookmarkRepo.GetBookmarkByTitleAndGroup(b.Title, groupID)
 		if err == nil && dup.ID != b.ID {
 			return fmt.Errorf("分组 '%s' 中已存在名称为 '%s' 的书签", b.GroupName, b.Title)
 		}
+		if err != nil && err.Error() != "bookmark not found" {
+			return err
+		}
 	}
 	dbBookmark := &database.BookmarkDB{
 		ID: processed.ID, GroupID: groupID, Title: processed.Title, Host: processed.Host, Port: processed.Port,
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
-		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID, UpdatedAt: time.Now(),
+		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
+		Icon: processed.Icon, UpdatedAt: time.Now(),
 	}
 	if err := s.db.BookmarkRepo.UpdateBookmark(dbBookmark); err != nil {
 		return err
@@ -344,16 +351,20 @@ func (s *Service) encryptBookmarkForSave(b Bookmark, existing *Bookmark) (Bookma
 }
 
 func (s *Service) insert(b Bookmark) (string, error) {
-	group, err := s.db.BookmarkRepo.GetGroupByName(b.GroupName)
-	if err != nil {
-		group, err = s.db.BookmarkRepo.GetGroupByName("默认书签")
-		if err != nil || group == nil {
-			return "", fmt.Errorf("未找到分组 '%s'", b.GroupName)
-		}
+	groupName := b.GroupName
+	if groupName == "" {
+		groupName = DefaultGroupName
 	}
-	_, err = s.db.BookmarkRepo.GetBookmarkByTitleAndGroup(b.Title, group.ID)
-	if err == nil {
-		return "", fmt.Errorf("分组 '%s' 中已存在名称为 '%s' 的书签", b.GroupName, b.Title)
+	group, err := s.db.BookmarkRepo.GetGroupByName(groupName)
+	if err != nil {
+		return "", fmt.Errorf("未找到分组 '%s'", groupName)
+	}
+	exists, err := s.titleExistsInGroup(b.Title, group.ID)
+	if err != nil {
+		return "", err
+	}
+	if exists {
+		return "", fmt.Errorf("分组 '%s' 中已存在名称为 '%s' 的书签", groupName, b.Title)
 	}
 	processed, err := s.encryptBookmark(b)
 	if err != nil {
@@ -365,7 +376,7 @@ func (s *Service) insert(b Bookmark) (string, error) {
 		ID: id, GroupID: group.ID, Title: processed.Title, Host: processed.Host, Port: processed.Port,
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
-		CreatedAt: now, UpdatedAt: now,
+		Icon: processed.Icon, CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return "", err
 	}
@@ -392,22 +403,91 @@ func (s *Service) AddGroup(name string) error {
 	return nil
 }
 
-func (s *Service) UpdateGroup(oldName, newName string) error {
-	if oldName == "默认书签" {
+func (s *Service) UpdateGroup(oldName, newName, icon string) error {
+	if newName == "" {
+		newName = oldName
+	}
+	if oldName == DefaultGroupName && newName != oldName {
 		return fmt.Errorf("不能修改默认分组名称")
 	}
-	if _, err := s.db.BookmarkRepo.GetGroupByName(newName); err == nil {
-		return fmt.Errorf("分组 '%s' 已存在", newName)
+	if newName != oldName {
+		if _, err := s.db.BookmarkRepo.GetGroupByName(newName); err == nil {
+			return fmt.Errorf("分组 '%s' 已存在", newName)
+		}
 	}
-	if err := s.db.BookmarkRepo.UpdateGroupName(oldName, newName); err != nil {
+	if err := s.db.BookmarkRepo.UpdateGroup(oldName, newName, icon); err != nil {
 		return err
 	}
 	s.emit()
 	return nil
 }
 
+func (s *Service) Copy(id string) (*Bookmark, error) {
+	src, err := s.db.BookmarkRepo.GetBookmarkByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("未找到 ID 为 '%s' 的书签", id)
+	}
+	title, err := s.uniqueCopyTitle(src.Title, src.GroupID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	newID := utils.GenerateRandomID()
+	if err := s.db.BookmarkRepo.InsertBookmark(&database.BookmarkDB{
+		ID: newID, GroupID: src.GroupID, Title: title, Host: src.Host, Port: src.Port,
+		User: src.User, Password: src.Password, PrivateKey: src.PrivateKey,
+		PrivateKeyPassword: src.PrivateKeyPassword, ProxyJumpID: src.ProxyJumpID,
+		Icon: src.Icon, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		return nil, err
+	}
+	s.emit()
+	groupName := ""
+	if group, _ := s.db.BookmarkRepo.GetGroupByID(src.GroupID); group != nil {
+		groupName = group.Name
+	}
+	copied := fromDB(src, groupName)
+	copied.ID = newID
+	copied.Title = title
+	copied.Password = mask(copied.Password)
+	copied.PrivateKeyPassword = mask(copied.PrivateKeyPassword)
+	return copied, nil
+}
+
+func (s *Service) titleExistsInGroup(title string, groupID int) (bool, error) {
+	_, err := s.db.BookmarkRepo.GetBookmarkByTitleAndGroup(title, groupID)
+	if err == nil {
+		return true, nil
+	}
+	if err.Error() == "bookmark not found" {
+		return false, nil
+	}
+	return false, err
+}
+
+func (s *Service) uniqueCopyTitle(base string, groupID int) (string, error) {
+	title := base + " 复制"
+	exists, err := s.titleExistsInGroup(title, groupID)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return title, nil
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s 复制%d", base, i)
+		exists, err := s.titleExistsInGroup(candidate, groupID)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+}
+
 func (s *Service) DeleteGroup(name string) error {
-	if name == "默认书签" {
+	if name == DefaultGroupName {
 		return fmt.Errorf("不能删除默认分组")
 	}
 	count, err := s.db.BookmarkRepo.GetGroupBookmarkCount(name)

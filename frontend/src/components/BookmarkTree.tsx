@@ -18,24 +18,25 @@ import {
   Edit as EditIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
-  FolderOutlined,
-  BookmarkBorderOutlined,
+  ContentCopy as ContentCopyIcon,
 } from "@mui/icons-material";
-import { SSHBookmark } from "../../bindings/github.com/ilaziness/vexo/services";
-
-interface BookmarkGroup {
-  name: string;
-  bookmarks: SSHBookmark[];
-}
+import { SSHBookmark, BookmarkGroup } from "../../bindings/github.com/ilaziness/vexo/services";
+import {
+  BookmarkIconView,
+  GroupIconView,
+  GroupIconPicker,
+} from "./icons/bookmarkIcons";
 
 interface BookmarkTreeProps {
   bookmarks: BookmarkGroup[];
   selectedBookmark: SSHBookmark | null;
   onBookmarkSelect: (bookmark: SSHBookmark) => void;
   onGroupRename: (oldGroupName: string, newGroupName: string) => void;
+  onGroupIconChange: (groupName: string, icon: string) => void;
   onGroupAdd: (groupName: string) => void;
   onGroupDelete: (groupName: string) => void;
   onBookmarkAdd: (groupName: string) => void;
+  onBookmarkCopy: (bookmarkId: string) => void;
   onBookmarkDelete: (bookmarkId: string) => void;
 }
 
@@ -48,9 +49,11 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
   selectedBookmark,
   onBookmarkSelect,
   onGroupRename,
+  onGroupIconChange,
   onGroupAdd,
   onGroupDelete,
   onBookmarkAdd,
+  onBookmarkCopy,
   onBookmarkDelete,
 }) => {
   const [expandedGroups, setExpandedGroups] = useState<GroupState>({});
@@ -60,6 +63,11 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
   const [newGroupNameInput, setNewGroupNameInput] = useState<string>("");
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [hoveredBookmark, setHoveredBookmark] = useState<string | null>(null);
+  const [groupIconAnchor, setGroupIconAnchor] = useState<{
+    el: HTMLElement;
+    name: string;
+    icon: string;
+  } | null>(null);
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => ({
@@ -94,9 +102,9 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
   const handleAddNewGroup = () => {
     if (newGroupNameInput.trim()) {
       onGroupAdd(newGroupNameInput.trim());
-      setNewGroupInput(false);
-      setNewGroupNameInput("");
     }
+    setNewGroupInput(false);
+    setNewGroupNameInput("");
   };
 
   const handleNewGroupKeyDown = (e: React.KeyboardEvent) => {
@@ -110,7 +118,6 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
 
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* 标题栏 */}
       <Box
         sx={{
           p: 2,
@@ -124,12 +131,10 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
         </Typography>
       </Box>
 
-      {/* 树形列表 */}
       <Box sx={{ flex: 1, overflowY: "auto" }}>
         <List sx={{ py: 1 }}>
           {bookmarks.map((group) => (
             <React.Fragment key={group.name}>
-              {/* 分组 */}
               <ListItem
                 disablePadding
                 onMouseEnter={() => setHoveredGroup(group.name)}
@@ -165,9 +170,22 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                         sx={{ fontSize: 20, color: "text.secondary" }}
                       />
                     )}
-                    <FolderOutlined
-                      sx={{ fontSize: 18, color: "warning.main" }}
-                    />
+                    <Tooltip title="更改分组图标">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setGroupIconAnchor({
+                            el: e.currentTarget,
+                            name: group.name,
+                            icon: group.icon || "",
+                          });
+                        }}
+                        sx={{ padding: "2px" }}
+                      >
+                        <GroupIconView icon={group.icon} fontSize={18} />
+                      </IconButton>
+                    </Tooltip>
                     {editingGroup === group.name ? (
                       <TextField
                         value={newGroupName}
@@ -195,7 +213,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                             sx: {
                               fontSize: "0.95rem",
                               fontWeight: 500,
-                            }
+                            },
                           },
                         }}
                         sx={{ my: 0, flex: 1, minWidth: 0 }}
@@ -242,7 +260,6 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                 </ListItemButton>
               </ListItem>
 
-              {/* 书签列表 */}
               <Collapse
                 in={expandedGroups[group.name]}
                 timeout="auto"
@@ -272,14 +289,12 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                           },
                         }}
                       >
-                        <BookmarkBorderOutlined
-                          sx={{
-                            fontSize: 16,
-                            mr: 1.5,
-                            color: "primary.main",
-                            flexShrink: 0,
-                          }}
-                        />
+                        <Box sx={{ mr: 1.5, display: "flex", flexShrink: 0 }}>
+                          <BookmarkIconView
+                            icon={bookmark.icon}
+                            fontSize={16}
+                          />
+                        </Box>
                         <ListItemText
                           primary={bookmark.title}
                           secondary={`${bookmark.user}@${bookmark.host}`}
@@ -290,7 +305,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
-                              }
+                              },
                             },
                             secondary: {
                               sx: {
@@ -298,33 +313,49 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
-                              }
+                              },
                             },
                           }}
                           sx={{ flex: 1, minWidth: 0 }}
                         />
-                        <Tooltip title="删除书签">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onBookmarkDelete(bookmark.id);
-                            }}
-                            sx={{
-                              padding: "4px",
-                              visibility:
-                                hoveredBookmark === bookmark.id
-                                  ? "visible"
-                                  : "hidden",
-                            }}
-                          >
-                            <DeleteIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            gap: 0.25,
+                            visibility:
+                              hoveredBookmark === bookmark.id
+                                ? "visible"
+                                : "hidden",
+                          }}
+                        >
+                          <Tooltip title="复制书签">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onBookmarkCopy(bookmark.id);
+                              }}
+                              sx={{ padding: "4px" }}
+                            >
+                              <ContentCopyIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="删除书签">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onBookmarkDelete(bookmark.id);
+                              }}
+                              sx={{ padding: "4px" }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </ListItemButton>
                     </ListItem>
                   ))}
-                  {/* 添加书签按钮 */}
                   <ListItemButton
                     sx={{
                       pl: 5,
@@ -340,7 +371,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                         primary: {
                           sx: {
                             fontSize: "0.9rem",
-                          }
+                          },
                         },
                       }}
                     />
@@ -350,7 +381,6 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
             </React.Fragment>
           ))}
 
-          {/* 添加分组 */}
           {newGroupInput ? (
             <ListItem sx={{ px: 1.5, py: 0.5 }}>
               <TextField
@@ -386,7 +416,7 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
                     sx: {
                       fontSize: "0.95rem",
                       fontWeight: 500,
-                    }
+                    },
                   },
                 }}
               />
@@ -394,6 +424,18 @@ const BookmarkTree: React.FC<BookmarkTreeProps> = ({
           )}
         </List>
       </Box>
+
+      <GroupIconPicker
+        value={groupIconAnchor?.icon || ""}
+        onChange={(icon) => {
+          if (groupIconAnchor) {
+            onGroupIconChange(groupIconAnchor.name, icon);
+          }
+        }}
+        anchorEl={groupIconAnchor?.el || null}
+        open={Boolean(groupIconAnchor)}
+        onClose={() => setGroupIconAnchor(null)}
+      />
     </Box>
   );
 };

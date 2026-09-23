@@ -19,6 +19,7 @@ var migrations = []Migration{
 	{Version: 1, Name: "init schema", Up: migrateInitSchema},
 	{Version: 2, Name: "add proxy_jump_id", Up: migrateAddProxyJumpID},
 	{Version: 3, Name: "add ai sessions", Up: migrateAddAISessions},
+	{Version: 4, Name: "add bookmark icon", Up: migrateAddBookmarkIcon},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -146,6 +147,31 @@ func migrateAddAISessions(db *sql.DB, logger *zap.Logger) error {
 	}
 
 	logger.Debug("migration: added ai_sessions and ai_messages tables")
+	return nil
+}
+
+// migrateAddBookmarkIcon 为书签和分组添加 icon 列（幂等）
+func migrateAddBookmarkIcon(db *sql.DB, logger *zap.Logger) error {
+	var columnName string
+	err := db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'icon'`).Scan(&columnName)
+	if err == sql.ErrNoRows {
+		if _, err := db.Exec(`ALTER TABLE bookmarks ADD COLUMN icon TEXT DEFAULT ''`); err != nil {
+			return fmt.Errorf("add column bookmarks.icon failed: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("check column bookmarks.icon failed: %w", err)
+	}
+
+	err = db.QueryRow(`SELECT name FROM pragma_table_info('bookmark_groups') WHERE name = 'icon'`).Scan(&columnName)
+	if err == sql.ErrNoRows {
+		if _, err := db.Exec(`ALTER TABLE bookmark_groups ADD COLUMN icon TEXT DEFAULT ''`); err != nil {
+			return fmt.Errorf("add column bookmark_groups.icon failed: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("check column bookmark_groups.icon failed: %w", err)
+	}
+
+	logger.Debug("migration: added bookmark/group icon columns")
 	return nil
 }
 

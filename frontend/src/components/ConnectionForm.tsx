@@ -28,7 +28,6 @@ import {
   BookmarkGroup,
   BookmarkListItem,
 } from "../../bindings/github.com/ilaziness/vexo/services/models";
-import { generateRandomId } from "../func/id";
 
 // 输入连接信息表单
 interface ConnectionFormProps {
@@ -36,6 +35,8 @@ interface ConnectionFormProps {
   error?: string;
   connecting?: boolean;
 }
+
+const DEFAULT_GROUP = "默认书签";
 
 const ConnectionForm: React.FC<ConnectionFormProps> = ({
   onConnect,
@@ -51,7 +52,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [proxyJumpID, setProxyJumpID] = useState("");
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState("default");
+  const [selectedGroup, setSelectedGroup] = useState(DEFAULT_GROUP);
   const [groups, setGroups] = useState<string[]>([]);
 
   const { errorMessage } = useMessageStore();
@@ -117,7 +118,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           .filter((group): group is BookmarkGroup => group !== null)
           .map((group) => group.name);
         setGroups(groupNames);
-        setSelectedGroup(groupNames[0] || "default");
+        setSelectedGroup(groupNames[0] || DEFAULT_GROUP);
         setSaveDialogOpen(true);
       })
       .catch((err) => {
@@ -128,7 +129,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const handleSaveBookmark = () => {
     // 创建新的SSHBookmark对象
     const newBookmark: SSHBookmark = {
-      id: generateRandomId(),
+      id: "",
       title: `${host}:${port}`,
       group_name: selectedGroup,
       host,
@@ -138,6 +139,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       proxy_jump_id: proxyJumpID,
       user,
       password,
+      icon: "",
     };
 
     // 保存到书签

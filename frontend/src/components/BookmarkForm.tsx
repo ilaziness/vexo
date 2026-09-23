@@ -23,6 +23,10 @@ import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/servi
 import { BookmarkListItem } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { useMessageStore } from "../stores/message";
 import FormRow from "./FormRow";
+import {
+  BookmarkIconView,
+  OsIconPicker,
+} from "./icons/bookmarkIcons";
 
 interface BookmarkFormProps {
   bookmark: SSHBookmark | null;
@@ -31,6 +35,20 @@ interface BookmarkFormProps {
   onTestConnection: (bookmark: SSHBookmark) => Promise<void>;
   onSaveAndConnect: (bookmark: SSHBookmark) => Promise<SSHBookmark>;
 }
+
+const emptyBookmark = (): SSHBookmark => ({
+  id: "",
+  title: "",
+  group_name: "默认书签",
+  host: "",
+  port: 22,
+  private_key: "",
+  private_key_password: "",
+  proxy_jump_id: "",
+  user: "",
+  password: "",
+  icon: "",
+});
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
   bookmark,
@@ -41,21 +59,11 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
 }) => {
   const { errorMessage } = useMessageStore();
 
-  const [formData, setFormData] = useState<SSHBookmark>({
-    id: "",
-    title: "",
-    group_name: "default",
-    host: "",
-    port: 22,
-    private_key: "",
-    private_key_password: "",
-    proxy_jump_id: "",
-    user: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState<SSHBookmark>(emptyBookmark());
 
   const [isLoading, setIsLoading] = useState(false);
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
+  const [iconAnchor, setIconAnchor] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     BookmarkService.GetAllBookmarks()
@@ -69,20 +77,9 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
 
   useEffect(() => {
     if (bookmark) {
-      setFormData({ ...bookmark });
+      setFormData({ ...bookmark, icon: bookmark.icon || "" });
     } else {
-      setFormData({
-        id: "",
-        title: "",
-        group_name: "default",
-        host: "",
-        port: 22,
-        private_key: "",
-        private_key_password: "",
-        proxy_jump_id: "",
-        user: "",
-        password: "",
-      });
+      setFormData(emptyBookmark());
     }
   }, [bookmark]);
 
@@ -237,6 +234,36 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 基本信息
               </Typography>
               <Stack spacing={1}>
+                <FormRow label="图标" labelWidth={120}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => setIconAnchor(e.currentTarget)}
+                      sx={{
+                        border: 1,
+                        borderColor: "divider",
+                        borderRadius: 1,
+                      }}
+                    >
+                      <BookmarkIconView
+                        icon={formData.icon}
+                        fontSize={20}
+                      />
+                    </IconButton>
+                    <Typography variant="body2" color="text.secondary">
+                      {formData.icon || "默认"}
+                    </Typography>
+                    <OsIconPicker
+                      value={formData.icon || ""}
+                      onChange={(icon) =>
+                        setFormData((prev) => ({ ...prev, icon }))
+                      }
+                      anchorEl={iconAnchor}
+                      open={Boolean(iconAnchor)}
+                      onClose={() => setIconAnchor(null)}
+                    />
+                  </Box>
+                </FormRow>
                 <FormRow label="书签名称" labelWidth={120}>
                   <TextField
                     fullWidth
@@ -255,7 +282,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                       displayEmpty
                     >
                       {groupNames.length === 0 && (
-                        <MenuItem value="default">default</MenuItem>
+                        <MenuItem value="默认书签">默认书签</MenuItem>
                       )}
                       {groupNames.map((groupName) => (
                         <MenuItem key={groupName} value={groupName}>

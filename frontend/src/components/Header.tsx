@@ -37,7 +37,7 @@ import {
   AppService,
   BookmarkService,
   ConfigService,
-  SSHBookmark,
+  BookmarkGroup,
   CommandService,
   LogService,
   ToolService,
@@ -55,15 +55,14 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import { Events } from "@wailsio/runtime";
 import BookmarkManager from "./Bookmark";
 import Loading from "./Loading";
+import {
+  BookmarkIconView,
+  GroupIconView,
+} from "./icons/bookmarkIcons";
 
 const UpdateAvailableDialog = React.lazy(
   () => import("./UpdateAvailableDialog"),
 );
-
-interface BookmarkGroup {
-  name: string;
-  bookmarks: SSHBookmark[];
-}
 
 export default function Header() {
   const { sshTabs, pushTab, setCurrentTab } = useSSHTabsStore();
@@ -371,6 +370,9 @@ export default function Header() {
                         <ChevronRightIcon fontSize="small" />
                       )}
                     </ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 28 }}>
+                      <GroupIconView icon={group.icon} fontSize={18} />
+                    </ListItemIcon>
                     <ListItemText primary={group.name} />
                   </ListItemButton>
                 </ListItem>
@@ -387,7 +389,10 @@ export default function Header() {
                           onClick={() => handleBookmarkSelect(bookmark.id)}
                         >
                           <ListItemIcon sx={{ minWidth: 24 }}>
-                            <BookmarkIcon fontSize="small" />
+                            <BookmarkIconView
+                              icon={bookmark.icon}
+                              fontSize={16}
+                            />
                           </ListItemIcon>
                           <ListItemText primary={bookmark.title} />
                         </ListItemButton>

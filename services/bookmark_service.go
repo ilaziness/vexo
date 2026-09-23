@@ -11,7 +11,6 @@ const (
 	EventBookmarkUpdate  = "eventBookmarkUpdate"
 	EventConnectBookmark = "eventConnectBookmark"
 	BookmarkUpdateMsg    = "bookmark update"
-	PasswordMask         = bookmark.PasswordMask
 )
 
 func init() {
@@ -60,11 +59,14 @@ func (bs *BookmarkService) SaveBookmark(b SSHBookmark) (string, error) {
 func (bs *BookmarkService) DeleteBookmark(id string) error {
 	return bs.core.Delete(id)
 }
+func (bs *BookmarkService) CopyBookmark(id string) (*SSHBookmark, error) {
+	return bs.core.Copy(id)
+}
 func (bs *BookmarkService) AddGroup(name string) error {
 	return bs.core.AddGroup(name)
 }
-func (bs *BookmarkService) UpdateGroup(oldName, newName string) error {
-	return bs.core.UpdateGroup(oldName, newName)
+func (bs *BookmarkService) UpdateGroup(oldName, newName, icon string) error {
+	return bs.core.UpdateGroup(oldName, newName, icon)
 }
 func (bs *BookmarkService) DeleteGroup(name string) error {
 	return bs.core.DeleteGroup(name)
@@ -90,7 +92,4 @@ func (bs *BookmarkService) SaveAndConnect(b SSHBookmark) (string, error) {
 	}
 	bs.ConnectBookmark(id)
 	return id, nil
-}
-func (bs *BookmarkService) GetBookmarkForConnect(id string) (*SSHBookmark, error) {
-	return bs.GetBookmarkByID(id)
 }
