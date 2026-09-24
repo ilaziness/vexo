@@ -9,13 +9,53 @@
       },
       {
         "name": "内存使用",
-        "command": "free -m",
-        "description": "以 MB 为单位显示内存使用情况\n\n用法：\n- total: 总内存\n- used: 已使用\n- free: 空闲\n- shared: 共享内存\n- buff/cache: 缓存\n- available: 可用内存"
+        "command": "free -h",
+        "description": "以人类可读单位显示内存和交换分区使用情况\n\n用法：\n- total: 总量\n- used: 已使用\n- free: 空闲\n- shared: 共享内存\n- buff/cache: 缓存\n- available: 可供新进程使用的内存"
       },
       {
         "name": "磁盘使用",
-        "command": "df -h",
-        "description": "以人类可读格式显示磁盘空间使用情况\n\n用法：\n- Filesystem: 文件系统\n- Size: 总容量\n- Used: 已使用\n- Avail: 可用\n- Use%: 使用百分比\n- Mounted on: 挂载点"
+        "command": "df -hT",
+        "description": "以人类可读格式显示磁盘空间和文件系统类型\n\n用法：\n- Filesystem: 文件系统\n- Type: 文件系统类型\n- Size: 总容量\n- Used: 已使用\n- Avail: 可用\n- Use%: 使用百分比\n- Mounted on: 挂载点"
+      },
+      {
+        "name": "inode 使用",
+        "command": "df -ih",
+        "description": "查看各文件系统的 inode 占用\n\n磁盘空间未满但无法创建文件时，优先检查 inode 是否耗尽"
+      },
+      {
+        "name": "内核与架构",
+        "command": "uname -a",
+        "description": "查看内核版本、主机名和硬件架构\n\n输出依次包含：内核名、主机名、内核发行号、内核版本、机器架构、处理器类型、硬件平台、操作系统"
+      },
+      {
+        "name": "发行版信息",
+        "command": "cat /etc/os-release",
+        "description": "查看操作系统名称和版本\n\n常见字段：\n- NAME / PRETTY_NAME: 发行版名称\n- VERSION_ID: 版本号\n- ID: 发行版标识，可用于判断包管理器"
+      },
+      {
+        "name": "CPU 信息",
+        "command": "lscpu",
+        "description": "查看 CPU 架构、核心数和频率\n\n重点字段：\n- Architecture: 架构\n- CPU(s): 逻辑 CPU 数\n- Thread(s) per core / Core(s) per socket: 线程与核心\n- Model name: 型号"
+      },
+      {
+        "name": "虚拟内存统计",
+        "command": "vmstat 1 3",
+        "description": "采样 3 次系统资源统计，间隔 1 秒\n\n用法：\n- r: 运行队列中的进程数\n- b: 不可中断睡眠的进程数\n- si/so: 换入/换出\n- us/sy/id/wa: 用户态、内核态、空闲、IO 等待占比"
+      },
+      {
+        "name": "块设备",
+        "command": "lsblk -f",
+        "description": "以树形列出磁盘、分区和挂载点\n\n用法：\n- NAME: 设备名\n- FSTYPE: 文件系统\n- LABEL / UUID: 卷标与标识\n- MOUNTPOINT: 挂载点"
+      },
+      {
+        "name": "当前登录",
+        "command": "w",
+        "description": "查看当前登录用户及其正在执行的命令\n\n同时显示系统负载，以及每个会话的来源地址和空闲时间"
+      },
+      {
+        "name": "时间与时区",
+        "command": "timedatectl",
+        "description": "查看系统时间、时区和 NTP 同步状态\n\n重点字段：\n- Local time: 本地时间\n- Time zone: 时区\n- NTP service: 是否启用时间同步\n- System clock synchronized: 时钟是否已同步"
       }
     ]
   },
@@ -33,9 +73,44 @@
         "description": "netstat 的现代替代品，显示套接字统计\n\n用法参数与 netstat 相同，但性能更好"
       },
       {
+        "name": "套接字概览",
+        "command": "ss -s",
+        "description": "汇总 TCP、UDP 等套接字数量\n\n适合快速判断连接是否堆积，例如 TIME-WAIT、ESTAB 数量异常升高"
+      },
+      {
+        "name": "网卡地址",
+        "command": "ip -br addr",
+        "description": "以简表显示网卡、状态和 IP 地址\n\n用法：\n- UP/DOWN: 网卡状态\n- 地址列同时包含 IPv4 与 IPv6"
+      },
+      {
+        "name": "路由表",
+        "command": "ip route",
+        "description": "查看 IPv4 路由\n\n默认路由一般以 default via 开头，后面是网关和出口网卡"
+      },
+      {
+        "name": "DNS 配置",
+        "command": "cat /etc/resolv.conf",
+        "description": "查看当前使用的 DNS 服务器\n\nnameserver 行是解析用的 DNS 地址；search 行是默认搜索域"
+      },
+      {
+        "name": "邻居缓存",
+        "command": "ip neigh",
+        "description": "查看 ARP/NDP 邻居缓存\n\n用于确认局域网内主机是否可达，以及对应的 MAC 地址"
+      },
+      {
         "name": "网络连通性测试",
         "command": "ping -c 4 www.google.com",
         "description": "测试网络连通性\n\n用法：\n-c 4: 发送 4 个包后停止\n可替换目标地址为其他主机"
+      },
+      {
+        "name": "HTTP 探测",
+        "command": "curl -I --max-time 10 https://www.google.com",
+        "description": "只请求响应头，检查 HTTP 服务是否可达\n\n用法：\n-I: 发送 HEAD 请求\n--max-time 10: 最多等待 10 秒\n可把 URL 换成要检查的站点"
+      },
+      {
+        "name": "DNS 解析",
+        "command": "getent hosts www.google.com",
+        "description": "用系统解析器查询主机名对应的地址\n\n走本机配置的 DNS，结果比直接指定公共 DNS 更接近应用实际解析路径"
       }
     ]
   },
@@ -51,6 +126,31 @@
         "name": "查找文件",
         "command": "find . -name \"*.log\" -type f",
         "description": "在当前目录递归查找指定类型的文件\n\n用法：\n.: 当前目录\n-name: 按名称匹配\n-type f: 仅查找文件"
+      },
+      {
+        "name": "目录占用排行",
+        "command": "du -xh --max-depth=1 2>/dev/null | sort -hr | head -n 20",
+        "description": "统计当前目录下一层子目录的磁盘占用，并按大小排序\n\n用法：\n-x: 不跨越文件系统\n--max-depth=1: 只统计一层\nsort -hr: 按人类可读大小倒序\nhead: 只显示前 20 项"
+      },
+      {
+        "name": "查找大文件",
+        "command": "find . -xdev -type f -size +100M -printf '%s %p\\n' 2>/dev/null | sort -nr | head -n 20",
+        "description": "在当前文件系统中查找大于 100MB 的文件\n\n用法：\n-xdev: 不进入其他挂载点\n-size +100M: 大于 100MB\n输出第一列是字节数，可按需要调整阈值"
+      },
+      {
+        "name": "文本搜索",
+        "command": "grep -RIn --exclude-dir=.git --color=never \"pattern\" .",
+        "description": "在当前目录递归搜索文本\n\n用法：\n-R: 递归\n-I: 跳过二进制文件\n-n: 显示行号\n把 pattern 换成要查找的关键字"
+      },
+      {
+        "name": "最近修改的文件",
+        "command": "find . -xdev -type f -mtime -1 -printf '%TY-%Tm-%Td %TH:%TM %p\\n' 2>/dev/null | sort | tail -n 30",
+        "description": "列出最近 24 小时内修改过的文件\n\n用法：\n-mtime -1: 一天内修改\n适合排查刚写入的日志、配置或临时文件"
+      },
+      {
+        "name": "查看压缩包",
+        "command": "tar -tzvf archive.tar.gz",
+        "description": "列出 tar.gz 压缩包内容，不解压\n\n用法：\n-t: 列出内容\n-z: gzip 压缩\n-v: 显示权限、所有者和大小\n把 archive.tar.gz 换成实际文件名"
       }
     ]
   },
@@ -60,12 +160,32 @@
       {
         "name": "进程快照",
         "command": "ps aux",
-        "description": "显示所有进程的详细信息\n\n用法：\n-A: 所有进程\n-u: 用户格式\n-x: 无控制终端的进程"
+        "description": "显示所有进程的详细信息\n\n用法：\n-a: 所有终端上的进程\n-u: 用户格式\n-x: 无控制终端的进程"
       },
       {
         "name": "动态进程查看",
         "command": "top -b -n 1",
-        "description": "实时显示进程状态\n\n用法：\n-b: 批处理模式\n-n 1: 仅执行一次后退出"
+        "description": "以批处理模式输出一次进程状态后退出\n\n用法：\n-b: 批处理模式\n-n 1: 仅执行一次后退出"
+      },
+      {
+        "name": "CPU 占用排行",
+        "command": "ps aux --sort=-%cpu | head -n 15",
+        "description": "按 CPU 占用从高到低列出前 15 个进程\n\n%CPU 列是采样时刻的 CPU 占比，适合快速定位吃 CPU 的进程"
+      },
+      {
+        "name": "内存占用排行",
+        "command": "ps aux --sort=-%mem | head -n 15",
+        "description": "按内存占用从高到低列出前 15 个进程\n\n%MEM 是物理内存占比，RSS 列是实际驻留内存"
+      },
+      {
+        "name": "进程树",
+        "command": "pstree -ap | head -n 80",
+        "description": "以树形显示进程父子关系\n\n用法：\n-a: 显示命令行参数\n-p: 显示 PID\n输出较多时只保留前 80 行"
+      },
+      {
+        "name": "按名称查找进程",
+        "command": "pgrep -af sshd",
+        "description": "按进程名列出匹配的 PID 和完整命令行\n\n用法：\n-a: 显示命令行\n-f: 匹配完整命令行\n把 sshd 换成要查找的进程名"
       }
     ]
   },
@@ -75,12 +195,87 @@
       {
         "name": "实时日志跟踪",
         "command": "tail -f /var/log/syslog",
-        "description": "实时跟踪日志文件更新\n\n用法：\n-f: 持续跟踪文件末尾\n可替换为其他日志文件路径"
+        "description": "实时跟踪日志文件更新\n\n用法：\n-f: 持续跟踪文件末尾\n可替换为其他日志文件路径。部分发行版的系统日志在 /var/log/messages"
+      },
+      {
+        "name": "日志末尾",
+        "command": "tail -n 100 /var/log/syslog",
+        "description": "查看日志文件最后 100 行后退出\n\n适合不需要持续跟踪、只想看最近记录的场景。可替换路径和行数"
       },
       {
         "name": "系统日志",
-        "command": "journalctl -b --no-pager",
-        "description": "查看系统启动以来的日志\n\n用法：\n-b: 本次启动的日志\n--no-pager: 不使用分页器"
+        "command": "journalctl -b --no-pager -n 200",
+        "description": "查看本次启动以来最近的系统日志\n\n用法：\n-b: 本次启动的日志\n-n 200: 最近 200 行\n--no-pager: 不使用分页器"
+      },
+      {
+        "name": "启动以来的错误",
+        "command": "journalctl -p err -b --no-pager -n 80",
+        "description": "只看本次启动中 error 及以上级别的日志\n\n-p err 包含 err、crit、alert、emerg，用来快速定位启动失败和服务异常"
+      },
+      {
+        "name": "内核日志",
+        "command": "dmesg -T | tail -n 50",
+        "description": "查看最近的内核环形缓冲区消息\n\n用法：\n-T: 显示可读时间\n常见内容包括磁盘、网卡、OOM 和驱动报错"
+      },
+      {
+        "name": "SSH 服务日志",
+        "command": "journalctl -u ssh -u sshd --no-pager -n 80",
+        "description": "查看 SSH 服务最近的日志\n\n同时匹配 ssh 与 sshd 单元名，兼容 Debian 系和 RHEL 系的服务名差异"
+      }
+    ]
+  },
+  {
+    "category": "服务管理",
+    "commands": [
+      {
+        "name": "运行中的服务",
+        "command": "systemctl list-units --type=service --state=running --no-pager",
+        "description": "列出当前正在运行的 systemd 服务\n\n只显示 state=running 的 service 单元，便于确认关键服务是否在线"
+      },
+      {
+        "name": "失败的服务",
+        "command": "systemctl --failed --no-pager",
+        "description": "列出处于 failed 状态的 systemd 单元\n\n没有失败单元时会提示 0 loaded units listed"
+      },
+      {
+        "name": "服务状态",
+        "command": "systemctl status ssh --no-pager -l",
+        "description": "查看指定服务的运行状态和最近日志\n\n用法：\n-l: 不截断长日志行\n把 ssh 换成 nginx、docker 等服务名"
+      },
+      {
+        "name": "开机自启服务",
+        "command": "systemctl list-unit-files --type=service --state=enabled --no-pager",
+        "description": "列出已设置为开机启动的服务\n\nenabled 表示开机自启，与当前是否正在运行是两回事"
+      }
+    ]
+  },
+  {
+    "category": "用户与权限",
+    "commands": [
+      {
+        "name": "当前用户",
+        "command": "id",
+        "description": "查看当前用户的 uid、gid 和所属组\n\nuid=0 表示 root。groups 列出辅助组，用于判断是否具备 sudo 或 docker 等权限"
+      },
+      {
+        "name": "用户列表",
+        "command": "getent passwd | awk -F: '$3>=1000 || $3==0 {print $1\"\\t\"$3\"\\t\"$6\"\\t\"$7}'",
+        "description": "列出 root 和普通用户，跳过大多数系统账号\n\n列依次为：用户名、uid、家目录、登录 shell"
+      },
+      {
+        "name": "最近登录",
+        "command": "last -n 15",
+        "description": "查看最近 15 条登录记录\n\n包含用户、来源地址、登录和退出时间。still logged in 表示会话仍在"
+      },
+      {
+        "name": "失败登录",
+        "command": "lastb -n 15",
+        "description": "查看最近 15 条失败的登录尝试\n\n通常需要 root 权限。短时间内大量失败记录可能是口令爆破"
+      },
+      {
+        "name": "sudo 记录",
+        "command": "journalctl _COMM=sudo --no-pager -n 30",
+        "description": "查看最近的 sudo 调用记录\n\n用于审计谁在什么时间提升了权限。部分系统会把同类记录写在 /var/log/auth.log"
       }
     ]
   }
