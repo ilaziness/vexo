@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install Linux dependencies
         run: |
@@ -27,13 +27,13 @@ jobs:
             pkg-config
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: latest
           cache: npm
@@ -42,7 +42,9 @@ jobs:
       - name: Install Task and Wails CLI
         run: |
           go install github.com/go-task/task/v3/cmd/task@latest
-          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+          WAILS_VERSION="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}"
+          wails3 version
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -57,7 +59,7 @@ jobs:
           tar -C bin -czf bin/Vexo_${{ github.ref_name }}_linux_amd64.tar.gz Vexo
 
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: linux-amd64
           path: bin/Vexo_${{ github.ref_name }}_linux_amd64.tar.gz
@@ -71,16 +73,16 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: latest
           cache: npm
@@ -89,7 +91,9 @@ jobs:
       - name: Install Task and Wails CLI
         run: |
           go install github.com/go-task/task/v3/cmd/task@latest
-          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+          WAILS_VERSION="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}"
+          wails3 version
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -123,7 +127,7 @@ jobs:
           Compress-Archive -Path bin/Vexo.exe -DestinationPath "bin/Vexo_${{ github.ref_name }}_windows_amd64.zip" -Force
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-amd64
           path: bin/Vexo_${{ github.ref_name }}_windows_amd64.zip
@@ -135,13 +139,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
 
       - name: Create draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
