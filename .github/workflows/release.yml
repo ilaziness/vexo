@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Linux dependencies
         run: |
@@ -27,13 +27,13 @@ jobs:
             pkg-config
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: latest
           cache: npm
@@ -57,31 +57,30 @@ jobs:
           tar -C bin -czf bin/Vexo_${{ github.ref_name }}_linux_amd64.tar.gz Vexo
 
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: linux-amd64
           path: bin/Vexo_${{ github.ref_name }}_linux_amd64.tar.gz
           if-no-files-found: error
 
-  # Cross-compile Windows from Linux (CGO_ENABLED=0). Avoids Windows runner + make/SHELL issues.
   build-windows:
     name: Build Windows
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install zip and make
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends zip make
+        uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: latest
           cache: npm
@@ -96,17 +95,35 @@ jobs:
         working-directory: frontend
         run: npm install
 
-      - name: Build Windows (cross-compile)
-        run: make build-windows VERSION=${{ github.ref_name }} MODE=release
+      # Avoid chocolatey make + SHELL="$$BASH" ($$ expands to PID under bash).
+      # Drive the same steps as Makefile build-windows via Git Bash.
+      - name: Build Windows
+        env:
+          VERSION: ${{ github.ref_name }}
+          MODE: release
+          CONFIG_FILE: internal/buildinfo/buildinfo.go
+        run: |
+          set -euo pipefail
+          cp "$CONFIG_FILE" "$CONFIG_FILE.bak"
+          GIT_INFO="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+          BUILD_TIME="$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z" 2>/dev/null || echo unknown)"
+          sed -i "s/Mode      = \"debug\"/Mode      = \"$MODE\"/" "$CONFIG_FILE"
+          sed -i "s/Version   = \"v1.0.0\"/Version   = \"$VERSION\"/" "$CONFIG_FILE"
+          sed -i "s|GitInfo   = \".*\"|GitInfo   = \"$GIT_INFO\"|" "$CONFIG_FILE"
+          sed -i "s|BuildTime = \".*\"|BuildTime = \"$BUILD_TIME\"|" "$CONFIG_FILE"
+          status=0
+          wails3 build GOOS=windows VERSION="$VERSION" MODE="$MODE" || status=$?
+          mv "$CONFIG_FILE.bak" "$CONFIG_FILE"
+          exit $status
 
       - name: Archive Windows package
+        shell: pwsh
         run: |
-          test -f bin/Vexo.exe
-          rm -f bin/Vexo_${{ github.ref_name }}_windows_amd64.zip
-          (cd bin && zip -q Vexo_${{ github.ref_name }}_windows_amd64.zip Vexo.exe)
+          if (-not (Test-Path bin/Vexo.exe)) { throw "missing bin/Vexo.exe" }
+          Compress-Archive -Path bin/Vexo.exe -DestinationPath "bin/Vexo_${{ github.ref_name }}_windows_amd64.zip" -Force
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-amd64
           path: bin/Vexo_${{ github.ref_name }}_windows_amd64.zip
@@ -118,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: dist
           merge-multiple: true
