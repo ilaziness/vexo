@@ -29,12 +29,15 @@ interface AIAssistantState {
   historyDrawerOpen: boolean;
   loadingSessions: boolean;
   isStreaming: boolean;
+  composerValue: string;
 
   toggleSidebarOpen: () => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number, persist?: boolean) => void;
   setHistoryDrawerOpen: (open: boolean) => void;
   setStreaming: (streaming: boolean) => void;
+  setComposerValue: (value: string) => void;
+  appendToComposer: (text: string) => void;
   loadSessions: () => Promise<void>;
   selectSession: (id: string) => void;
   createSession: () => Promise<boolean>;
@@ -50,6 +53,7 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
   historyDrawerOpen: false,
   loadingSessions: false,
   isStreaming: false,
+  composerValue: '',
 
   toggleSidebarOpen: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
@@ -66,6 +70,17 @@ export const useAIAssistantStore = create<AIAssistantState>((set, get) => ({
   setHistoryDrawerOpen: (open) => set({ historyDrawerOpen: open }),
 
   setStreaming: (streaming) => set({ isStreaming: streaming }),
+
+  setComposerValue: (value) => set({ composerValue: value }),
+
+  appendToComposer: (text) => {
+    if (!text) return;
+    const { composerValue } = get();
+    const next = composerValue
+      ? `${composerValue}\n\n${text}`
+      : text;
+    set({ composerValue: next, sidebarOpen: true });
+  },
 
   loadSessions: async () => {
     if (get().loadingSessions) return;

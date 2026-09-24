@@ -53,9 +53,11 @@ const AISideBar = () => {
   const sidebarWidth = useAIAssistantStore((state) => state.sidebarWidth);
   const activeSessionId = useAIAssistantStore((state) => state.activeSessionId);
   const loadingSessions = useAIAssistantStore((state) => state.loadingSessions);
+  const composerValue = useAIAssistantStore((state) => state.composerValue);
   const loadSessions = useAIAssistantStore((state) => state.loadSessions);
   const refreshActiveSessionTitle = useAIAssistantStore((state) => state.refreshActiveSessionTitle);
   const setSidebarWidth = useAIAssistantStore((state) => state.setSidebarWidth);
+  const setComposerValue = useAIAssistantStore((state) => state.setComposerValue);
 
   const adapter = useMemo(() => new GenkitAdapter(), []);
 
@@ -180,6 +182,8 @@ const AISideBar = () => {
                 members={[currentUser, aiUser]}
                 activeConversationId={activeSessionId}
                 onActiveConversationChange={() => {}}
+                composerValue={composerValue}
+                onComposerValueChange={setComposerValue}
                 partRenderers={aiPartRenderers}
                 features={{
                   attachments: false,

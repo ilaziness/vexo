@@ -2,7 +2,9 @@ import { Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import ClearAllIcon from "@mui/icons-material/ClearAll";
+import ChatIcon from "@mui/icons-material/Chat";
 import { terminalInstances } from "../stores/terminalInstances";
+import { useAIAssistantStore } from "../stores/aiAssistant";
 
 interface TerminalContextMenuProps {
   contextMenu: {
@@ -13,14 +15,19 @@ interface TerminalContextMenuProps {
   linkID: string;
 }
 
+function toShellCodeBlock(text: string): string {
+  return "```shell\n" + text + "\n```";
+}
+
 export default function TerminalContextMenu({
   contextMenu,
   onClose,
   linkID,
 }: TerminalContextMenuProps) {
+  const selection = terminalInstances.get(linkID)?.getSelection() ?? "";
+  const hasSelection = selection.length > 0;
+
   const handleCopy = () => {
-    const term = terminalInstances.get(linkID);
-    const selection = term?.getSelection();
     if (selection) {
       navigator.clipboard.writeText(selection);
     }
@@ -47,6 +54,15 @@ export default function TerminalContextMenu({
     onClose();
   };
 
+  const handleAddToChat = () => {
+    if (!selection) {
+      onClose();
+      return;
+    }
+    useAIAssistantStore.getState().appendToComposer(toShellCodeBlock(selection));
+    onClose();
+  };
+
   return (
     <Menu
       open={contextMenu !== null}
@@ -69,6 +85,12 @@ export default function TerminalContextMenu({
           <ContentPasteIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>粘贴</ListItemText>
+      </MenuItem>
+      <MenuItem onClick={handleAddToChat} disabled={!hasSelection}>
+        <ListItemIcon>
+          <ChatIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>添加到聊天</ListItemText>
       </MenuItem>
       <MenuItem onClick={handleClear}>
         <ListItemIcon>
