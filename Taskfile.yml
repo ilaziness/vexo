@@ -13,6 +13,9 @@ vars:
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   VERSION: '{{.VERSION | default "v1.0.0"}}'
+  # Target OS for build/package/run. Defaults to host OS; override with
+  # `wails3 build GOOS=windows` (required by wails3@latest root-task dispatch).
+  GOOS: '{{.GOOS | default OS}}'
   GIT_HASH:
     # sh: git rev-parse HEAD
   BUILD_TIME:
@@ -24,17 +27,17 @@ tasks:
   build:
     summary: Builds the application
     cmds:
-      - task: "{{OS}}:build"
+      - task: "{{.GOOS}}:build"
 
   package:
     summary: Packages a production build of the application
     cmds:
-      - task: "{{OS}}:package"
+      - task: "{{.GOOS}}:package"
 
   run:
     summary: Runs the application
     cmds:
-      - task: "{{OS}}:run"
+      - task: "{{.GOOS}}:run"
 
   dev:
     summary: Runs the application in development mode

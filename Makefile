@@ -5,13 +5,16 @@ APP_NAME ?= Vexo
 
 # 获取 Git 信息（完整 hash）
 GIT_INFO := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
-# RFC3339 格式，带时区偏移 (如 2026-02-10T18:56:45+08:00)
-BUILD_TIME := $(shell date "+%Y-%m-%dT%H:%M:%S%:z" 2>/dev/null || echo "unknown")
+# RFC3339-ish time; avoid GNU-only %:z so Windows/macOS date works
+BUILD_TIME := $(shell date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z" 2>/dev/null || echo "unknown")
 
 CONFIG_FILE := internal/buildinfo/buildinfo.go
 CONFIG_BACKUP := internal/buildinfo/buildinfo.go.bak
 
-.PHONY: help all build-windows build-darwin build-linux clean build-mac build-mac-intel replace-config restore-config update-build-assets
+LINUX_ARCHIVE := bin/$(APP_NAME)_$(VERSION)_linux_amd64.tar.gz
+WINDOWS_ARCHIVE := bin/$(APP_NAME)_$(VERSION)_windows_amd64.zip
+
+.PHONY: help all build-windows build-linux clean build-mac build-mac-intel replace-config restore-config update-build-assets pack-release
 
 .DEFAULT_GOAL := help
 
@@ -31,19 +34,20 @@ help:
 	@echo "  build-mac       Build for macOS (arm64) $(VERSION)"
 	@echo "  build-mac-intel Build for macOS (amd64) $(VERSION)"
 	@echo "  build-linux     Build for Linux $(VERSION)"
+	@echo "  pack-release    Build linux/windows, archive, create draft GitHub release"
 	@echo "  clean           Remove bin/ and config backup"
 	@echo "  update-build-assets Update build directory assets with the current Wails CLI"
 	@echo "  replace-config  Inject VERSION/MODE/GIT_INFO/BUILD_TIME into config (internal)"
-	@echo "  restore-config  Restore config_service.go from backup (internal)"
+	@echo "  restore-config  Restore buildinfo.go from backup (internal)"
 
 # Build all platforms
-all: build-windows build-darwin build-mac-intel build-linux
+all: build-windows build-mac build-mac-intel build-linux
 
 # 替换配置文件中的变量
 replace-config:
 	@echo "Replacing build variables in $(CONFIG_FILE)..."
 	@cp $(CONFIG_FILE) $(CONFIG_BACKUP)
-	@sed -i 's/Mode        = "debug"/Mode        = "$(MODE)"/' $(CONFIG_FILE)
+	@sed -i 's/Mode      = "debug"/Mode      = "$(MODE)"/' $(CONFIG_FILE)
 	@sed -i 's/Version   = "v1.0.0"/Version   = "$(VERSION)"/' $(CONFIG_FILE)
 	@sed -i 's|GitInfo   = ".*"|GitInfo   = "$(GIT_INFO)"|' $(CONFIG_FILE)
 	@sed -i 's|BuildTime = ".*"|BuildTime = "$(BUILD_TIME)"|' $(CONFIG_FILE)
@@ -63,26 +67,65 @@ update-build-assets:
 # Build for Windows
 build-windows: replace-config
 	@echo "Building for Windows $(VERSION)..."
-	@wails3 build GOOS=windows VERSION=$(VERSION) MODE=$(MODE) || true
-	@$(MAKE) restore-config
+	@wails3 build GOOS=windows VERSION=$(VERSION) MODE=$(MODE); \
+		status=$$?; $(MAKE) restore-config; exit $$status
 
 # Build for macOS ARM64 (Darwin)
 build-mac: replace-config
 	@echo "Building for macOS (Darwin) $(VERSION)..."
-	@wails3 build GOOS=darwin GOARCH=arm64 VERSION=$(VERSION) MODE=$(MODE) || true
-	@$(MAKE) restore-config
+	@wails3 build GOOS=darwin GOARCH=arm64 VERSION=$(VERSION) MODE=$(MODE); \
+		status=$$?; $(MAKE) restore-config; exit $$status
 
 # Build for macOS Intel (Darwin)
 build-mac-intel: replace-config
 	@echo "Building for macOS Intel (Darwin) $(VERSION)..."
-	@wails3 build GOOS=darwin GOARCH=amd64 VERSION=$(VERSION) MODE=$(MODE) || true
-	@$(MAKE) restore-config
+	@wails3 build GOOS=darwin GOARCH=amd64 VERSION=$(VERSION) MODE=$(MODE); \
+		status=$$?; $(MAKE) restore-config; exit $$status
 
 # Build for Linux
 build-linux: replace-config
 	@echo "Building for Linux $(VERSION)..."
-	@wails3 build GOOS=linux VERSION=$(VERSION) MODE=$(MODE) || true
-	@$(MAKE) restore-config
+	@wails3 build GOOS=linux VERSION=$(VERSION) MODE=$(MODE); \
+		status=$$?; $(MAKE) restore-config; exit $$status
+
+# Build linux/windows, create archives, publish draft GitHub release
+pack-release:
+	@$(MAKE) build-windows VERSION=$(VERSION) MODE=release
+	@$(MAKE) build-linux VERSION=$(VERSION) MODE=release
+	@echo "Packaging $(VERSION)..."
+	@mkdir -p bin
+	@test -f bin/$(APP_NAME) || (echo "missing bin/$(APP_NAME) (linux build failed or GOOS not applied)"; exit 1)
+	@test -f bin/$(APP_NAME).exe || (echo "missing bin/$(APP_NAME).exe"; exit 1)
+	@# Ensure linux artifact is not a Windows PE mistakenly named Vexo
+	@if command -v file >/dev/null 2>&1; then \
+		file bin/$(APP_NAME) | grep -qiE 'PE32|MS Windows' && \
+			(echo "bin/$(APP_NAME) looks like a Windows binary; cross-build GOOS=linux failed"; exit 1) || true; \
+	fi
+	@tar -C bin -czf $(LINUX_ARCHIVE) $(APP_NAME)
+	@rm -f $(WINDOWS_ARCHIVE)
+	@if command -v zip >/dev/null 2>&1; then \
+		cd bin && zip -q $(APP_NAME)_$(VERSION)_windows_amd64.zip $(APP_NAME).exe; \
+	else \
+		powershell -NoProfile -Command "Compress-Archive -Path 'bin/$(APP_NAME).exe' -DestinationPath '$(WINDOWS_ARCHIVE)' -Force"; \
+	fi
+	@test -f $(LINUX_ARCHIVE) || (echo "missing $(LINUX_ARCHIVE)"; exit 1)
+	@test -f $(WINDOWS_ARCHIVE) || (echo "missing $(WINDOWS_ARCHIVE)"; exit 1)
+	@echo "Created $(LINUX_ARCHIVE)"
+	@echo "Created $(WINDOWS_ARCHIVE)"
+	@command -v gh >/dev/null 2>&1 || (echo "gh CLI is required for pack-release"; exit 1)
+	@if gh release view $(VERSION) >/dev/null 2>&1; then \
+		echo "Uploading assets to existing release $(VERSION)..."; \
+		gh release upload $(VERSION) $(LINUX_ARCHIVE) $(WINDOWS_ARCHIVE) --clobber; \
+	else \
+		echo "Creating draft release $(VERSION)..."; \
+		gh release create $(VERSION) \
+			--draft \
+			--title "$(VERSION)" \
+			--generate-notes \
+			$(LINUX_ARCHIVE) \
+			$(WINDOWS_ARCHIVE); \
+	fi
+	@echo "Draft release $(VERSION) ready."
 
 # Clean build artifacts
 clean:
