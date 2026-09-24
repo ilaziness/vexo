@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { ChatConfirmation } from '@mui/x-chat';
 import { useChat, type ChatPartRendererMap } from '@mui/x-chat/headless';
 import { PlanTaskPart, planFromToolPart } from './PlanTaskPart';
+import { SSH_TARGET_INPUT_KEY } from '../../func/aiContext';
 
 /** Custom renderers must cover every tool of that part type — returning null hides the built-in widget. */
 export const aiPartRenderers: ChatPartRendererMap = {
@@ -21,12 +22,14 @@ function AgentToolPart({ part }: { part: any }) {
 
   const approvalId = String(inv.approvalId || inv.toolCallId || '');
   const command = sshCommandFromInput(inv.input);
+  const sshTarget = sshTargetFromInput(inv.input);
   const title = String(inv.toolName || 'tool');
 
   if (inv.state === 'approval-requested') {
+    const hostLine = sshTarget ? `在 ${sshTarget} 执行？` : '批准执行 SSH 命令？';
     return (
       <ChatConfirmation
-        message={command ? `批准执行 SSH 命令？\n$ ${command}` : `批准调用 ${title}？`}
+        message={command ? `${hostLine}\n$ ${command}` : `批准调用 ${title}？`}
         confirmLabel="批准"
         cancelLabel="拒绝"
         onConfirm={() => {
@@ -56,6 +59,7 @@ function AgentToolPart({ part }: { part: any }) {
     >
       <Typography variant="caption" color="text.secondary">
         {title} · {toolStateLabel(inv.state)}
+        {sshTarget ? ` · ${sshTarget}` : ''}
       </Typography>
       {command ? (
         <Typography variant="body2" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
@@ -85,6 +89,14 @@ function sshCommandFromInput(input: unknown): string {
   const v = parseJSONValue(input);
   if (v && typeof v === 'object' && 'command' in (v as object)) {
     return String((v as { command?: unknown }).command ?? '');
+  }
+  return '';
+}
+
+function sshTargetFromInput(input: unknown): string {
+  const v = parseJSONValue(input);
+  if (v && typeof v === 'object' && SSH_TARGET_INPUT_KEY in (v as object)) {
+    return String((v as Record<string, unknown>)[SSH_TARGET_INPUT_KEY] ?? '').trim();
   }
   return '';
 }

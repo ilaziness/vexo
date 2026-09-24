@@ -9,7 +9,7 @@ import {
 } from '../../../bindings/github.com/ilaziness/vexo/services/models';
 import { formatAIChatError } from '../../func/aiChatError';
 import { parseCallServiceError } from '../../func/service';
-import { getCurrentSSHContext } from '../../func/aiContext';
+import { getCurrentSSHBindState, RUN_SSH_COMMAND_TOOL, SSH_TARGET_INPUT_KEY } from '../../func/aiContext';
 import { useMessageStore } from '../../stores/message';
 import { useAIAssistantStore } from '../../stores/aiAssistant';
 
@@ -72,12 +72,14 @@ export class GenkitAdapter implements ChatAdapter {
     let messageId: string;
     const capturedSessionId = sessionId;
 
+    let pinnedSSHTarget = '';
     try {
-      const sshContext = getCurrentSSHContext();
+      const bind = getCurrentSSHBindState();
+      pinnedSSHTarget = bind.context ? bind.targetLabel : '';
       const request = new ChatRequest({
         session_id: sessionId,
         new_message: newMessage,
-        ...(sshContext ? { ssh_context: sshContext } : {}),
+        ...(bind.context ? { ssh_context: bind.context } : {}),
       });
 
       messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -96,6 +98,12 @@ export class GenkitAdapter implements ChatAdapter {
         let hasTextStarted = false;
         let hasStarted = false;
         let aborted = false;
+
+        const withPinnedSSHTarget = (toolName: string, input: unknown): unknown => {
+          if (!pinnedSSHTarget || toolName !== RUN_SSH_COMMAND_TOOL) return input;
+          if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+          return { ...(input as Record<string, unknown>), [SSH_TARGET_INPUT_KEY]: pinnedSSHTarget };
+        };
 
         const endStreaming = () => {
           useAIAssistantStore.getState().setStreaming(false);
@@ -183,7 +191,7 @@ export class GenkitAdapter implements ChatAdapter {
                 type: 'tool-input-available',
                 toolCallId: data.toolCallId || '',
                 toolName: data.toolName || '',
-                input: parseJSONValue(data.input) ?? {},
+                input: withPinnedSSHTarget(data.toolName || '', parseJSONValue(data.input) ?? {}),
               } as ChatMessageChunk);
               return;
             case 'tool-approval-request':
@@ -192,7 +200,7 @@ export class GenkitAdapter implements ChatAdapter {
                 toolCallId: data.toolCallId || '',
                 toolName: data.toolName || '',
                 approvalId: data.approvalId || data.toolCallId,
-                input: parseJSONValue(data.input) ?? {},
+                input: withPinnedSSHTarget(data.toolName || '', parseJSONValue(data.input) ?? {}),
               } as ChatMessageChunk);
               return;
             case 'tool-output-available':

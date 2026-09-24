@@ -18,6 +18,11 @@ import {
 } from '@mui/material';
 import { Menu, Add, Delete, Close } from '@mui/icons-material';
 import { useAIAssistantStore } from '../../stores/aiAssistant';
+import { useSSHTabsStore } from '../../stores/ssh';
+import {
+  CurrentSSHBindStatus,
+  resolveSSHBindState,
+} from '../../func/aiContext';
 import { getSidebarContentWidth } from '../../func/aiSidebar';
 
 interface SessionPanelProps {
@@ -45,6 +50,35 @@ function formatRelativeTime(unixSeconds: number): string {
   return formatAbsoluteTime(unixSeconds);
 }
 
+function useCurrentSSHIndicator(): { line: string; hint: string; status: CurrentSSHBindStatus } {
+  const currentTab = useSSHTabsStore((s) => s.currentTab);
+  const tab = useSSHTabsStore((s) => s.sshTabs.find((t) => t.index === currentTab));
+  const bind = resolveSSHBindState(tab);
+
+  switch (bind.status) {
+    case CurrentSSHBindStatus.Connected:
+      return { status: bind.status, line: `SSH：${bind.targetLabel}`, hint: '' };
+    case CurrentSSHBindStatus.Connecting:
+      return {
+        status: bind.status,
+        line: `SSH：连接中… ${bind.targetLabel}`,
+        hint: '',
+      };
+    case CurrentSSHBindStatus.Disconnected:
+      return {
+        status: bind.status,
+        line: `SSH：已断开 ${bind.targetLabel}`,
+        hint: '当前无法执行远程命令',
+      };
+    default:
+      return {
+        status: CurrentSSHBindStatus.None,
+        line: 'SSH：无连接',
+        hint: '连接 SSH 后可执行远程命令',
+      };
+  }
+}
+
 const SessionPanel: React.FC<SessionPanelProps> = ({ drawerContainer }) => {
   const sessions = useAIAssistantStore((s) => s.sessions);
   const activeSessionId = useAIAssistantStore((s) => s.activeSessionId);
@@ -56,6 +90,7 @@ const SessionPanel: React.FC<SessionPanelProps> = ({ drawerContainer }) => {
   const selectSession = useAIAssistantStore((s) => s.selectSession);
   const createSession = useAIAssistantStore((s) => s.createSession);
   const deleteSession = useAIAssistantStore((s) => s.deleteSession);
+  const sshIndicator = useCurrentSSHIndicator();
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
@@ -75,58 +110,86 @@ const SessionPanel: React.FC<SessionPanelProps> = ({ drawerContainer }) => {
     <>
       <Box
         sx={{
-          height: 40,
           minHeight: 40,
           display: 'flex',
-          alignItems: 'center',
-          px: 1,
-          gap: 0.5,
+          flexDirection: 'column',
           borderBottom: 1,
           borderColor: 'divider',
           flexShrink: 0,
         }}
       >
-        <Tooltip title={historyDrawerOpen ? '关闭会话历史' : '会话历史'}>
-          <span>
-            <IconButton
-              size="small"
-              disabled={isStreaming || !drawerContainer}
-              onClick={toggleHistoryDrawer}
-              aria-label={historyDrawerOpen ? '关闭会话历史' : '打开会话历史'}
-              aria-expanded={historyDrawerOpen}
-            >
-              <Menu fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Typography
-          variant="body2"
-          noWrap
-          sx={{ flex: 1, fontWeight: 500, minWidth: 0 }}
+        <Box
+          sx={{
+            height: 40,
+            minHeight: 40,
+            display: 'flex',
+            alignItems: 'center',
+            px: 1,
+            gap: 0.5,
+          }}
         >
-          {activeSession?.title || '新会话'}
-        </Typography>
-        <Tooltip title="新建会话">
-          <span>
+          <Tooltip title={historyDrawerOpen ? '关闭会话历史' : '会话历史'}>
+            <span>
+              <IconButton
+                size="small"
+                disabled={isStreaming || !drawerContainer}
+                onClick={toggleHistoryDrawer}
+                aria-label={historyDrawerOpen ? '关闭会话历史' : '打开会话历史'}
+                aria-expanded={historyDrawerOpen}
+              >
+                <Menu fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{ flex: 1, fontWeight: 500, minWidth: 0 }}
+          >
+            {activeSession?.title || '新会话'}
+          </Typography>
+          <Tooltip title="新建会话">
+            <span>
+              <IconButton
+                size="small"
+                disabled={isStreaming}
+                onClick={() => void createSession()}
+                aria-label="新建会话"
+              >
+                <Add fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="关闭 AI 助手">
             <IconButton
               size="small"
-              disabled={isStreaming}
-              onClick={() => void createSession()}
-              aria-label="新建会话"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="关闭 AI 助手"
             >
-              <Add fontSize="small" />
+              <Close fontSize="small" />
             </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="关闭 AI 助手">
-          <IconButton
-            size="small"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="关闭 AI 助手"
+          </Tooltip>
+        </Box>
+        <Box sx={{ px: 1.5, pb: 0.75, pt: 0 }}>
+          <Typography
+            variant="caption"
+            noWrap
+            color={
+              sshIndicator.status === CurrentSSHBindStatus.Connected
+                ? 'info.main'
+                : 'warning.main'
+            }
+            sx={{ display: 'block', minWidth: 0, fontWeight: 500 }}
+            title={sshIndicator.line}
           >
-            <Close fontSize="small" />
-          </IconButton>
-        </Tooltip>
+            {sshIndicator.line}
+          </Typography>
+          {sshIndicator.hint ? (
+            <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+              {sshIndicator.hint}
+            </Typography>
+          ) : null}
+        </Box>
       </Box>
 
       {drawerContainer && (

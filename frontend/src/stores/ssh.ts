@@ -94,11 +94,14 @@ export const useSSHTabsStore = create<SSHTabs>((set, get) => ({
     }),
   setConnectionStatus: (linkID: string, status: ConnectionStatus) =>
     set((state) => ({
-      sshTabs: state.sshTabs.map((tab) =>
-        tab.sshInfo?.linkID === linkID
-          ? { ...tab, connectionStatus: status }
-          : tab,
-      ),
+      sshTabs: state.sshTabs.map((tab) => {
+        if (tab.sshInfo?.linkID !== linkID) return tab;
+        const sshInfo =
+          status === ConnectionStatus.Disconnected && tab.sshInfo
+            ? { ...tab.sshInfo, linkID: undefined }
+            : tab.sshInfo;
+        return { ...tab, connectionStatus: status, sshInfo };
+      }),
     })),
   setTabConnectionStatus: (tabIndex: string, status: ConnectionStatus) =>
     set((state) => ({

@@ -41,12 +41,13 @@ const promptBase = `你是 Vexo 内置 AI 助手（Agent）。Vexo 是一款 SSH
 const promptNoSSH = `
 
 ## 当前 SSH 上下文
-用户当前没有可用的 SSH 连接。不要调用 run_ssh_command；提供通用 Linux/Unix 与 SSH 排障帮助。仍可使用 upsert_plan 规划步骤。`
+用户当前没有可用的 SSH 连接（未连接、连接中或已断开）。不要调用 run_ssh_command；不要假设仍可访问聊天历史中曾出现的其他主机。提供通用 Linux/Unix 与 SSH 排障帮助。仍可使用 upsert_plan 规划步骤。`
 
 const promptWithSSHTools = `
 
 ## 当前 SSH 上下文
-已连接远程主机，可以使用 run_ssh_command（须用户批准）。默认将用户问题理解为与该环境相关。`
+已连接远程主机，可以使用 run_ssh_command（须用户批准）。默认将用户问题理解为与该环境相关。
+以本轮系统提示中的连接为准；若聊天历史提到其他主机，不要默认仍在那台机器上执行命令。`
 
 // BuildSystemPrompt 构建系统提示词
 func BuildSystemPrompt(ctx *SSHPromptContext, remote *ssh.RemoteSystemInfo, sshToolsEnabled bool) string {

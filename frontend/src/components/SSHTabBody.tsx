@@ -60,7 +60,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const connect = async (li: SSHLinkInfo) => {
     setConnectionError("");
     setConnecting(true);
-    setLastSSHInfo(li);
+    setLastSSHInfo({ ...li, linkID: undefined });
     try {
       LogService.Debug(`SSHLinkInfo ${JSON.stringify(li)}`);
       setTabConnectionStatus(tabIndex, ConnectionStatus.Connecting);
@@ -81,8 +81,9 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       LogService.Debug(`SSH connection established with ID: ${linkID}`);
       setLinkID(linkID);
       setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
-      li.linkID = linkID;
-      setSSHInfo(tabIndex, li);
+      setSSHInfo(tabIndex, { ...li, linkID });
+      // Session is Exec-ready immediately; do not wait for terminal WebSocket.
+      setTabConnectionStatus(tabIndex, ConnectionStatus.Connected);
     } catch (err: any) {
       const msg = "Connection failed";
       LogService.Error(`${msg}: ${err.message || err}`).then(() => {});
