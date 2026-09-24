@@ -63,12 +63,16 @@ jobs:
           path: bin/Vexo_${{ github.ref_name }}_linux_amd64.tar.gz
           if-no-files-found: error
 
+  # Cross-compile Windows from Linux (CGO_ENABLED=0). Avoids Windows runner + make/SHELL issues.
   build-windows:
     name: Build Windows
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install zip and make
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends zip make
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -83,14 +87,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install make
-        shell: pwsh
-        run: |
-          choco install make -y --no-progress
-          "C:\ProgramData\chocolatey\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
       - name: Install Task and Wails CLI
-        shell: bash
         run: |
           go install github.com/go-task/task/v3/cmd/task@latest
           go install github.com/wailsapp/wails/v3/cmd/wails3@latest
@@ -99,15 +96,14 @@ jobs:
         working-directory: frontend
         run: npm install
 
-      - name: Build Windows
-        shell: bash
-        run: make SHELL="$$BASH" build-windows VERSION=${{ github.ref_name }} MODE=release
+      - name: Build Windows (cross-compile)
+        run: make build-windows VERSION=${{ github.ref_name }} MODE=release
 
       - name: Archive Windows package
-        shell: pwsh
         run: |
-          if (-not (Test-Path bin/Vexo.exe)) { throw "missing bin/Vexo.exe" }
-          Compress-Archive -Path bin/Vexo.exe -DestinationPath "bin/Vexo_${{ github.ref_name }}_windows_amd64.zip" -Force
+          test -f bin/Vexo.exe
+          rm -f bin/Vexo_${{ github.ref_name }}_windows_amd64.zip
+          (cd bin && zip -q Vexo_${{ github.ref_name }}_windows_amd64.zip Vexo.exe)
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
