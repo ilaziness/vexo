@@ -7,11 +7,19 @@ const toolComponents: Record<
   string,
   React.LazyExoticComponent<React.ComponentType>
 > = {
-  "port-check": React.lazy(() => import("../components/PortCheckTool")),
-  encoder: React.lazy(() => import("../components/EncoderTool")),
-  regex: React.lazy(() => import("../components/RegexTool")),
-  hash: React.lazy(() => import("../components/HashTool")),
+  "json-yaml": React.lazy(() => import("../components/JSONYAMLTool")),
   timestamp: React.lazy(() => import("../components/TimestampTool")),
+  encoder: React.lazy(() => import("../components/EncoderTool")),
+  hash: React.lazy(() => import("../components/HashTool")),
+  regex: React.lazy(() => import("../components/RegexTool")),
+  cron: React.lazy(() => import("../components/CronTool")),
+  cidr: React.lazy(() => import("../components/CIDRTool")),
+  "port-check": React.lazy(() => import("../components/PortCheckTool")),
+  jwt: React.lazy(() => import("../components/JWTTool")),
+  random: React.lazy(() => import("../components/RandomTool")),
+  "base-convert": React.lazy(() => import("../components/BaseConvertTool")),
+  "text-diff": React.lazy(() => import("../components/TextDiffTool")),
+  chmod: React.lazy(() => import("../components/ChmodTool")),
 };
 
 export default function ToolDetail() {

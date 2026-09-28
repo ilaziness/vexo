@@ -8,20 +8,10 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import NetworkCheckIcon from "@mui/icons-material/NetworkCheck";
-import CodeIcon from "@mui/icons-material/Code";
-import EditNoteIcon from "@mui/icons-material/EditNote";
 import { useNavigate, useParams } from "react-router";
 import { useToolStore } from "../stores/tool";
 import OpBar from "./OpBar";
-
-// 图标映射
-const iconMap: Record<string, React.ElementType> = {
-  NetworkCheck: NetworkCheckIcon,
-  Code: CodeIcon,
-  RegularExpression: CodeIcon,
-  EditNote: EditNoteIcon,
-};
+import { getToolIcon } from "../func/toolIcons";
 
 interface ToolLayoutProps {
   readonly children: React.ReactNode;
@@ -75,7 +65,7 @@ export default function ToolLayout({ children }: ToolLayoutProps) {
         >
           <List dense>
             {tools.map((tool) => {
-              const IconComponent = iconMap[tool.icon] || CodeIcon;
+              const IconComponent = getToolIcon(tool.icon);
               const isActive = tool.id === toolId;
 
               return (

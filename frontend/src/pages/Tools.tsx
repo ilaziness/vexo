@@ -6,21 +6,11 @@ import {
   Grid,
   Typography,
 } from "@mui/material";
-import NetworkCheckIcon from "@mui/icons-material/NetworkCheck";
-import CodeIcon from "@mui/icons-material/Code";
-import EditNoteIcon from "@mui/icons-material/EditNote";
 import { useNavigate } from "react-router";
 import { useToolStore } from "../stores/tool";
 import { Tool } from "../types/tool";
 import OpBar from "../components/OpBar";
-
-// 图标映射
-const iconMap: Record<string, React.ElementType> = {
-  NetworkCheck: NetworkCheckIcon,
-  Code: CodeIcon,
-  RegularExpression: CodeIcon,
-  EditNote: EditNoteIcon,
-};
+import { getToolIcon } from "../func/toolIcons";
 
 interface ToolCardProps {
   readonly tool: Tool;
@@ -28,7 +18,7 @@ interface ToolCardProps {
 }
 
 function ToolCard({ tool, onClick }: ToolCardProps) {
-  const IconComponent = iconMap[tool.icon] || CodeIcon;
+  const IconComponent = getToolIcon(tool.icon);
 
   return (
     <Card

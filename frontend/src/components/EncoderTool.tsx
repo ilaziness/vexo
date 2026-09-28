@@ -17,15 +17,14 @@ import {
 import CodeIcon from "@mui/icons-material/Code";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { ToolService } from "../../bindings/github.com/ilaziness/vexo/services";
+import { EncodingType } from "../types/tool";
 import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
-
-type EncodingType = "base64" | "url" | "html";
 
 export default function EncoderTool() {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
-  const [encodingType, setEncodingType] = useState<EncodingType>("base64");
+  const [encodingType, setEncodingType] = useState<EncodingType>(EncodingType.Base64);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { successMessage, errorMessage } = useMessageStore();
@@ -85,9 +84,9 @@ export default function EncoderTool() {
   };
 
   const encodingLabels: Record<EncodingType, string> = {
-    base64: "Base64",
-    url: "URL",
-    html: "HTML",
+    [EncodingType.Base64]: "Base64",
+    [EncodingType.URL]: "URL",
+    [EncodingType.HTML]: "HTML",
   };
 
   return (
@@ -108,9 +107,9 @@ export default function EncoderTool() {
               label="编码类型"
               onChange={(e) => setEncodingType(e.target.value as EncodingType)}
             >
-              <MenuItem value="base64">Base64</MenuItem>
-              <MenuItem value="url">URL</MenuItem>
-              <MenuItem value="html">HTML</MenuItem>
+              <MenuItem value={EncodingType.Base64}>Base64</MenuItem>
+              <MenuItem value={EncodingType.URL}>URL</MenuItem>
+              <MenuItem value={EncodingType.HTML}>HTML</MenuItem>
             </Select>
           </FormControl>
 

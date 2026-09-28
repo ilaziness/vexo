@@ -21,17 +21,17 @@ const (
 
 // Config AI配置（配置文件与引擎共用）
 type Config struct {
-	Enabled          bool     `json:"enabled" toml:"enabled"`
-	Provider         Provider `json:"provider" toml:"provider"`
-	Model            string   `json:"model" toml:"model"`
-	APIKey           string   `json:"api_key,omitempty" toml:"api_key,omitempty"`
-	APIKeyEncrypted  string   `json:"api_key_encrypted,omitempty" toml:"api_key_encrypted,omitempty"`
-	Endpoint         string   `json:"endpoint" toml:"endpoint"`
-	Temperature      float64  `json:"temperature" toml:"temperature"`
-	MaxTokens        int      `json:"max_tokens" toml:"max_tokens"`
-	EchoSSHCommands  bool     `json:"echo_ssh_commands" toml:"echo_ssh_commands"`
-	MaxAgentTurns    int      `json:"max_agent_turns" toml:"max_agent_turns"`
-	ExecTimeoutSec   int      `json:"exec_timeout_sec" toml:"exec_timeout_sec"`
+	Enabled         bool     `json:"enabled" toml:"enabled"`
+	Provider        Provider `json:"provider" toml:"provider"`
+	Model           string   `json:"model" toml:"model"`
+	APIKey          string   `json:"api_key,omitempty" toml:"api_key,omitempty"`
+	APIKeyEncrypted string   `json:"api_key_encrypted,omitempty" toml:"api_key_encrypted,omitempty"`
+	Endpoint        string   `json:"endpoint" toml:"endpoint"`
+	Temperature     float64  `json:"temperature" toml:"temperature"`
+	MaxTokens       int      `json:"max_tokens" toml:"max_tokens"`
+	EchoSSHCommands bool     `json:"echo_ssh_commands" toml:"echo_ssh_commands"`
+	MaxAgentTurns   int      `json:"max_agent_turns" toml:"max_agent_turns"`
+	ExecTimeoutSec  int      `json:"exec_timeout_sec" toml:"exec_timeout_sec"`
 }
 
 // EffectiveMaxAgentTurns returns configured turns or default.

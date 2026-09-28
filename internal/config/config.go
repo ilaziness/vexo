@@ -34,10 +34,10 @@ var defaultFontFamily = []string{
 }
 
 type Config struct {
-	General  GeneralConfig  `toml:"general"`
-	Terminal TerminalConfig `toml:"terminal"`
+	General  GeneralConfig   `toml:"general"`
+	Terminal TerminalConfig  `toml:"terminal"`
 	Sync     sync.SyncConfig `toml:"sync"`
-	AI       ai.Config      `toml:"ai"`
+	AI       ai.Config       `toml:"ai"`
 }
 
 type GeneralConfig struct {

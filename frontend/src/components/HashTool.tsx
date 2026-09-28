@@ -14,15 +14,13 @@ import {
   Chip,
 } from "@mui/material";
 import { ToolService } from "../../bindings/github.com/ilaziness/vexo/services";
-import { HashResult } from "../types/tool";
+import { HashAlgorithm, HashResult } from "../types/tool";
 import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
 
-type HashAlgorithm = "md5" | "sha1" | "sha256" | "sha512";
-
 export default function HashTool() {
   const [input, setInput] = useState("");
-  const [algorithm, setAlgorithm] = useState<HashAlgorithm>("md5");
+  const [algorithm, setAlgorithm] = useState<HashAlgorithm>(HashAlgorithm.MD5);
   const [result, setResult] = useState<HashResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { errorMessage, successMessage } = useMessageStore();
@@ -61,7 +59,7 @@ export default function HashTool() {
         哈希计算工具
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        计算文件和字符串的哈希值（支持 MD5、SHA1、SHA256、SHA512）
+        计算字符串的哈希值（支持 MD5、SHA1、SHA256、SHA512）
       </Typography>
 
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -82,10 +80,10 @@ export default function HashTool() {
               label="哈希算法"
               onChange={(e) => setAlgorithm(e.target.value as HashAlgorithm)}
             >
-              <MenuItem value="md5">MD5</MenuItem>
-              <MenuItem value="sha1">SHA1</MenuItem>
-              <MenuItem value="sha256">SHA256</MenuItem>
-              <MenuItem value="sha512">SHA512</MenuItem>
+              <MenuItem value={HashAlgorithm.MD5}>MD5</MenuItem>
+              <MenuItem value={HashAlgorithm.SHA1}>SHA1</MenuItem>
+              <MenuItem value={HashAlgorithm.SHA256}>SHA256</MenuItem>
+              <MenuItem value={HashAlgorithm.SHA512}>SHA512</MenuItem>
             </Select>
           </FormControl>
           <Button

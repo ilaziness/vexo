@@ -33,10 +33,10 @@ func clearKey(key []byte) {
 // EncryptStream 流式加密
 // 格式: salt(16) + nonce(12) + ciphertext + tag(16)
 type EncryptStream struct {
-	writer   io.Writer
-	cipher   cipher.AEAD
-	nonce    []byte
-	buffer   []byte
+	writer io.Writer
+	cipher cipher.AEAD
+	nonce  []byte
+	buffer []byte
 }
 
 // NewEncryptStream 创建加密流
@@ -223,5 +223,3 @@ func incrementNonce(nonce []byte) {
 		}
 	}
 }
-
-

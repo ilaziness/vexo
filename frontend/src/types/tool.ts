@@ -16,12 +16,6 @@ export interface PortCheckResult {
   error?: string;
 }
 
-// EncodeRequest 编码请求
-export interface EncodeRequest {
-  toolType: string; // base64, url, html
-  input: string;
-}
-
 // EncodeResponse 编码响应
 export interface EncodeResponse {
   result: string;
@@ -57,4 +51,118 @@ export interface TimestampResult {
   timestamp?: number;
   datetime?: string;
   error?: string;
+}
+
+export interface FormatResult {
+  success: boolean;
+  result: string;
+  error?: string;
+}
+
+export interface CronResult {
+  success: boolean;
+  nextTimes?: string[];
+  error?: string;
+}
+
+export interface CIDRResult {
+  success: boolean;
+  network?: string;
+  broadcast?: string;
+  netmask?: string;
+  prefixLen?: number;
+  firstHost?: string;
+  lastHost?: string;
+  hostCount?: string;
+  totalAddrs?: string;
+  contains?: boolean | null;
+  containsIP?: string;
+  error?: string;
+}
+
+export interface JWTResult {
+  success: boolean;
+  header?: string;
+  payload?: string;
+  signature?: string;
+  error?: string;
+}
+
+export interface RandomResult {
+  success: boolean;
+  result: string;
+  error?: string;
+}
+
+export interface BaseConvertResult {
+  success: boolean;
+  result: string;
+  error?: string;
+}
+
+export enum DiffLineType {
+  Equal = "equal",
+  Add = "add",
+  Remove = "remove",
+}
+
+export interface DiffLine {
+  type: DiffLineType | string;
+  content: string;
+  oldLine?: number;
+  newLine?: number;
+}
+
+export interface DiffResult {
+  success: boolean;
+  lines: DiffLine[];
+  error?: string;
+}
+
+export interface ChmodResult {
+  success: boolean;
+  octal?: string;
+  symbolic?: string;
+  error?: string;
+}
+
+export enum EncodingType {
+  Base64 = "base64",
+  URL = "url",
+  HTML = "html",
+}
+
+export enum HashAlgorithm {
+  MD5 = "md5",
+  SHA1 = "sha1",
+  SHA256 = "sha256",
+  SHA512 = "sha512",
+}
+
+export enum JSONYAMLAction {
+  Format = "format",
+  Minify = "minify",
+  Validate = "validate",
+  Json2Yaml = "json2yaml",
+  Yaml2Json = "yaml2json",
+}
+
+export enum RandomKind {
+  UuidV4 = "uuid-v4",
+  UuidV7 = "uuid-v7",
+  String = "string",
+}
+
+export enum RandomCharset {
+  Alphanum = "alphanum",
+  Alpha = "alpha",
+  Numeric = "numeric",
+  Hex = "hex",
+  Base64 = "base64",
+  Custom = "custom",
+}
+
+export enum ChmodDirection {
+  ToSymbolic = "toSymbolic",
+  ToOctal = "toOctal",
 }

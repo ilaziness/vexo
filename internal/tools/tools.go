@@ -36,12 +36,6 @@ type PortCheckResult struct {
 	Error        string `json:"error,omitempty"`
 }
 
-// EncodeRequest 编码请求
-type EncodeRequest struct {
-	ToolType string `json:"toolType"` // base64, url, html
-	Input    string `json:"input"`
-}
-
 // EncodeResponse 编码响应
 type EncodeResponse struct {
 	Result string `json:"result"`
@@ -62,23 +56,30 @@ type RegexMatchResult struct {
 	Error   string  `json:"error,omitempty"`
 }
 
-// ToolService 工具服务
+// Service 工具箱核心逻辑（无包级可变状态）
 type Service struct{}
 
-// NewToolService 创建工具服务实例
+// New 创建工具服务实例
 func New() *Service {
 	return &Service{}
 }
 
-// GetTools 获取可用工具列表
+// GetTools 获取可用工具列表（按常用程度排序）
 func (ts *Service) GetTools() []Tool {
 	return []Tool{
 		{
-			ID:          "port-check",
-			Name:        "端口检测",
-			Description: "TCP端口连通性测试工具",
-			Icon:        "NetworkCheck",
-			Category:    "网络",
+			ID:          "json-yaml",
+			Name:        "JSON/YAML",
+			Description: "格式化、压缩、校验，以及 JSON 与 YAML 互转",
+			Icon:        "DataObject",
+			Category:    "开发",
+		},
+		{
+			ID:          "timestamp",
+			Name:        "时间戳转换",
+			Description: "Unix时间戳和日期时间相互转换工具",
+			Icon:        "AccessTime",
+			Category:    "开发",
 		},
 		{
 			ID:          "encoder",
@@ -88,6 +89,13 @@ func (ts *Service) GetTools() []Tool {
 			Category:    "编码",
 		},
 		{
+			ID:          "hash",
+			Name:        "哈希计算",
+			Description: "字符串哈希值计算（MD5、SHA1、SHA256等）",
+			Icon:        "Fingerprint",
+			Category:    "安全",
+		},
+		{
 			ID:          "regex",
 			Name:        "正则测试",
 			Description: "正则表达式匹配测试工具",
@@ -95,18 +103,60 @@ func (ts *Service) GetTools() []Tool {
 			Category:    "开发",
 		},
 		{
-			ID:          "hash",
-			Name:        "哈希计算",
-			Description: "文件和字符串哈希值计算（MD5、SHA1、SHA256等）",
-			Icon:        "EditNote",
+			ID:          "cron",
+			Name:        "Cron 表达式",
+			Description: "解析 Cron 表达式并列出接下来的执行时间",
+			Icon:        "Schedule",
+			Category:    "运维",
+		},
+		{
+			ID:          "cidr",
+			Name:        "子网计算",
+			Description: "CIDR 网段、掩码、主机范围与包含判断",
+			Icon:        "Lan",
+			Category:    "网络",
+		},
+		{
+			ID:          "port-check",
+			Name:        "端口检测",
+			Description: "TCP端口连通性测试工具",
+			Icon:        "NetworkCheck",
+			Category:    "网络",
+		},
+		{
+			ID:          "jwt",
+			Name:        "JWT 解码",
+			Description: "本地拆分 Header / Payload，不校验签名",
+			Icon:        "Key",
 			Category:    "安全",
 		},
 		{
-			ID:          "timestamp",
-			Name:        "时间戳转换",
-			Description: "Unix时间戳和日期时间相互转换工具",
-			Icon:        "Code",
+			ID:          "random",
+			Name:        "随机生成",
+			Description: "UUID v4/v7 与自定义字符集随机串",
+			Icon:        "Casino",
 			Category:    "开发",
+		},
+		{
+			ID:          "base-convert",
+			Name:        "进制转换",
+			Description: "2–36 进制数字相互转换",
+			Icon:        "Pin",
+			Category:    "开发",
+		},
+		{
+			ID:          "text-diff",
+			Name:        "文本对比",
+			Description: "按行对比两段文本，标出增删",
+			Icon:        "Compare",
+			Category:    "开发",
+		},
+		{
+			ID:          "chmod",
+			Name:        "权限计算",
+			Description: "chmod 八进制与 rwx 符号互转",
+			Icon:        "Lock",
+			Category:    "运维",
 		},
 	}
 }
@@ -349,12 +399,15 @@ func (ts *Service) ConvertTimestamp(input string, toTimestamp bool) TimestampRes
 	}
 
 	if toTimestamp {
-		// 将日期时间转换为时间戳
-		// 支持多种日期时间格式
-		layouts := []string{
+		// datetime-local 等本地时间格式用 ParseInLocation；带时区的用 Parse
+		localLayouts := []string{
+			"2006-01-02T15:04:05",
+			"2006-01-02T15:04",
 			"2006-01-02 15:04:05",
 			"2006-01-02 15:04",
 			"2006-01-02",
+		}
+		zonedLayouts := []string{
 			time.RFC3339,
 			time.RFC1123,
 			time.RFC822,
@@ -365,18 +418,27 @@ func (ts *Service) ConvertTimestamp(input string, toTimestamp bool) TimestampRes
 
 		var t time.Time
 		var err error
-
-		for _, layout := range layouts {
-			t, err = time.Parse(layout, input)
+		parsed := false
+		for _, layout := range localLayouts {
+			t, err = time.ParseInLocation(layout, input, time.Local)
 			if err == nil {
+				parsed = true
 				break
 			}
 		}
-
-		if err != nil {
+		if !parsed {
+			for _, layout := range zonedLayouts {
+				t, err = time.Parse(layout, input)
+				if err == nil {
+					parsed = true
+					break
+				}
+			}
+		}
+		if !parsed {
 			return TimestampResult{
 				Success: false,
-				Error:   "无法解析日期时间格式: " + err.Error(),
+				Error:   "无法解析日期时间格式",
 			}
 		}
 
@@ -384,20 +446,26 @@ func (ts *Service) ConvertTimestamp(input string, toTimestamp bool) TimestampRes
 			Success:   true,
 			Timestamp: t.Unix(),
 		}
-	} else {
-		// 将时间戳转换为日期时间
-		timestamp, err := strconv.ParseInt(input, 10, 64)
-		if err != nil {
-			return TimestampResult{
-				Success: false,
-				Error:   "无效的时间戳: " + err.Error(),
-			}
-		}
+	}
 
-		t := time.Unix(timestamp, 0)
+	timestamp, err := strconv.ParseInt(strings.TrimSpace(input), 10, 64)
+	if err != nil {
 		return TimestampResult{
-			Success:  true,
-			Datetime: t.Format("2006-01-02 15:04:05"),
+			Success: false,
+			Error:   "无效的时间戳: " + err.Error(),
 		}
+	}
+
+	// 13 位左右按毫秒处理（常见 JS / 日志时间戳）
+	sec, nsec := timestamp, int64(0)
+	if timestamp > 1_000_000_000_000 { // > ~2001-09 的毫秒量级
+		sec = timestamp / 1000
+		nsec = (timestamp % 1000) * int64(time.Millisecond)
+	}
+
+	t := time.Unix(sec, nsec)
+	return TimestampResult{
+		Success:  true,
+		Datetime: t.In(time.Local).Format("2006-01-02 15:04:05"),
 	}
 }

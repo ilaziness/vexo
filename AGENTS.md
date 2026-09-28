@@ -243,6 +243,8 @@ go build .
 
 ```bash
 npm run lint
+
+npm run build:dev
 ```
 
 需要自动修复格式或可自动修复的 lint 问题时：

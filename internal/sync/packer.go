@@ -72,12 +72,12 @@ func PackStream(srcDir string, writer io.Writer, userKey string) error {
 			if err != nil {
 				return err
 			}
-			
+
 			// 使用大缓冲区复制文件内容
 			buf := make([]byte, bufferSize)
 			_, err = io.CopyBuffer(tarWriter, file, buf)
 			file.Close()
-			
+
 			if err != nil {
 				return err
 			}
@@ -259,7 +259,7 @@ func UnpackStream(reader io.Reader, dstDir string, userKey string) error {
 			// 使用大缓冲区复制文件内容
 			_, err = io.CopyBuffer(file, tarReader, buf)
 			file.Close()
-			
+
 			if err != nil {
 				return err
 			}

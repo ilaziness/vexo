@@ -42,10 +42,10 @@ type Info struct {
 }
 
 type Service struct {
-	logger   *zap.Logger
-	db       *database.Database
-	builtin  map[string][]BuiltinCommand
-	sendFn   func(sessionID, cmd string) error
+	logger  *zap.Logger
+	db      *database.Database
+	builtin map[string][]BuiltinCommand
+	sendFn  func(sessionID, cmd string) error
 }
 
 func New(logger *zap.Logger, db *database.Database, builtinJSON []byte, sendFn func(sessionID, cmd string) error) *Service {
