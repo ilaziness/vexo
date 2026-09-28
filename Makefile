@@ -13,6 +13,7 @@ CONFIG_BACKUP := internal/buildinfo/buildinfo.go.bak
 
 LINUX_ARCHIVE := bin/$(APP_NAME)_$(VERSION)_linux_amd64.tar.gz
 WINDOWS_ARCHIVE := bin/$(APP_NAME)_$(VERSION)_windows_amd64.zip
+SHA256SUMS_FILE := bin/SHA256SUMS
 
 .PHONY: help all build-windows build-linux clean build-mac build-mac-intel replace-config restore-config update-build-assets pack-release
 
@@ -112,10 +113,26 @@ pack-release:
 	@test -f $(WINDOWS_ARCHIVE) || (echo "missing $(WINDOWS_ARCHIVE)"; exit 1)
 	@echo "Created $(LINUX_ARCHIVE)"
 	@echo "Created $(WINDOWS_ARCHIVE)"
+	@echo "Generating $(SHA256SUMS_FILE)..."
+	@rm -f $(SHA256SUMS_FILE)
+	@if command -v sha256sum >/dev/null 2>&1; then \
+		(cd bin && sha256sum $(APP_NAME)_$(VERSION)_linux_amd64.tar.gz $(APP_NAME)_$(VERSION)_windows_amd64.zip > SHA256SUMS); \
+	elif command -v shasum >/dev/null 2>&1; then \
+		(cd bin && shasum -a 256 $(APP_NAME)_$(VERSION)_linux_amd64.tar.gz $(APP_NAME)_$(VERSION)_windows_amd64.zip > SHA256SUMS); \
+	else \
+		powershell -NoProfile -Command \
+			"$$out='$(SHA256SUMS_FILE)'; if (Test-Path $$out) { Remove-Item $$out }; \
+			foreach ($$f in @('$(APP_NAME)_$(VERSION)_linux_amd64.tar.gz','$(APP_NAME)_$(VERSION)_windows_amd64.zip')) { \
+				$$h=(Get-FileHash -Algorithm SHA256 -Path (Join-Path 'bin' $$f)).Hash.ToLower(); \
+				Add-Content -Path $$out -Value ($$h + '  ' + $$f) -Encoding ascii \
+			}"; \
+	fi
+	@test -f $(SHA256SUMS_FILE) || (echo "missing $(SHA256SUMS_FILE)"; exit 1)
+	@echo "Created $(SHA256SUMS_FILE)"
 	@command -v gh >/dev/null 2>&1 || (echo "gh CLI is required for pack-release"; exit 1)
 	@if gh release view $(VERSION) >/dev/null 2>&1; then \
 		echo "Uploading assets to existing release $(VERSION)..."; \
-		gh release upload $(VERSION) $(LINUX_ARCHIVE) $(WINDOWS_ARCHIVE) --clobber; \
+		gh release upload $(VERSION) $(LINUX_ARCHIVE) $(WINDOWS_ARCHIVE) $(SHA256SUMS_FILE) --clobber; \
 	else \
 		echo "Creating draft release $(VERSION)..."; \
 		gh release create $(VERSION) \
@@ -123,7 +140,8 @@ pack-release:
 			--title "$(VERSION)" \
 			--generate-notes \
 			$(LINUX_ARCHIVE) \
-			$(WINDOWS_ARCHIVE); \
+			$(WINDOWS_ARCHIVE) \
+			$(SHA256SUMS_FILE); \
 	fi
 	@echo "Draft release $(VERSION) ready."
 

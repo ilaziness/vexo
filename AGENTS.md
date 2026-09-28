@@ -51,7 +51,6 @@
 │   ├── tools/                # 编解码/哈希/端口
 │   ├── database/             # SQLite
 │   ├── buildinfo/            # ldflags 构建信息
-│   ├── updater/
 │   ├── system/               # 可执行目录、SafeGo
 │   └── utils/
 ├── sync-backend/             # 同步服务端（独立 go.mod，勿与桌面进程合并）

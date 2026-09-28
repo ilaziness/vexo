@@ -1,17 +1,28 @@
 package services
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/ilaziness/vexo/internal/buildinfo"
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/internal/termws"
-	"github.com/ilaziness/vexo/internal/updater"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/updater"
+	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 	"go.uber.org/zap"
 )
 
-const EventNewVersion = "eventNewVersion"
+const (
+	EventNewVersion   = "eventNewVersion"
+	githubRepo        = "ilaziness/vexo"
+	checksumAssetName = "SHA256SUMS"
+)
 
 func init() {
 	application.RegisterEvent[NewVersion](EventNewVersion)
@@ -37,13 +48,72 @@ type AppService struct {
 	termWS     *termws.Server
 	mainWindow *application.WebviewWindow
 	logger     *zap.Logger
+	updateMu   sync.Mutex
 }
 
 func NewAppService(app *application.App, windows *Windows, termWS *termws.Server, logger *zap.Logger) *AppService {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &AppService{app: app, windows: windows, termWS: termWS, mainWindow: windows.Main, logger: logger}
+	cs := &AppService{app: app, windows: windows, termWS: termWS, mainWindow: windows.Main, logger: logger}
+	cs.initUpdater()
+	cs.cleanupUpdateLeftovers()
+	return cs
+}
+
+func (cs *AppService) initUpdater() {
+	gh, err := github.New(github.Config{
+		Repository:    githubRepo,
+		ChecksumAsset: checksumAssetName,
+	})
+	if err != nil {
+		cs.logger.Error("github updater provider", zap.Error(err))
+		return
+	}
+	if err := cs.app.Updater.Init(updater.Config{
+		CurrentVersion: trimVersionPrefix(buildinfo.Version),
+		Providers:      []updater.Provider{gh},
+		Window:         updater.WindowNone,
+	}); err != nil {
+		cs.logger.Error("updater init", zap.Error(err))
+	}
+}
+
+// cleanupUpdateLeftovers removes Windows rename-aside leftovers next to the
+// running binary and orphaned wails-update staging dirs / logs under TempDir.
+func (cs *AppService) cleanupUpdateLeftovers() {
+	if exe, err := os.Executable(); err == nil {
+		if resolved, resolveErr := filepath.EvalSymlinks(exe); resolveErr == nil {
+			exe = resolved
+		}
+		matches, globErr := filepath.Glob(exe + ".old.*")
+		if globErr != nil {
+			cs.logger.Debug("glob update leftovers", zap.Error(globErr))
+		} else {
+			for _, m := range matches {
+				if removeErr := os.Remove(m); removeErr != nil {
+					cs.logger.Debug("remove update leftover", zap.String("path", m), zap.Error(removeErr))
+				}
+			}
+		}
+	}
+
+	tmp := os.TempDir()
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		cs.logger.Debug("read temp dir for updater cleanup", zap.Error(err))
+		return
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(name, "wails-update-") {
+			continue
+		}
+		path := filepath.Join(tmp, name)
+		if removeErr := os.RemoveAll(path); removeErr != nil {
+			cs.logger.Debug("remove updater temp", zap.String("path", path), zap.Error(removeErr))
+		}
+	}
 }
 
 func (cs *AppService) MainWindowMin() {
@@ -86,35 +156,87 @@ func (cs *AppService) GetAppInfo() AppInfo {
 }
 
 func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion, err error) {
-	ok, rel, err := updater.CheckUpdate("ilaziness/vexo", buildinfo.Version)
+	cs.updateMu.Lock()
+	defer cs.updateMu.Unlock()
+
+	rel, err := cs.app.Updater.Check(context.Background())
 	if err != nil {
 		return false, NewVersion{}, err
 	}
-	if ok {
-		return true, NewVersion{Version: rel.Tag, Notes: rel.Body, URL: rel.HTMLURL}, nil
+	if rel == nil {
+		return false, NewVersion{}, nil
 	}
-	return false, NewVersion{}, nil
+	return true, newVersionFromRelease(rel), nil
 }
 
-// StartBackgroundUpdateCheck waits 10s for the frontend to initialize, then
+// InstallUpdate re-checks for a release, downloads and verifies it, then restarts
+// into the new binary. Re-check makes the call safe if a prior Check was skipped
+// or its pending state was overwritten.
+func (cs *AppService) InstallUpdate() error {
+	cs.updateMu.Lock()
+	defer cs.updateMu.Unlock()
+
+	ctx := context.Background()
+	rel, err := cs.app.Updater.Check(ctx)
+	if err != nil {
+		return err
+	}
+	if rel == nil {
+		return fmt.Errorf("当前没有可用更新")
+	}
+	if err := cs.app.Updater.DownloadAndInstall(ctx); err != nil {
+		return fmt.Errorf("下载或安装更新失败: %w", err)
+	}
+	if err := cs.app.Updater.Restart(ctx); err != nil {
+		return fmt.Errorf("重启应用失败: %w", err)
+	}
+	return nil
+}
+
+// startBackgroundUpdateCheck waits 10s for the frontend to initialize, then
 // silently checks for updates and emits EventNewVersion when a newer release exists.
-func (cs *AppService) StartBackgroundUpdateCheck() {
+func (cs *AppService) startBackgroundUpdateCheck() {
 	system.SafeGo(func() {
 		time.Sleep(10 * time.Second)
-		ok, rel, err := updater.CheckUpdate("ilaziness/vexo", buildinfo.Version)
+		cs.updateMu.Lock()
+		defer cs.updateMu.Unlock()
+
+		rel, err := cs.app.Updater.Check(context.Background())
 		if err != nil {
 			cs.logger.Debug("background update check failed", zap.Error(err))
 			return
 		}
-		if !ok {
+		if rel == nil {
 			return
 		}
-		cs.app.Event.Emit(EventNewVersion, NewVersion{
-			Version: rel.Tag,
-			Notes:   rel.Body,
-			URL:     rel.HTMLURL,
-		})
+		cs.app.Event.Emit(EventNewVersion, newVersionFromRelease(rel))
 	})
+}
+
+func newVersionFromRelease(rel *updater.Release) NewVersion {
+	if rel == nil {
+		return NewVersion{}
+	}
+	nv := NewVersion{
+		Version: rel.Version,
+		Notes:   rel.Notes,
+	}
+	if rel.Metadata != nil {
+		if tag, ok := rel.Metadata["github.release.tag"].(string); ok && tag != "" {
+			nv.Version = tag
+		}
+		if url, ok := rel.Metadata["github.release.htmlURL"].(string); ok {
+			nv.URL = url
+		}
+	}
+	if nv.Version != "" && !strings.HasPrefix(nv.Version, "v") && !strings.HasPrefix(nv.Version, "V") {
+		nv.Version = "v" + nv.Version
+	}
+	return nv
+}
+
+func trimVersionPrefix(v string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(v, "v"), "V")
 }
 
 func (cs *AppService) GetWSAddr() string {

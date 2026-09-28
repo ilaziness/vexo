@@ -144,6 +144,18 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Generate SHA256SUMS
+        run: |
+          set -euo pipefail
+          cd dist
+          test -f "Vexo_${{ github.ref_name }}_linux_amd64.tar.gz"
+          test -f "Vexo_${{ github.ref_name }}_windows_amd64.zip"
+          sha256sum \
+            "Vexo_${{ github.ref_name }}_linux_amd64.tar.gz" \
+            "Vexo_${{ github.ref_name }}_windows_amd64.zip" \
+            > SHA256SUMS
+          cat SHA256SUMS
+
       - name: Create draft release
         uses: softprops/action-gh-release@v3
         with:
@@ -155,3 +167,4 @@ jobs:
           files: |
             dist/Vexo_${{ github.ref_name }}_linux_amd64.tar.gz
             dist/Vexo_${{ github.ref_name }}_windows_amd64.zip
+            dist/SHA256SUMS

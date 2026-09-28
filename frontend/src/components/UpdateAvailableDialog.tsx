@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { Browser } from "@wailsio/runtime";
 import {
   Button,
@@ -11,6 +11,9 @@ import {
 } from "@mui/material";
 import Markdown from "markdown-to-jsx";
 import { NewVersion } from "../../bindings/github.com/ilaziness/vexo/services";
+import { InstallUpdate } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
+import { parseCallServiceError } from "../func/service";
+import { useMessageStore } from "../stores/message";
 
 interface UpdateAvailableDialogProps {
   open: boolean;
@@ -131,8 +134,37 @@ export default function UpdateAvailableDialog({
   onClose,
   newVersion,
 }: UpdateAvailableDialogProps) {
+  const { errorMessage } = useMessageStore();
+  const [installing, setInstalling] = useState(false);
+  const installingRef = useRef(false);
+
+  const handleInstall = async () => {
+    if (installingRef.current) {
+      return;
+    }
+    installingRef.current = true;
+    setInstalling(true);
+    try {
+      await InstallUpdate();
+      // Restart 成功后进程会退出，保持加载直到窗口关闭。
+    } catch (err) {
+      installingRef.current = false;
+      setInstalling(false);
+      errorMessage(parseCallServiceError(err));
+    }
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={() => {
+        if (!installing) {
+          onClose();
+        }
+      }}
+      maxWidth="sm"
+      fullWidth
+    >
       <DialogTitle>发现新版本</DialogTitle>
       <DialogContent>
         <Typography sx={{ fontWeight: 600 }}>{newVersion?.Version}</Typography>
@@ -150,9 +182,21 @@ export default function UpdateAvailableDialog({
         ) : null}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>关闭</Button>
-        <Button onClick={() => openExternalURL(newVersion?.URL)}>
+        <Button onClick={onClose} disabled={installing}>
+          关闭
+        </Button>
+        <Button
+          onClick={() => openExternalURL(newVersion?.URL)}
+          disabled={installing}
+        >
           打开下载页
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleInstall}
+          loading={installing}
+        >
+          安装更新
         </Button>
       </DialogActions>
     </Dialog>

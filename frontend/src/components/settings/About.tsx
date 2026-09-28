@@ -7,6 +7,7 @@ import {
   AppInfo,
   NewVersion,
 } from "../../../bindings/github.com/ilaziness/vexo/services";
+import { parseCallServiceError } from "../../func/service";
 import { useMessageStore } from "../../stores/message";
 
 const UpdateAvailableDialog = React.lazy(
@@ -41,8 +42,7 @@ const About: React.FC<AboutProps> = ({ appinfo }) => {
         infoMessage("当前已是最新版本");
       }
     } catch (err) {
-      console.error("CheckUpdate failed", err);
-      errorMessage("检查更新失败");
+      errorMessage(parseCallServiceError(err));
     } finally {
       setCheckingUpdate(false);
     }
