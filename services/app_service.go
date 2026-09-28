@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ilaziness/vexo/internal/buildinfo"
+	"github.com/ilaziness/vexo/internal/httpproxy"
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/internal/termws"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -65,6 +66,7 @@ func (cs *AppService) initUpdater() {
 	gh, err := github.New(github.Config{
 		Repository:    githubRepo,
 		ChecksumAsset: checksumAssetName,
+		HTTPClient:    httpproxy.Client(),
 	})
 	if err != nil {
 		cs.logger.Error("github updater provider", zap.Error(err))
@@ -161,6 +163,7 @@ func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion, err err
 
 	rel, err := cs.app.Updater.Check(context.Background())
 	if err != nil {
+		cs.logger.Error("check update failed", zap.Error(err))
 		return false, NewVersion{}, err
 	}
 	if rel == nil {
@@ -179,15 +182,20 @@ func (cs *AppService) InstallUpdate() error {
 	ctx := context.Background()
 	rel, err := cs.app.Updater.Check(ctx)
 	if err != nil {
+		cs.logger.Error("install update check failed", zap.Error(err))
 		return err
 	}
 	if rel == nil {
-		return fmt.Errorf("当前没有可用更新")
+		err := fmt.Errorf("当前没有可用更新")
+		cs.logger.Error("install update failed", zap.Error(err))
+		return err
 	}
 	if err := cs.app.Updater.DownloadAndInstall(ctx); err != nil {
+		cs.logger.Error("download and install update failed", zap.Error(err))
 		return fmt.Errorf("下载或安装更新失败: %w", err)
 	}
 	if err := cs.app.Updater.Restart(ctx); err != nil {
+		cs.logger.Error("restart after update failed", zap.Error(err))
 		return fmt.Errorf("重启应用失败: %w", err)
 	}
 	return nil
@@ -203,7 +211,7 @@ func (cs *AppService) startBackgroundUpdateCheck() {
 
 		rel, err := cs.app.Updater.Check(context.Background())
 		if err != nil {
-			cs.logger.Debug("background update check failed", zap.Error(err))
+			cs.logger.Error("background update check failed", zap.Error(err))
 			return
 		}
 		if rel == nil {

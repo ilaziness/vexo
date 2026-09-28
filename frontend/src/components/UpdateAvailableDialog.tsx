@@ -1,7 +1,8 @@
-import React, { useRef, useState } from "react";
-import { Browser } from "@wailsio/runtime";
+import React, { useEffect, useRef, useState } from "react";
+import { Browser, Events } from "@wailsio/runtime";
 import {
   Button,
+  LinearProgress,
   Typography,
   Dialog,
   DialogTitle,
@@ -12,9 +13,30 @@ import {
 import Markdown from "markdown-to-jsx";
 import { NewVersion } from "../../bindings/github.com/ilaziness/vexo/services";
 import { InstallUpdate } from "../../bindings/github.com/ilaziness/vexo/services/appservice";
-import { parseCallServiceError } from "../func/service";
+import { formatFileSize, parseCallServiceError } from "../func/service";
 import { useMessageStore } from "../stores/message";
 
+const EventDownloadProgress = "wails:updater:download-progress";
+const EventVerifying = "wails:updater:verifying";
+const EventInstalling = "wails:updater:installing";
+
+type InstallPhase = "download" | "verify" | "install";
+
+interface DownloadProgress {
+  written: number;
+  total: number;
+}
+
+function readProgress(event: { data?: DownloadProgress }): DownloadProgress | null {
+  const data = event?.data;
+  if (!data || typeof data.written !== "number") {
+    return null;
+  }
+  return {
+    written: data.written,
+    total: typeof data.total === "number" ? data.total : 0,
+  };
+}
 interface UpdateAvailableDialogProps {
   open: boolean;
   onClose: () => void;
@@ -136,13 +158,44 @@ export default function UpdateAvailableDialog({
 }: UpdateAvailableDialogProps) {
   const { errorMessage } = useMessageStore();
   const [installing, setInstalling] = useState(false);
+  const [phase, setPhase] = useState<InstallPhase>("download");
+  const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const installingRef = useRef(false);
+
+  useEffect(() => {
+    const offProgress = Events.On(EventDownloadProgress, (event: { data?: DownloadProgress }) => {
+      if (!installingRef.current) {
+        return;
+      }
+      const next = readProgress(event);
+      if (next) {
+        setProgress(next);
+      }
+    });
+    const offVerify = Events.On(EventVerifying, () => {
+      if (installingRef.current) {
+        setPhase("verify");
+      }
+    });
+    const offInstall = Events.On(EventInstalling, () => {
+      if (installingRef.current) {
+        setPhase("install");
+      }
+    });
+    return () => {
+      offProgress();
+      offVerify();
+      offInstall();
+    };
+  }, []);
 
   const handleInstall = async () => {
     if (installingRef.current) {
       return;
     }
     installingRef.current = true;
+    setPhase("download");
+    setProgress(null);
     setInstalling(true);
     try {
       await InstallUpdate();
@@ -178,6 +231,31 @@ export default function UpdateAvailableDialog({
             }}
           >
             <Markdown options={markdownOptions}>{newVersion.Notes}</Markdown>
+          </Box>
+        ) : null}
+        {installing ? (
+          <Box sx={{ mt: 2 }}>
+            <LinearProgress
+              variant={
+                phase === "download" && progress && progress.total > 0
+                  ? "determinate"
+                  : "indeterminate"
+              }
+              value={
+                progress && progress.total > 0
+                  ? Math.min(100, (progress.written / progress.total) * 100)
+                  : undefined
+              }
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+              {phase === "verify"
+                ? "正在校验…"
+                : phase === "install"
+                  ? "正在安装…"
+                  : progress && progress.total > 0
+                    ? `${formatFileSize(progress.written)} / ${formatFileSize(progress.total)}`
+                    : "正在下载…"}
+            </Typography>
           </Box>
         ) : null}
       </DialogContent>
