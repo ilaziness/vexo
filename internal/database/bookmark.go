@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const bookmarkSelectCols = `id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, COALESCE(icon, ''), created_at, updated_at`
+const bookmarkSelectCols = `id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, COALESCE(icon, ''), COALESCE(use_agent, 0), created_at, updated_at`
 
 // BookmarkGroupDB 书签分组数据库模型
 type BookmarkGroupDB struct {
@@ -31,6 +31,7 @@ type BookmarkDB struct {
 	PrivateKeyPassword string    `json:"private_key_password"`
 	ProxyJumpID        string    `json:"proxy_jump_id"`
 	Icon               string    `json:"icon"`
+	UseAgent           bool      `json:"use_agent"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
@@ -51,14 +52,17 @@ func NewBookmarkRepository(db *sql.DB, logger *zap.Logger) *BookmarkRepository {
 func scanBookmark(scanner interface{ Scan(dest ...any) error }) (*BookmarkDB, error) {
 	var b BookmarkDB
 	var autoID int
+	var useAgent int
 	err := scanner.Scan(
 		&autoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
 		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID, &b.Icon,
+		&useAgent,
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
+	b.UseAgent = useAgent != 0
 	return &b, nil
 }
 
@@ -140,11 +144,11 @@ func (r *BookmarkRepository) GetBookmarkByTitleAndGroup(title string, groupID in
 
 // InsertBookmark 插入书签
 func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
-	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, icon, created_at, updated_at) 
-			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, icon, use_agent, created_at, updated_at) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query,
 		bookmark.ID, bookmark.GroupID, bookmark.Title, bookmark.Host, bookmark.Port,
-		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon,
+		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent),
 		bookmark.CreatedAt, bookmark.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "bookmark", err)
@@ -158,11 +162,11 @@ func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
 func (r *BookmarkRepository) UpdateBookmark(bookmark *BookmarkDB) error {
 	query := `UPDATE bookmarks 
 			  SET group_id = ?, title = ?, host = ?, port = ?, user = ?, password = ?, 
-			      private_key = ?, private_key_password = ?, proxy_jump_id = ?, icon = ?, updated_at = ? 
+			      private_key = ?, private_key_password = ?, proxy_jump_id = ?, icon = ?, use_agent = ?, updated_at = ? 
 			  WHERE bookmark_id = ?`
 	_, err := r.db.Exec(query,
 		bookmark.GroupID, bookmark.Title, bookmark.Host, bookmark.Port,
-		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon,
+		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent),
 		bookmark.UpdatedAt, bookmark.ID)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "update bookmark", err)
@@ -263,4 +267,11 @@ func (r *BookmarkRepository) DeleteGroup(name string) error {
 
 	r.logger.Debug("group deleted", zap.String("name", name))
 	return nil
+}
+
+func boolInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
 }

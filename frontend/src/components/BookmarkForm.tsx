@@ -9,6 +9,8 @@ import {
   MenuItem,
   Select,
   FormControl,
+  FormControlLabel,
+  Checkbox,
   IconButton,
   InputAdornment,
   Autocomplete,
@@ -48,6 +50,7 @@ const emptyBookmark = (): SSHBookmark => ({
   user: "",
   password: "",
   icon: "",
+  use_agent: false,
 });
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -112,8 +115,8 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
       errorMessage("用户名不能为空");
       return false;
     }
-    if (!formData.password.trim() && !formData.private_key.trim()) {
-      errorMessage("密码和密钥文件至少填写一项");
+    if (!formData.password.trim() && !formData.private_key.trim() && !formData.use_agent) {
+      errorMessage("密码、密钥文件、SSH Agent 至少选择一项");
       return false;
     }
     return true;
@@ -375,6 +378,19 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 认证信息
               </Typography>
               <Stack spacing={2}>
+                <FormRow label="SSH Agent" labelWidth={120}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.use_agent}
+                        onChange={(_, checked) =>
+                          setFormData((prev) => ({ ...prev, use_agent: checked }))
+                        }
+                      />
+                    }
+                    label="使用 SSH Agent"
+                  />
+                </FormRow>
                 <FormRow label="密码" labelWidth={120}>
                   <TextField
                     fullWidth

@@ -10,6 +10,8 @@ import {
   DialogActions,
   Select,
   MenuItem,
+  Checkbox,
+  FormControlLabel,
   InputLabel,
   Box,
   Autocomplete,
@@ -50,12 +52,14 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [key, setKey] = useState("");
   const [keyPassword, setKeyPassword] = useState("");
   const [proxyJumpID, setProxyJumpID] = useState("");
+  const [useAgent, setUseAgent] = useState(false);
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(DEFAULT_GROUP);
   const [groups, setGroups] = useState<string[]>([]);
+  const [testing, setTesting] = useState(false);
 
-  const { errorMessage } = useMessageStore();
+  const { errorMessage, successMessage } = useMessageStore();
 
   const filterOptions = createFilterOptions<BookmarkListItem>({
     limit: 20,
@@ -81,21 +85,27 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
     }
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    // validate required fields: host, port, user
+  const validate = (): number | null => {
     if (!host.trim() || !port.toString().trim() || !user.trim()) {
       errorMessage("Host、Port 和 Username 为必填项");
-      return;
+      return null;
     }
     const p = Number(port);
     if (Number.isNaN(p) || p <= 0) {
       errorMessage("Port 必须是有效的数字");
-      return;
+      return null;
     }
-    // password 和 key 二选一
-    if (!password.trim() && !key.trim()) {
-      errorMessage("必须提供 Password 或 Private Key 其一");
+    if (!password.trim() && !key.trim() && !useAgent) {
+      errorMessage("必须提供 Password、Private Key 或 SSH Agent 其一");
+      return null;
+    }
+    return p;
+  };
+
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const p = validate();
+    if (p == null) {
       return;
     }
 
@@ -107,7 +117,34 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       key,
       keyPassword: key ? keyPassword : undefined,
       proxyJumpID,
+      useAgent,
     });
+  };
+
+  const handleTestConnection = async () => {
+    const p = validate();
+    if (p == null) {
+      return;
+    }
+    setTesting(true);
+    try {
+      await SSHService.TestConnectInfo(
+        host,
+        p,
+        user,
+        password,
+        key,
+        key ? keyPassword : "",
+        proxyJumpID,
+        useAgent,
+      );
+      successMessage("连接测试成功");
+    } catch (err) {
+      LogService.Warn(`Connection test failed: ${err}`);
+      errorMessage("连接测试失败: " + parseCallServiceError(err));
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleSaveClick = () => {
@@ -140,6 +177,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       user,
       password,
       icon: "",
+      use_agent: useAgent,
     };
 
     // 保存到书签
@@ -155,6 +193,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           key,
           keyPassword: key ? keyPassword : undefined,
           proxyJumpID: proxyJumpID,
+          useAgent,
         });
       })
       .catch((err) => {
@@ -205,6 +244,16 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             margin="normal"
             size="small"
             sx={{ m: 0.8 }}
+          />
+          <FormControlLabel
+            sx={{ m: 0.8, alignSelf: "flex-start" }}
+            control={
+              <Checkbox
+                checked={useAgent}
+                onChange={(_, checked) => setUseAgent(checked)}
+              />
+            }
+            label="Use SSH Agent"
           />
           <TextField
             label="Password"
@@ -271,6 +320,16 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           </Typography>
         )}
         <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+          <Button
+            variant="outlined"
+            color="secondary"
+            size="large"
+            type="button"
+            loading={testing}
+            onClick={handleTestConnection}
+          >
+            测试连接
+          </Button>
           <Button
             variant="contained"
             type="submit"

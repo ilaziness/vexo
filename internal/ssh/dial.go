@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -55,40 +54,36 @@ func (m *Manager) dialHops(hops []Endpoint, timeout time.Duration) (*hopClient, 
 }
 
 func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Client) (*cryptossh.Client, error) {
-	if ep.Password == "" && ep.Key == "" {
-		return nil, fmt.Errorf("empty password and key")
+	var agentSigners []cryptossh.Signer
+	if ep.UseAgent {
+		signers, cleanup, err := openAgentSigners()
+		if cleanup != nil {
+			defer cleanup()
+		}
+		if err != nil {
+			if ep.Password == "" && ep.Key == "" {
+				return nil, fmt.Errorf("SSH agent 不可用: %w", err)
+			}
+			m.logger.Debug("ssh agent unavailable, continuing with other auth", zap.Error(err))
+		} else {
+			agentSigners = signers
+		}
+	}
+	methods, err := authMethods(ep, agentSigners)
+	if err != nil {
+		return nil, err
 	}
 	cfg := &cryptossh.ClientConfig{
 		User:            ep.User,
-		Auth:            []cryptossh.AuthMethod{},
+		Auth:            methods,
 		HostKeyCallback: m.hostKeyCallback,
 		Timeout:         timeout,
 	}
-	if ep.Key != "" {
-		keyContent, err := os.ReadFile(ep.Key)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read private key: %v", err)
-		}
-		var signer cryptossh.Signer
-		if ep.KeyPassword == "" {
-			signer, err = cryptossh.ParsePrivateKey(keyContent)
-		} else {
-			signer, err = cryptossh.ParsePrivateKeyWithPassphrase(keyContent, []byte(ep.KeyPassword))
-		}
-		if err != nil {
-			return nil, err
-		}
-		cfg.Auth = []cryptossh.AuthMethod{cryptossh.PublicKeys(signer)}
-	}
-	if ep.Password != "" {
-		cfg.Auth = append(cfg.Auth, cryptossh.Password(ep.Password))
-	}
 
-	m.logger.Debug("ssh key", zap.String("file", ep.Key))
+	m.logger.Debug("ssh auth", zap.Bool("agent", ep.UseAgent), zap.Int("agent_keys", len(agentSigners)), zap.String("file", ep.Key))
 	addr := net.JoinHostPort(ep.Host, fmt.Sprintf("%d", ep.Port))
 
 	var conn net.Conn
-	var err error
 	isProxyConn := via != nil
 	if via != nil {
 		m.logger.Debug("Connecting via ProxyJump", zap.String("proxyHost", ep.Host), zap.Int("proxyPort", ep.Port))

@@ -29,12 +29,14 @@ type Bookmark struct {
 	User               string `json:"user"`
 	Password           string `json:"password"`
 	Icon               string `json:"icon"`
+	UseAgent           bool   `json:"use_agent"`
 }
 
 func (b Bookmark) Endpoint() ssh.Endpoint {
 	return ssh.Endpoint{
 		Host: b.Host, Port: b.Port, User: b.User,
 		Password: b.Password, Key: b.PrivateKey, KeyPassword: b.PrivateKeyPassword,
+		UseAgent: b.UseAgent,
 	}
 }
 
@@ -181,6 +183,7 @@ func fromDB(b *database.BookmarkDB, groupName string) *Bookmark {
 		ID: b.ID, GroupName: groupName, Title: b.Title, Host: b.Host, Port: b.Port,
 		User: b.User, Password: b.Password, PrivateKey: b.PrivateKey,
 		PrivateKeyPassword: b.PrivateKeyPassword, ProxyJumpID: b.ProxyJumpID, Icon: b.Icon,
+		UseAgent: b.UseAgent,
 	}
 }
 
@@ -328,7 +331,7 @@ func (s *Service) update(b Bookmark, existing *database.BookmarkDB) error {
 		ID: processed.ID, GroupID: groupID, Title: processed.Title, Host: processed.Host, Port: processed.Port,
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
-		Icon: processed.Icon, UpdatedAt: time.Now(),
+		Icon: processed.Icon, UseAgent: processed.UseAgent, UpdatedAt: time.Now(),
 	}
 	if err := s.db.BookmarkRepo.UpdateBookmark(dbBookmark); err != nil {
 		return err
@@ -376,7 +379,7 @@ func (s *Service) insert(b Bookmark) (string, error) {
 		ID: id, GroupID: group.ID, Title: processed.Title, Host: processed.Host, Port: processed.Port,
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
-		Icon: processed.Icon, CreatedAt: now, UpdatedAt: now,
+		Icon: processed.Icon, UseAgent: processed.UseAgent, CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return "", err
 	}
@@ -437,7 +440,7 @@ func (s *Service) Copy(id string) (*Bookmark, error) {
 		ID: newID, GroupID: src.GroupID, Title: title, Host: src.Host, Port: src.Port,
 		User: src.User, Password: src.Password, PrivateKey: src.PrivateKey,
 		PrivateKeyPassword: src.PrivateKeyPassword, ProxyJumpID: src.ProxyJumpID,
-		Icon: src.Icon, CreatedAt: now, UpdatedAt: now,
+		Icon: src.Icon, UseAgent: src.UseAgent, CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return nil, err
 	}
@@ -518,7 +521,9 @@ func (s *Service) PrepareTest(b Bookmark) (ssh.Endpoint, string, error) {
 			if err != nil {
 				return ssh.Endpoint{}, "", err
 			}
-			return decrypted.Endpoint(), decrypted.ProxyJumpID, nil
+			ep := decrypted.Endpoint()
+			ep.UseAgent = b.UseAgent
+			return ep, decrypted.ProxyJumpID, nil
 		}
 	}
 	return b.Endpoint(), b.ProxyJumpID, nil

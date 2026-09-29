@@ -57,8 +57,8 @@ func (s *SSHService) bind(term *termws.Server, bookmarks *bookmark.Service) {
 	s.bookmarks = bookmarks
 }
 
-func (s *SSHService) hops(host string, port int, user, password, key, keyPassword, proxyJumpID string) ([]ssh.Endpoint, error) {
-	target := ssh.Endpoint{Host: host, Port: port, User: user, Password: password, Key: key, KeyPassword: keyPassword}
+func (s *SSHService) hops(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool) ([]ssh.Endpoint, error) {
+	target := ssh.Endpoint{Host: host, Port: port, User: user, Password: password, Key: key, KeyPassword: keyPassword, UseAgent: useAgent}
 	if proxyJumpID == "" {
 		return []ssh.Endpoint{target}, nil
 	}
@@ -94,8 +94,8 @@ func (s *SSHService) annotateSession(linkID, notice string) error {
 	return s.mgr.AnnotateSession(linkID, notice)
 }
 
-func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword, proxyJumpID string) (string, error) {
-	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID)
+func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool) (string, error) {
+	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent)
 	if err != nil {
 		return "", err
 	}
@@ -110,8 +110,8 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 	return nil
 }
 
-func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword, proxyJumpID string) error {
-	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID)
+func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool) error {
+	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,7 @@ var migrations = []Migration{
 	{Version: 2, Name: "add proxy_jump_id", Up: migrateAddProxyJumpID},
 	{Version: 3, Name: "add ai sessions", Up: migrateAddAISessions},
 	{Version: 4, Name: "add bookmark icon", Up: migrateAddBookmarkIcon},
+	{Version: 5, Name: "add bookmark use_agent", Up: migrateAddBookmarkUseAgent},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -172,6 +173,23 @@ func migrateAddBookmarkIcon(db *sql.DB, logger *zap.Logger) error {
 	}
 
 	logger.Debug("migration: added bookmark/group icon columns")
+	return nil
+}
+
+// migrateAddBookmarkUseAgent 为书签增加 SSH Agent 认证开关（幂等）
+func migrateAddBookmarkUseAgent(db *sql.DB, logger *zap.Logger) error {
+	var columnName string
+	err := db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'use_agent'`).Scan(&columnName)
+	if err == sql.ErrNoRows {
+		if _, err := db.Exec(`ALTER TABLE bookmarks ADD COLUMN use_agent INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("add column bookmarks.use_agent failed: %w", err)
+		}
+		logger.Debug("migration: added bookmarks.use_agent column")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check column bookmarks.use_agent failed: %w", err)
+	}
 	return nil
 }
 

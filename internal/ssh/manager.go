@@ -21,6 +21,7 @@ type Endpoint struct {
 	Password    string
 	Key         string
 	KeyPassword string
+	UseAgent    bool
 }
 
 func (e Endpoint) Addr() string {

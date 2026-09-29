@@ -119,6 +119,7 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       user: "",
       password: "",
       icon: "",
+      use_agent: false,
     };
     setSelectedBookmark(newBookmark);
   };

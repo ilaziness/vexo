@@ -8,7 +8,7 @@ SSH 图形客户端里尚未实现的常用功能，按模块归类。现有主�
 
 ## 连接与认证
 
-- [ ] SSH Agent
+- [x] SSH Agent
   - 含义：私钥已经加载在本机密钥代理里，连接时不必再在书签中选择密钥文件。代理替客户端完成签名。
   - 要做：连接方式增加「使用 SSH Agent」。Windows 对接 Pageant，macOS/Linux 对接 `SSH_AUTH_SOCK`。拨号时用代理里的密钥认证。
 
