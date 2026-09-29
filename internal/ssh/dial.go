@@ -61,7 +61,7 @@ func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Cli
 			defer cleanup()
 		}
 		if err != nil {
-			if ep.Password == "" && ep.Key == "" {
+			if agentUnavailableIsFatal(ep, m.keyboardPrompter != nil) {
 				return nil, fmt.Errorf("SSH agent 不可用: %w", err)
 			}
 			m.logger.Debug("ssh agent unavailable, continuing with other auth", zap.Error(err))
@@ -73,6 +73,15 @@ func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Cli
 	if err != nil {
 		return nil, err
 	}
+	var conn net.Conn
+	var keyboard cryptossh.AuthMethod
+	if m.keyboardPrompter != nil {
+		keyboard = m.keyboardAuth(ep, func() net.Conn { return conn }, timeout)
+	}
+	methods, err = finalizeAuthMethods(methods, keyboard)
+	if err != nil {
+		return nil, err
+	}
 	cfg := &cryptossh.ClientConfig{
 		User:            ep.User,
 		Auth:            methods,
@@ -80,10 +89,14 @@ func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Cli
 		Timeout:         timeout,
 	}
 
-	m.logger.Debug("ssh auth", zap.Bool("agent", ep.UseAgent), zap.Int("agent_keys", len(agentSigners)), zap.String("file", ep.Key))
+	m.logger.Debug("ssh auth",
+		zap.Bool("agent", ep.UseAgent),
+		zap.Int("agent_keys", len(agentSigners)),
+		zap.String("file", ep.Key),
+		zap.Bool("keyboard_interactive", keyboard != nil),
+	)
 	addr := net.JoinHostPort(ep.Host, fmt.Sprintf("%d", ep.Port))
 
-	var conn net.Conn
 	isProxyConn := via != nil
 	if via != nil {
 		m.logger.Debug("Connecting via ProxyJump", zap.String("proxyHost", ep.Host), zap.Int("proxyPort", ep.Port))

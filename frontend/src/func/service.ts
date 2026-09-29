@@ -23,6 +23,25 @@ export const parseCallServiceError = (err: any): string => {
   return String(err);
 };
 
+// 把 SSH 握手/认证失败转成可直接展示的短句。
+export const formatSSHConnectError = (err: unknown): string => {
+  const raw = parseCallServiceError(err).trim();
+  if (raw.includes("已取消")) {
+    return "已取消登录";
+  }
+  if (raw.includes("等待超时")) {
+    return "验证超时，请重试";
+  }
+  if (
+    raw.includes("unable to authenticate") ||
+    raw.includes("no supported methods remain") ||
+    raw.includes("没有可用认证")
+  ) {
+    return "登录失败，请检查密码或验证码";
+  }
+  return raw || "连接失败";
+};
+
 // genTabIndex generate tab index ID
 export const genTabIndex = (): string => {
   return `${Date.now()}`;

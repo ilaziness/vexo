@@ -83,6 +83,7 @@ type Manager struct {
 	knownHostsPath       string
 	knownHostsMu         sync.Mutex
 	prompter             HostKeyPrompter
+	keyboardPrompter     KeyboardInteractivePrompter
 	onClose              func(sessionID string)
 	clients              *sync.Map
 	sessions             *sync.Map
@@ -90,19 +91,22 @@ type Manager struct {
 	remoteInfoCache      sync.Map
 	remoteInfoFetchLocks sync.Map
 	hostKey              *hostKeyStore
+	keyboard             *keyboardStore
 }
 
-func NewManager(logger *zap.Logger, knownHostsPath string, prompter HostKeyPrompter) *Manager {
+func NewManager(logger *zap.Logger, knownHostsPath string, prompter HostKeyPrompter, keyboard KeyboardInteractivePrompter) *Manager {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	return &Manager{
-		logger:         logger,
-		knownHostsPath: knownHostsPath,
-		prompter:       prompter,
-		clients:        new(sync.Map),
-		sessions:       new(sync.Map),
-		hostKey:        newHostKeyStore(),
+		logger:           logger,
+		knownHostsPath:   knownHostsPath,
+		prompter:         prompter,
+		keyboardPrompter: keyboard,
+		clients:          new(sync.Map),
+		sessions:         new(sync.Map),
+		hostKey:          newHostKeyStore(),
+		keyboard:         newKeyboardStore(),
 	}
 }
 

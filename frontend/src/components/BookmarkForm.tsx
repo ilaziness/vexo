@@ -115,10 +115,6 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
       errorMessage("用户名不能为空");
       return false;
     }
-    if (!formData.password.trim() && !formData.private_key.trim() && !formData.use_agent) {
-      errorMessage("密码、密钥文件、SSH Agent 至少选择一项");
-      return false;
-    }
     return true;
   };
 

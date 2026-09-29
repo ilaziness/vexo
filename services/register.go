@@ -35,8 +35,9 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 		return err
 	}
 
-	prompter := &hostKeyPrompter{app: a}
-	sshMgr := ssh.NewManager(log, filepath.Join(cfgStore.UserDataDir(), "known_hosts"), prompter)
+	hostPrompter := &hostKeyPrompter{app: a}
+	keyboardPrompter := &keyboardInteractivePrompter{app: a}
+	sshMgr := ssh.NewManager(log, filepath.Join(cfgStore.UserDataDir(), "known_hosts"), hostPrompter, keyboardPrompter)
 	transfers := transfer.NewRegistry(func(p transfer.ProgressData) {
 		a.Event.Emit(EventProgress, p)
 	})

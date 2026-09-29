@@ -21,6 +21,8 @@ declare module "@wailsio/runtime" {
             "eventHostKeyPrompt": string;
             "eventInputPassword": string;
             "eventInputPasswordClose": string;
+            "eventKeyboardInteractive": string;
+            "eventKeyboardInteractiveClose": string;
             "eventNewVersion": services$0.NewVersion;
             "eventProgress": services$0.ProgressData;
             "eventSftpFilesDropped": services$0.SftpFilesDroppedData;

@@ -95,10 +95,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       errorMessage("Port 必须是有效的数字");
       return null;
     }
-    if (!password.trim() && !key.trim() && !useAgent) {
-      errorMessage("必须提供 Password、Private Key 或 SSH Agent 其一");
-      return null;
-    }
     return p;
   };
 

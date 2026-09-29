@@ -3,6 +3,7 @@ import SSHTabs from "../components/SSHTabs.tsx";
 import Header from "../components/subwindow/Header.tsx";
 import Message from "../components/Message.tsx";
 import HostKeyPrompt from "../components/HostKeyPrompt";
+import KeyboardInteractivePrompt from "../components/KeyboardInteractivePrompt";
 
 function SubMainWindow() {
   return (
@@ -20,6 +21,7 @@ function SubMainWindow() {
       </Box>
       <Message />
       <HostKeyPrompt />
+      <KeyboardInteractivePrompt />
     </>
   );
 }

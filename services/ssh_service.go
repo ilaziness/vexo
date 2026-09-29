@@ -17,9 +17,13 @@ import (
 )
 
 const EventHostKeyPrompt = "eventHostKeyPrompt"
+const EventKeyboardInteractive = "eventKeyboardInteractive"
+const EventKeyboardInteractiveClose = "eventKeyboardInteractiveClose"
 
 func init() {
 	application.RegisterEvent[string](EventHostKeyPrompt)
+	application.RegisterEvent[string](EventKeyboardInteractive)
+	application.RegisterEvent[string](EventKeyboardInteractiveClose)
 }
 
 type hostKeyPrompter struct {
@@ -36,6 +40,26 @@ func (p *hostKeyPrompter) Prompt(hp ssh.HostKeyPrompt) error {
 	}
 	p.app.Event.Emit(EventHostKeyPrompt, string(data))
 	return nil
+}
+
+type keyboardInteractivePrompter struct {
+	app *application.App
+}
+
+func (p *keyboardInteractivePrompter) Prompt(c ssh.KeyboardChallenge) error {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	p.app.Event.Emit(EventKeyboardInteractive, string(data))
+	return nil
+}
+
+func (p *keyboardInteractivePrompter) Dismiss(id string) {
+	if p == nil || p.app == nil || id == "" {
+		return
+	}
+	p.app.Event.Emit(EventKeyboardInteractiveClose, id)
 }
 
 type SSHService struct {
@@ -166,6 +190,14 @@ func (s *SSHService) SendToSession(sessionID, command string) error {
 
 func (s *SSHService) SetHostKeyDecision(host string, accept bool) error {
 	return s.mgr.SetHostKeyDecision(host, accept)
+}
+
+func (s *SSHService) AnswerKeyboardInteractive(id string, answers []string) error {
+	return s.mgr.AnswerKeyboardInteractive(id, answers)
+}
+
+func (s *SSHService) CancelKeyboardInteractive(id string) error {
+	return s.mgr.CancelKeyboardInteractive(id)
 }
 
 func (s *SSHService) GetOrFetchRemoteSystemInfo(linkID, host string) *ssh.RemoteSystemInfo {

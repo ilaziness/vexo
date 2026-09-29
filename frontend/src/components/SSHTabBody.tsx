@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, memo } from "react";
-import { Box, Tab, Tabs } from "@mui/material";
+import React, { useEffect, useMemo, useRef, memo } from "react";
+import { Box, Button, Tab, Tabs, Typography } from "@mui/material";
 import {
   LogService,
   SSHService,
@@ -10,7 +10,7 @@ import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
 import Loading from "./Loading";
-import { parseCallServiceError } from "../func/service";
+import { formatSSHConnectError } from "../func/service";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 import { SSH_STATUS_BAR_HEIGHT } from "../func/aiSidebar";
 import StatusBar from "./StatusBar";
@@ -40,6 +40,8 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const [lastSSHInfo, setLastSSHInfo] = React.useState<SSHLinkInfo | null>(
     null,
   );
+  const [reconnectFailed, setReconnectFailed] = React.useState(false);
+  const reloadingRef = useRef(false);
   const tabInfo = useMemo(() => getByIndex(tabIndex), [tabIndex]);
   const tabItems = useMemo(
     () => [
@@ -59,16 +61,17 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   // connect ssh server
   const connect = async (li: SSHLinkInfo) => {
     setConnectionError("");
+    setReconnectFailed(false);
     setConnecting(true);
     setLastSSHInfo({ ...li, linkID: undefined });
     try {
       LogService.Debug(`SSHLinkInfo ${JSON.stringify(li)}`);
       setTabConnectionStatus(tabIndex, ConnectionStatus.Connecting);
-      let linkID = "";
+      let nextLinkID = "";
       if (li.bookmarkID != "" && li.bookmarkID != undefined) {
-        linkID = await BookmarkService.ConnectBookmarkByID(li.bookmarkID);
+        nextLinkID = await BookmarkService.ConnectBookmarkByID(li.bookmarkID);
       } else {
-        linkID = await SSHService.Connect(
+        nextLinkID = await SSHService.Connect(
           li.host,
           li.port,
           li.user,
@@ -79,16 +82,23 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
           !!li.useAgent,
         );
       }
-      LogService.Debug(`SSH connection established with ID: ${linkID}`);
-      setLinkID(linkID);
+      LogService.Debug(`SSH connection established with ID: ${nextLinkID}`);
+      setLinkID(nextLinkID);
       setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
-      setSSHInfo(tabIndex, { ...li, linkID });
+      setSSHInfo(tabIndex, { ...li, linkID: nextLinkID });
       // Session is Exec-ready immediately; do not wait for terminal WebSocket.
       setTabConnectionStatus(tabIndex, ConnectionStatus.Connected);
     } catch (err: any) {
-      const msg = "Connection failed";
-      LogService.Error(`${msg}: ${err.message || err}`).then(() => {});
-      setConnectionError(parseCallServiceError(err));
+      const msg = formatSSHConnectError(err);
+      LogService.Error(`Connection failed: ${err?.message || err}`).then(
+        () => {},
+      );
+      // 旧会话已在刷新时关掉，失败后不能再挂到这个 linkID 上。
+      setLinkID("");
+      setConnectionError(msg);
+      if (reloadingRef.current) {
+        setReconnectFailed(true);
+      }
       setTabConnectionStatus(tabIndex, ConnectionStatus.Disconnected);
     } finally {
       setConnecting(false);
@@ -119,8 +129,13 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         setSftpLoaded(false);
         // 如果有保存的连接信息，重新连接
         if (lastSSHInfo) {
+          reloadingRef.current = true;
           setIsReloading(true);
-          await connect(lastSSHInfo);
+          try {
+            await connect(lastSSHInfo);
+          } finally {
+            reloadingRef.current = false;
+          }
         }
       }
     };
@@ -152,6 +167,40 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   }
 
   if (linkID === "") {
+    if (reconnectFailed && connectionError) {
+      return (
+        <Box
+          sx={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            px: 3,
+          }}
+        >
+          <Typography color="error" align="center">
+            {connectionError}
+          </Typography>
+          <Button
+            variant="contained"
+            disabled={!lastSSHInfo || connecting}
+            onClick={() => {
+              if (!lastSSHInfo) return;
+              reloadingRef.current = true;
+              setIsReloading(true);
+              connect(lastSSHInfo).finally(() => {
+                reloadingRef.current = false;
+              });
+            }}
+          >
+            重新连接
+          </Button>
+        </Box>
+      );
+    }
     return (
       <ConnectionForm
         onConnect={connect}

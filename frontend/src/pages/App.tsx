@@ -4,6 +4,7 @@ import Header from "../components/Header.tsx";
 import Message from "../components/Message.tsx";
 import PasswordInputDialog from "../components/PasswordInputDialog.tsx";
 import HostKeyPrompt from "../components/HostKeyPrompt";
+import KeyboardInteractivePrompt from "../components/KeyboardInteractivePrompt";
 import { AppService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
       <Message />
       <PasswordInputDialog />
       <HostKeyPrompt />
+      <KeyboardInteractivePrompt />
     </>
   );
 }

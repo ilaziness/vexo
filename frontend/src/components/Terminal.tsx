@@ -255,12 +255,14 @@ function Terminal(props: { readonly linkID: string }) {
           `WebSocket error for terminal ${props.linkID}: ${errorMessage}`,
         );
         term.current?.write(`\r\n*** WebSocket error: ${errorMessage} ***\r\n`);
+        setIsInitializing(false);
       };
 
       ws.onclose = () => {
         if (!mountedRef.current) return;
         LogService.Debug(`WebSocket closed for terminal ${props.linkID}`);
         setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
+        setIsInitializing(false);
         term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
       };
     } catch (err) {

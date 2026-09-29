@@ -12,7 +12,7 @@ SSH 图形客户端里尚未实现的常用功能，按模块归类。现有主�
   - 含义：私钥已经加载在本机密钥代理里，连接时不必再在书签中选择密钥文件。代理替客户端完成签名。
   - 要做：连接方式增加「使用 SSH Agent」。Windows 对接 Pageant，macOS/Linux 对接 `SSH_AUTH_SOCK`。拨号时用代理里的密钥认证。
 
-- [ ] keyboard-interactive
+- [x] keyboard-interactive
   - 含义：服务器不直接收密码，而是发一连串提问，客户端把答案送回去。常见于 TOTP、Duo 等二次验证，有的服务器也用它代替普通密码登录。
   - 要做：拨号支持 `keyboard-interactive`。服务器提问时弹出输入框，把用户答案送回，直到登录成功或失败。
 
