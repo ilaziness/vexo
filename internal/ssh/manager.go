@@ -21,6 +21,7 @@ type Endpoint struct {
 	Password    string
 	Key         string
 	KeyPassword string
+	KeyPEM      string
 	UseAgent    bool
 }
 

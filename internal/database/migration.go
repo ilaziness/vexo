@@ -21,6 +21,7 @@ var migrations = []Migration{
 	{Version: 3, Name: "add ai sessions", Up: migrateAddAISessions},
 	{Version: 4, Name: "add bookmark icon", Up: migrateAddBookmarkIcon},
 	{Version: 5, Name: "add bookmark use_agent", Up: migrateAddBookmarkUseAgent},
+	{Version: 6, Name: "add ssh keys", Up: migrateAddSSHKeys},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -189,6 +190,37 @@ func migrateAddBookmarkUseAgent(db *sql.DB, logger *zap.Logger) error {
 	}
 	if err != nil {
 		return fmt.Errorf("check column bookmarks.use_agent failed: %w", err)
+	}
+	return nil
+}
+
+// migrateAddSSHKeys 增加应用内密钥表，以及书签对密钥的引用。
+func migrateAddSSHKeys(db *sql.DB, logger *zap.Logger) error {
+	_, err := db.Exec(`
+	CREATE TABLE IF NOT EXISTS ssh_keys (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		algorithm TEXT NOT NULL,
+		comment TEXT NOT NULL DEFAULT '',
+		public_key TEXT NOT NULL,
+		private_key TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);`)
+	if err != nil {
+		return fmt.Errorf("create ssh_keys failed: %w", err)
+	}
+
+	var columnName string
+	err = db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'ssh_key_id'`).Scan(&columnName)
+	if err == sql.ErrNoRows {
+		if _, err := db.Exec(`ALTER TABLE bookmarks ADD COLUMN ssh_key_id TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add column bookmarks.ssh_key_id failed: %w", err)
+		}
+		logger.Debug("migration: added bookmarks.ssh_key_id column")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check column bookmarks.ssh_key_id failed: %w", err)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import Header from "../components/subwindow/Header.tsx";
 import Message from "../components/Message.tsx";
 import HostKeyPrompt from "../components/HostKeyPrompt";
 import KeyboardInteractivePrompt from "../components/KeyboardInteractivePrompt";
+import PasswordInputDialog from "../components/PasswordInputDialog";
 
 function SubMainWindow() {
   return (
@@ -22,6 +23,7 @@ function SubMainWindow() {
       <Message />
       <HostKeyPrompt />
       <KeyboardInteractivePrompt />
+      <PasswordInputDialog />
     </>
   );
 }

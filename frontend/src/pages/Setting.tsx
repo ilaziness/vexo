@@ -7,11 +7,13 @@ import {
   TerminalSettings,
   SyncSettings,
   AISettings,
+  KeySettings,
   About,
 } from "../components/settings";
 import OpBar from "../components/OpBar";
 import Message from "../components/Message";
 import Loading from "../components/Loading";
+import PasswordInputDialog from "../components/PasswordInputDialog";
 import {
   Config,
   AppInfo,
@@ -139,6 +141,8 @@ const Setting: React.FC = () => {
                 </Paper>
               )}
 
+              {activeTab === "keys" && <KeySettings />}
+
               {activeTab === "about" && (
                 <Paper sx={{ p: 3 }} elevation={1}>
                   <About appinfo={appInfo} />
@@ -149,6 +153,7 @@ const Setting: React.FC = () => {
         </Box>
       </Box>
       <Message />
+      <PasswordInputDialog />
     </>
   );
 };

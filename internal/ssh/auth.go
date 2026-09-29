@@ -14,7 +14,13 @@ func authMethods(ep Endpoint, agentSigners []cryptossh.Signer) ([]cryptossh.Auth
 	if ep.UseAgent && len(agentSigners) > 0 {
 		methods = append(methods, cryptossh.PublicKeys(agentSigners...))
 	}
-	if ep.Key != "" {
+	if ep.KeyPEM != "" {
+		signer, err := signerFromPEM(ep.KeyPEM)
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, cryptossh.PublicKeys(signer))
+	} else if ep.Key != "" {
 		signer, err := signerFromKeyFile(ep.Key, ep.KeyPassword)
 		if err != nil {
 			return nil, err
@@ -39,7 +45,15 @@ func finalizeAuthMethods(methods []cryptossh.AuthMethod, keyboard cryptossh.Auth
 }
 
 func agentUnavailableIsFatal(ep Endpoint, keyboardEnabled bool) bool {
-	return ep.Password == "" && ep.Key == "" && !keyboardEnabled
+	return ep.Password == "" && ep.Key == "" && ep.KeyPEM == "" && !keyboardEnabled
+}
+
+func signerFromPEM(pem string) (cryptossh.Signer, error) {
+	signer, err := cryptossh.ParsePrivateKey([]byte(pem))
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse private key: %v", err)
+	}
+	return signer, nil
 }
 
 func signerFromKeyFile(path, passphrase string) (cryptossh.Signer, error) {

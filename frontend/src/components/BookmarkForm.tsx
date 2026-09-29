@@ -19,11 +19,14 @@ import {
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import {
   SSHBookmark,
+  SSHKeyInfo,
   AppService,
+  KeyService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/services/bookmarkservice";
 import { BookmarkListItem } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { useMessageStore } from "../stores/message";
+import { parseCallServiceError } from "../func/service";
 import FormRow from "./FormRow";
 import {
   BookmarkIconView,
@@ -51,6 +54,7 @@ const emptyBookmark = (): SSHBookmark => ({
   password: "",
   icon: "",
   use_agent: false,
+  ssh_key_id: "",
 });
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -66,6 +70,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
+  const [storedKeys, setStoredKeys] = useState<SSHKeyInfo[]>([]);
   const [iconAnchor, setIconAnchor] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -77,6 +82,16 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
         console.error("获取书签列表失败:", err);
       });
   }, []);
+
+  useEffect(() => {
+    KeyService.List()
+      .then((res) => {
+        setStoredKeys((res ?? []).filter((item): item is SSHKeyInfo => item != null));
+      })
+      .catch((err) => {
+        errorMessage(parseCallServiceError(err));
+      });
+  }, [bookmark, errorMessage]);
 
   useEffect(() => {
     if (bookmark) {
@@ -169,6 +184,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
         setFormData((prev) => ({
           ...prev,
           private_key: selectedPath,
+          ssh_key_id: "",
         }));
       }
     } catch (error) {
@@ -398,6 +414,33 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     placeholder="密码认证（可选）"
                   />
                 </FormRow>
+                <FormRow label="应用内密钥" labelWidth={120}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    value={formData.ssh_key_id || ""}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        ssh_key_id: id,
+                        ...(id ? { private_key: "", private_key_password: "" } : {}),
+                      }));
+                    }}
+                  >
+                    <MenuItem value="">不使用</MenuItem>
+                    {formData.ssh_key_id &&
+                      !storedKeys.some((key) => key.id === formData.ssh_key_id) && (
+                        <MenuItem value={formData.ssh_key_id}>已保存的密钥</MenuItem>
+                      )}
+                    {storedKeys.map((key) => (
+                      <MenuItem key={key.id} value={key.id}>
+                        {key.name}（{key.algorithm}）
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </FormRow>
                 <FormRow label="密钥文件" labelWidth={120}>
                   <TextField
                     fullWidth
@@ -432,7 +475,8 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     type="password"
                     value={formData.private_key_password}
                     onChange={handleChange}
-                    placeholder="私钥密码（可选）"
+                    disabled={Boolean(formData.ssh_key_id)}
+                    placeholder={formData.ssh_key_id ? "应用内密钥不使用此口令" : "私钥密码（可选）"}
                   />
                 </FormRow>
               </Stack>

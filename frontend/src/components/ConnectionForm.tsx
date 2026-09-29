@@ -174,6 +174,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       password,
       icon: "",
       use_agent: useAgent,
+      ssh_key_id: "",
     };
 
     // 保存到书签

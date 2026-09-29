@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 
-export type SettingsTab = "general" | "terminal" | "sync" | "ai" | "about";
+export type SettingsTab = "general" | "terminal" | "sync" | "ai" | "keys" | "about";
 
 interface NavItem {
   key: SettingsTab;
@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { key: "terminal", label: "终端" },
   { key: "sync", label: "同步" },
   { key: "ai", label: "AI" },
+  { key: "keys", label: "密钥" },
   { key: "about", label: "关于" },
 ];
 

@@ -10,6 +10,7 @@ import (
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/ilaziness/vexo/internal/sftp"
 	"github.com/ilaziness/vexo/internal/ssh"
+	"github.com/ilaziness/vexo/internal/sshkey"
 	"github.com/ilaziness/vexo/internal/termws"
 	"github.com/ilaziness/vexo/internal/transfer"
 	"github.com/ilaziness/vexo/internal/tunnel"
@@ -48,9 +49,10 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	termWS := termws.NewServer(log, sshMgr, func(id string) { _ = sshService.CloseByID(id) })
 	sshMgr.SetOnClose(func(id string) { _ = sshService.CloseByID(id) })
 
+	keys := sshkey.New(log, db, configService.getPasswordWithPrompt, vault.Clear)
 	bookmarks := bookmark.New(log, db, configService.getPasswordWithPrompt, func() {
 		a.Event.Emit(EventBookmarkUpdate, BookmarkUpdateMsg)
-	}, vault.Clear)
+	}, vault.Clear, keys.PrivatePEM)
 	sshService.bind(termWS, bookmarks)
 	bookmarkService := NewBookmarkService(a, bookmarks, sshService)
 
@@ -71,6 +73,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	a.RegisterService(application.NewService(commandService))
 	a.RegisterService(application.NewService(syncService))
 	a.RegisterService(application.NewService(toolService))
+	a.RegisterService(application.NewService(NewKeyService(a, keys, log)))
 	a.RegisterService(application.NewService(aiService))
 
 	appService.startBackgroundUpdateCheck()

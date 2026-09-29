@@ -233,8 +233,8 @@ export default function Header() {
         errorMessage("bookmark not found");
         return;
       }
-      if (!bookmark.password && !bookmark.private_key && !bookmark.use_agent) {
-        errorMessage("password, private key file and SSH agent are empty");
+      if (!bookmark.password && !bookmark.private_key && !bookmark.ssh_key_id && !bookmark.use_agent) {
+        errorMessage("未设置密码、密钥或 SSH Agent");
         return;
       }
       const sshInfo = {

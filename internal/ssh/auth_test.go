@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ilaziness/vexo/internal/sshkey"
 	cryptossh "golang.org/x/crypto/ssh"
 )
 
@@ -127,6 +128,21 @@ func TestAuthMethodOrder(t *testing.T) {
 	}
 }
 
+func TestAuthMethodsKeyPEM(t *testing.T) {
+	_, privatePEM, err := sshkey.Generate(sshkey.AlgoEd25519, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	methods, err := authMethods(Endpoint{KeyPEM: privatePEM, Key: "ignored"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := methodTypes(methods)
+	if len(got) != 1 || !strings.Contains(got[0], "publicKey") {
+		t.Fatalf("methods = %v", got)
+	}
+}
+
 func TestAgentUnavailableIsFatal(t *testing.T) {
 	if !agentUnavailableIsFatal(Endpoint{UseAgent: true}, false) {
 		t.Fatal("expected fatal without other auth")
@@ -136,6 +152,9 @@ func TestAgentUnavailableIsFatal(t *testing.T) {
 	}
 	if agentUnavailableIsFatal(Endpoint{Key: "k"}, false) {
 		t.Fatal("key file should keep dialing")
+	}
+	if agentUnavailableIsFatal(Endpoint{KeyPEM: "pem"}, false) {
+		t.Fatal("stored key should keep dialing")
 	}
 	if agentUnavailableIsFatal(Endpoint{}, true) {
 		t.Fatal("keyboard-interactive should keep dialing")

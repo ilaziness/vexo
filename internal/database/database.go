@@ -16,6 +16,7 @@ type Database struct {
 	dbPath             string
 	logger             *zap.Logger
 	BookmarkRepo       *BookmarkRepository
+	SSHKeyRepo         *SSHKeyRepository
 	UserCommandRepo    *UserCommandRepository
 	CommandHistoryRepo *CommandHistoryRepository
 	AISessionRepo      AISessionRepository
@@ -48,6 +49,7 @@ func (d *Database) Initialize() error {
 	}
 	d.logger.Debug("db initialized successfully")
 	d.BookmarkRepo = NewBookmarkRepository(d.db, d.logger)
+	d.SSHKeyRepo = NewSSHKeyRepository(d.db, d.logger)
 	d.UserCommandRepo = NewUserCommandRepository(d.db, d.logger)
 	d.CommandHistoryRepo = NewCommandHistoryRepository(d.db, d.logger)
 	d.AISessionRepo = NewSQLiteAISessionRepository(d.db)

@@ -8,7 +8,7 @@ import {
   Button,
   Typography,
 } from "@mui/material";
-import { Events } from "@wailsio/runtime";
+import { Events, Window } from "@wailsio/runtime";
 import * as ConfigService from "../../bindings/github.com/ilaziness/vexo/services/configservice";
 
 const PasswordInputDialog: React.FC = () => {
@@ -17,12 +17,22 @@ const PasswordInputDialog: React.FC = () => {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    // 监听密码输入事件
+    let alive = true;
     const unsubscribe = Events.On("eventInputPassword", (event: any) => {
-      console.log("Received eventInputPassword event:", event);
-      setMessage(event.data || "需要密码来加密/解密密码");
-      setOpen(true);
-      setPassword("");
+      void (async () => {
+        let focused = true;
+        try {
+          focused = await Window.IsFocused();
+        } catch (error) {
+          console.error("window focus check failed", error);
+        }
+        if (!alive || !focused) {
+          return;
+        }
+        setMessage(event?.data || "需要密码来加密/解密密码");
+        setPassword("");
+        setOpen(true);
+      })();
     });
 
     const unsubscribe2 = Events.On("eventInputPasswordClose", () => {
@@ -30,6 +40,7 @@ const PasswordInputDialog: React.FC = () => {
     });
 
     return () => {
+      alive = false;
       unsubscribe();
       unsubscribe2();
     };

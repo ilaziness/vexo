@@ -17,6 +17,9 @@ const DefaultGroupName = "默认书签"
 
 type PasswordFn func(reason string) (string, error)
 
+// KeyPEMFunc 按应用内密钥 ID 解密私钥 PEM。
+type KeyPEMFunc func(id string) (string, error)
+
 type Bookmark struct {
 	GroupName          string `json:"group_name"`
 	ID                 string `json:"id"`
@@ -30,6 +33,7 @@ type Bookmark struct {
 	Password           string `json:"password"`
 	Icon               string `json:"icon"`
 	UseAgent           bool   `json:"use_agent"`
+	SshKeyID           string `json:"ssh_key_id"`
 }
 
 func (b Bookmark) Endpoint() ssh.Endpoint {
@@ -59,15 +63,16 @@ type Service struct {
 	logger     *zap.Logger
 	db         *database.Database
 	passwordFn PasswordFn
+	keyPEM     KeyPEMFunc
 	onUpdate   func()
 	onBadPass  func()
 }
 
-func New(logger *zap.Logger, db *database.Database, passwordFn PasswordFn, onUpdate, onBadPass func()) *Service {
+func New(logger *zap.Logger, db *database.Database, passwordFn PasswordFn, onUpdate, onBadPass func(), keyPEM KeyPEMFunc) *Service {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Service{logger: logger, db: db, passwordFn: passwordFn, onUpdate: onUpdate, onBadPass: onBadPass}
+	return &Service{logger: logger, db: db, passwordFn: passwordFn, onUpdate: onUpdate, onBadPass: onBadPass, keyPEM: keyPEM}
 }
 
 func (s *Service) emit() {
@@ -183,7 +188,7 @@ func fromDB(b *database.BookmarkDB, groupName string) *Bookmark {
 		ID: b.ID, GroupName: groupName, Title: b.Title, Host: b.Host, Port: b.Port,
 		User: b.User, Password: b.Password, PrivateKey: b.PrivateKey,
 		PrivateKeyPassword: b.PrivateKeyPassword, ProxyJumpID: b.ProxyJumpID, Icon: b.Icon,
-		UseAgent: b.UseAgent,
+		UseAgent: b.UseAgent, SshKeyID: b.SshKeyID,
 	}
 }
 
@@ -221,7 +226,10 @@ func (s *Service) ResolveHops(target ssh.Endpoint, jumpID string) ([]ssh.Endpoin
 		if err != nil {
 			return nil, fmt.Errorf("failed to load proxy jump bookmark: %v", err)
 		}
-		ep := b.Endpoint()
+		ep, err := s.endpointWithKey(*b)
+		if err != nil {
+			return nil, err
+		}
 		if seen[ep.Addr()] {
 			return nil, fmt.Errorf("检测到跳板机循环引用: %s", ep.Addr())
 		}
@@ -240,7 +248,33 @@ func (s *Service) ResolveHopsForBookmark(id string) ([]ssh.Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.ResolveHops(b.Endpoint(), b.ProxyJumpID)
+	ep, err := s.endpointWithKey(*b)
+	if err != nil {
+		return nil, err
+	}
+	return s.ResolveHops(ep, b.ProxyJumpID)
+}
+
+func (s *Service) endpointWithKey(b Bookmark) (ssh.Endpoint, error) {
+	return s.attachKey(b.Endpoint(), b.SshKeyID)
+}
+
+func (s *Service) attachKey(ep ssh.Endpoint, keyID string) (ssh.Endpoint, error) {
+	if keyID == "" {
+		return ep, nil
+	}
+	if s.keyPEM == nil {
+		return ssh.Endpoint{}, fmt.Errorf("密钥服务未初始化")
+	}
+	pem, err := s.keyPEM(keyID)
+	if err != nil {
+		s.logger.Error("load stored ssh key failed", zap.String("key_id", keyID), zap.Error(err))
+		return ssh.Endpoint{}, err
+	}
+	ep.KeyPEM = pem
+	ep.Key = ""
+	ep.KeyPassword = ""
+	return ep, nil
 }
 
 func (s *Service) ListGrouped() ([]*Group, error) {
@@ -296,6 +330,10 @@ func (s *Service) ListItems() ([]*ListItem, error) {
 }
 
 func (s *Service) Save(b Bookmark) (string, error) {
+	b, err := s.normalizeKeySource(b)
+	if err != nil {
+		return "", err
+	}
 	if b.ID != "" {
 		existing, err := s.db.BookmarkRepo.GetBookmarkByID(b.ID)
 		if err == nil && existing != nil {
@@ -331,7 +369,7 @@ func (s *Service) update(b Bookmark, existing *database.BookmarkDB) error {
 		ID: processed.ID, GroupID: groupID, Title: processed.Title, Host: processed.Host, Port: processed.Port,
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
-		Icon: processed.Icon, UseAgent: processed.UseAgent, UpdatedAt: time.Now(),
+		Icon: processed.Icon, UseAgent: processed.UseAgent, SshKeyID: processed.SshKeyID, UpdatedAt: time.Now(),
 	}
 	if err := s.db.BookmarkRepo.UpdateBookmark(dbBookmark); err != nil {
 		return err
@@ -379,7 +417,7 @@ func (s *Service) insert(b Bookmark) (string, error) {
 		ID: id, GroupID: group.ID, Title: processed.Title, Host: processed.Host, Port: processed.Port,
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
-		Icon: processed.Icon, UseAgent: processed.UseAgent, CreatedAt: now, UpdatedAt: now,
+		Icon: processed.Icon, UseAgent: processed.UseAgent, SshKeyID: processed.SshKeyID, CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return "", err
 	}
@@ -440,7 +478,7 @@ func (s *Service) Copy(id string) (*Bookmark, error) {
 		ID: newID, GroupID: src.GroupID, Title: title, Host: src.Host, Port: src.Port,
 		User: src.User, Password: src.Password, PrivateKey: src.PrivateKey,
 		PrivateKeyPassword: src.PrivateKeyPassword, ProxyJumpID: src.ProxyJumpID,
-		Icon: src.Icon, UseAgent: src.UseAgent, CreatedAt: now, UpdatedAt: now,
+		Icon: src.Icon, UseAgent: src.UseAgent, SshKeyID: src.SshKeyID, CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return nil, err
 	}
@@ -508,23 +546,53 @@ func (s *Service) DeleteGroup(name string) error {
 }
 
 func (s *Service) PrepareTest(b Bookmark) (ssh.Endpoint, string, error) {
+	ep := b.Endpoint()
+	jumpID := b.ProxyJumpID
 	if b.ID != "" {
 		existing, err := s.Get(b.ID)
 		if err != nil {
 			return ssh.Endpoint{}, "", err
 		}
-		if b.Host == existing.Host && b.Port == existing.Port && b.User == existing.User &&
-			b.PrivateKey == existing.PrivateKey &&
-			(b.Password == "" || b.Password == PasswordMask) &&
-			(b.PrivateKeyPassword == "" || b.PrivateKeyPassword == PasswordMask) {
+		sameHost := b.Host == existing.Host && b.Port == existing.Port && b.User == existing.User
+		passwordUnchanged := b.Password == "" || b.Password == PasswordMask
+		keyPassUnchanged := b.PrivateKeyPassword == "" || b.PrivateKeyPassword == PasswordMask
+		sameKeyFile := b.PrivateKey == existing.PrivateKey
+		sameStoredKey := b.SshKeyID == existing.SshKeyID
+		if sameHost && passwordUnchanged && keyPassUnchanged && sameKeyFile && sameStoredKey {
 			decrypted, err := s.GetDecrypted(b.ID)
 			if err != nil {
 				return ssh.Endpoint{}, "", err
 			}
-			ep := decrypted.Endpoint()
+			ep = decrypted.Endpoint()
 			ep.UseAgent = b.UseAgent
-			return ep, decrypted.ProxyJumpID, nil
+		} else if sameHost && b.Password == PasswordMask {
+			decrypted, err := s.GetDecrypted(b.ID)
+			if err != nil {
+				return ssh.Endpoint{}, "", err
+			}
+			ep.Password = decrypted.Password
+			if sameKeyFile && keyPassUnchanged {
+				ep.KeyPassword = decrypted.PrivateKeyPassword
+			} else if b.PrivateKeyPassword == PasswordMask {
+				ep.KeyPassword = ""
+			}
 		}
 	}
-	return b.Endpoint(), b.ProxyJumpID, nil
+	ep, err := s.attachKey(ep, b.SshKeyID)
+	if err != nil {
+		return ssh.Endpoint{}, "", err
+	}
+	return ep, jumpID, nil
+}
+
+func (s *Service) normalizeKeySource(b Bookmark) (Bookmark, error) {
+	if b.SshKeyID == "" {
+		return b, nil
+	}
+	if _, err := s.db.SSHKeyRepo.Get(b.SshKeyID); err != nil {
+		return b, fmt.Errorf("应用内密钥不存在")
+	}
+	b.PrivateKey = ""
+	b.PrivateKeyPassword = ""
+	return b, nil
 }

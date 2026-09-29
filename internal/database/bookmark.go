@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const bookmarkSelectCols = `id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, COALESCE(icon, ''), COALESCE(use_agent, 0), created_at, updated_at`
+const bookmarkSelectCols = `id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, COALESCE(icon, ''), COALESCE(use_agent, 0), COALESCE(ssh_key_id, ''), created_at, updated_at`
 
 // BookmarkGroupDB 书签分组数据库模型
 type BookmarkGroupDB struct {
@@ -32,6 +32,7 @@ type BookmarkDB struct {
 	ProxyJumpID        string    `json:"proxy_jump_id"`
 	Icon               string    `json:"icon"`
 	UseAgent           bool      `json:"use_agent"`
+	SshKeyID           string    `json:"ssh_key_id"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
@@ -56,7 +57,7 @@ func scanBookmark(scanner interface{ Scan(dest ...any) error }) (*BookmarkDB, er
 	err := scanner.Scan(
 		&autoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
 		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID, &b.Icon,
-		&useAgent,
+		&useAgent, &b.SshKeyID,
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -144,11 +145,11 @@ func (r *BookmarkRepository) GetBookmarkByTitleAndGroup(title string, groupID in
 
 // InsertBookmark 插入书签
 func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
-	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, icon, use_agent, created_at, updated_at) 
-			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, icon, use_agent, ssh_key_id, created_at, updated_at) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query,
 		bookmark.ID, bookmark.GroupID, bookmark.Title, bookmark.Host, bookmark.Port,
-		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent),
+		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent), bookmark.SshKeyID,
 		bookmark.CreatedAt, bookmark.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "bookmark", err)
@@ -162,11 +163,11 @@ func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
 func (r *BookmarkRepository) UpdateBookmark(bookmark *BookmarkDB) error {
 	query := `UPDATE bookmarks 
 			  SET group_id = ?, title = ?, host = ?, port = ?, user = ?, password = ?, 
-			      private_key = ?, private_key_password = ?, proxy_jump_id = ?, icon = ?, use_agent = ?, updated_at = ? 
+			      private_key = ?, private_key_password = ?, proxy_jump_id = ?, icon = ?, use_agent = ?, ssh_key_id = ?, updated_at = ? 
 			  WHERE bookmark_id = ?`
 	_, err := r.db.Exec(query,
 		bookmark.GroupID, bookmark.Title, bookmark.Host, bookmark.Port,
-		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent),
+		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent), bookmark.SshKeyID,
 		bookmark.UpdatedAt, bookmark.ID)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "update bookmark", err)
@@ -185,6 +186,16 @@ func (r *BookmarkRepository) DeleteBookmark(id string) error {
 
 	r.logger.Debug("bookmark deleted", zap.String("id", id))
 	return nil
+}
+
+// CountBySSHKeyID 统计引用某个应用内密钥的书签数量。
+func (r *BookmarkRepository) CountBySSHKeyID(id string) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM bookmarks WHERE ssh_key_id = ?`, id).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf(errQuery, "bookmarks by ssh key", err)
+	}
+	return count, nil
 }
 
 // InsertGroup 插入分组

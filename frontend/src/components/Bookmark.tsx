@@ -120,6 +120,7 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       password: "",
       icon: "",
       use_agent: false,
+      ssh_key_id: "",
     };
     setSelectedBookmark(newBookmark);
   };
