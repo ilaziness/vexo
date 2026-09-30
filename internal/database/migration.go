@@ -22,6 +22,7 @@ var migrations = []Migration{
 	{Version: 4, Name: "add bookmark icon", Up: migrateAddBookmarkIcon},
 	{Version: 5, Name: "add bookmark use_agent", Up: migrateAddBookmarkUseAgent},
 	{Version: 6, Name: "add ssh keys", Up: migrateAddSSHKeys},
+	{Version: 7, Name: "add bookmark certificate", Up: migrateAddBookmarkCertificate},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -221,6 +222,23 @@ func migrateAddSSHKeys(db *sql.DB, logger *zap.Logger) error {
 	}
 	if err != nil {
 		return fmt.Errorf("check column bookmarks.ssh_key_id failed: %w", err)
+	}
+	return nil
+}
+
+// migrateAddBookmarkCertificate 为书签增加 OpenSSH 用户证书文件路径（幂等）。
+func migrateAddBookmarkCertificate(db *sql.DB, logger *zap.Logger) error {
+	var columnName string
+	err := db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'certificate'`).Scan(&columnName)
+	if err == sql.ErrNoRows {
+		if _, err := db.Exec(`ALTER TABLE bookmarks ADD COLUMN certificate TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add column bookmarks.certificate failed: %w", err)
+		}
+		logger.Debug("migration: added bookmarks.certificate column")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check column bookmarks.certificate failed: %w", err)
 	}
 	return nil
 }

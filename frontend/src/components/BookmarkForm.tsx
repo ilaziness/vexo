@@ -16,12 +16,14 @@ import {
   Autocomplete,
   createFilterOptions,
 } from "@mui/material";
+import ClearIcon from "@mui/icons-material/Clear";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import {
   SSHBookmark,
   SSHKeyInfo,
   AppService,
   KeyService,
+  SSHService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/services/bookmarkservice";
 import { BookmarkListItem } from "../../bindings/github.com/ilaziness/vexo/services/models";
@@ -55,6 +57,7 @@ const emptyBookmark = (): SSHBookmark => ({
   icon: "",
   use_agent: false,
   ssh_key_id: "",
+  certificate: "",
 });
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -189,6 +192,20 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
       }
     } catch (error) {
       console.error("选择文件失败:", error);
+    }
+  };
+
+  const handleSelectCertificate = async () => {
+    try {
+      const selectedPath = await SSHService.SelectCertificateFile();
+      if (selectedPath) {
+        setFormData((prev) => ({
+          ...prev,
+          certificate: selectedPath,
+        }));
+      }
+    } catch (error) {
+      errorMessage(parseCallServiceError(error));
     }
   };
 
@@ -477,6 +494,44 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     onChange={handleChange}
                     disabled={Boolean(formData.ssh_key_id)}
                     placeholder={formData.ssh_key_id ? "应用内密钥不使用此口令" : "私钥密码（可选）"}
+                  />
+                </FormRow>
+                <FormRow label="证书文件" labelWidth={120}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    name="certificate"
+                    value={formData.certificate || ""}
+                    placeholder="OpenSSH 用户证书（可选）"
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            {formData.certificate ? (
+                              <IconButton
+                                edge="end"
+                                onClick={() =>
+                                  setFormData((prev) => ({ ...prev, certificate: "" }))
+                                }
+                                size="small"
+                                title="清除证书"
+                              >
+                                <ClearIcon />
+                              </IconButton>
+                            ) : null}
+                            <IconButton
+                              edge="end"
+                              onClick={handleSelectCertificate}
+                              size="small"
+                              title="选择证书文件"
+                            >
+                              <MoreHorizIcon />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
                   />
                 </FormRow>
               </Stack>

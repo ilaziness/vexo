@@ -17,6 +17,7 @@ export interface SSHLinkInfo {
   keyPassword?: string;
   proxyJumpID?: string;
   useAgent?: boolean;
+  certificate?: string;
 }
 
 export interface SSHTab {

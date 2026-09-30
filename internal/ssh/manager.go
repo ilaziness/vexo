@@ -23,6 +23,7 @@ type Endpoint struct {
 	KeyPassword string
 	KeyPEM      string
 	UseAgent    bool
+	Certificate string
 }
 
 func (e Endpoint) Addr() string {

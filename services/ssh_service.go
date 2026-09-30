@@ -81,8 +81,8 @@ func (s *SSHService) bind(term *termws.Server, bookmarks *bookmark.Service) {
 	s.bookmarks = bookmarks
 }
 
-func (s *SSHService) hops(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool) ([]ssh.Endpoint, error) {
-	target := ssh.Endpoint{Host: host, Port: port, User: user, Password: password, Key: key, KeyPassword: keyPassword, UseAgent: useAgent}
+func (s *SSHService) hops(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool, certificate string) ([]ssh.Endpoint, error) {
+	target := ssh.Endpoint{Host: host, Port: port, User: user, Password: password, Key: key, KeyPassword: keyPassword, UseAgent: useAgent, Certificate: certificate}
 	if proxyJumpID == "" {
 		return []ssh.Endpoint{target}, nil
 	}
@@ -118,8 +118,8 @@ func (s *SSHService) annotateSession(linkID, notice string) error {
 	return s.mgr.AnnotateSession(linkID, notice)
 }
 
-func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool) (string, error) {
-	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent)
+func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool, certificate string) (string, error) {
+	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent, certificate)
 	if err != nil {
 		return "", err
 	}
@@ -134,8 +134,8 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 	return nil
 }
 
-func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool) error {
-	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent)
+func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool, certificate string) error {
+	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent, certificate)
 	if err != nil {
 		return err
 	}
@@ -178,6 +178,10 @@ func (s *SSHService) CloseByID(ID string) error {
 
 func (s *SSHService) SelectKeyFile() (string, error) {
 	return s.app.Dialog.OpenFile().SetTitle("选择私钥文件").PromptForSingleSelection()
+}
+
+func (s *SSHService) SelectCertificateFile() (string, error) {
+	return s.app.Dialog.OpenFile().SetTitle("选择证书文件").PromptForSingleSelection()
 }
 
 func (s *SSHService) GetActiveSessions() []map[string]any {

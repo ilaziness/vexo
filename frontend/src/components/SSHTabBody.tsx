@@ -80,6 +80,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
           li.keyPassword || "",
           li.proxyJumpID || "",
           !!li.useAgent,
+          li.certificate || "",
         );
       }
       LogService.Debug(`SSH connection established with ID: ${nextLinkID}`);

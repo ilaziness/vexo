@@ -69,6 +69,24 @@ func TestPrepareTestUnchangedFileKeepsKeyPassword(t *testing.T) {
 	}
 }
 
+func TestPrepareTestKeepsFormCertificate(t *testing.T) {
+	svc, id := testBookmarkService(t, "/keys/id_ed25519", "key-pass")
+	ep, _, err := svc.PrepareTest(Bookmark{
+		ID: id, Host: "h", Port: 22, User: "root",
+		Password: PasswordMask, PrivateKey: "/keys/id_ed25519", PrivateKeyPassword: PasswordMask,
+		Certificate: "/keys/user-cert.pub",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ep.Certificate != "/keys/user-cert.pub" {
+		t.Fatalf("certificate = %q", ep.Certificate)
+	}
+	if ep.Password != "login-secret" || ep.KeyPassword != "key-pass" {
+		t.Fatalf("endpoint = %+v", ep)
+	}
+}
+
 func testBookmarkService(t *testing.T, keyPath, keyPass string) (*Service, string) {
 	t.Helper()
 	db := database.NewDatabase(t.TempDir(), zap.NewNop())

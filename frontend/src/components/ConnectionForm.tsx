@@ -53,6 +53,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [keyPassword, setKeyPassword] = useState("");
   const [proxyJumpID, setProxyJumpID] = useState("");
   const [useAgent, setUseAgent] = useState(false);
+  const [certificate, setCertificate] = useState("");
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(DEFAULT_GROUP);
@@ -80,6 +81,18 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       const file = await SSHService.SelectKeyFile();
       LogService.Debug(`select key file ${file}`);
       setKey(file);
+    } catch (err: any) {
+      errorMessage(parseCallServiceError(err));
+    }
+  };
+
+  const onSelectCertificate = async () => {
+    try {
+      const file = await SSHService.SelectCertificateFile();
+      LogService.Debug(`select certificate file ${file}`);
+      if (file) {
+        setCertificate(file);
+      }
     } catch (err: any) {
       errorMessage(parseCallServiceError(err));
     }
@@ -114,6 +127,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       keyPassword: key ? keyPassword : undefined,
       proxyJumpID,
       useAgent,
+      certificate,
     });
   };
 
@@ -133,6 +147,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
         key ? keyPassword : "",
         proxyJumpID,
         useAgent,
+        certificate,
       );
       successMessage("连接测试成功");
     } catch (err) {
@@ -175,6 +190,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       icon: "",
       use_agent: useAgent,
       ssh_key_id: "",
+      certificate,
     };
 
     // 保存到书签
@@ -191,6 +207,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           keyPassword: key ? keyPassword : undefined,
           proxyJumpID: proxyJumpID,
           useAgent,
+          certificate,
         });
       })
       .catch((err) => {
@@ -274,7 +291,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               placeholder="please select key file"
               sx={{ flex: 1 }}
             />
-            <Button onClick={onSelectKeyFile} variant="outlined">
+            <Button type="button" onClick={onSelectKeyFile} variant="outlined">
               Select
             </Button>
           </Box>
@@ -291,6 +308,27 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               placeholder="private key password (optional)"
             />
           )}
+          <Box sx={{ display: "flex", gap: 1, m: 0.8 }}>
+            <TextField
+              label="Certificate"
+              value={certificate}
+              variant="outlined"
+              size="small"
+              slotProps={{
+                input: { readOnly: true },
+              }}
+              placeholder="OpenSSH user certificate"
+              sx={{ flex: 1 }}
+            />
+            <Button type="button" onClick={onSelectCertificate} variant="outlined">
+              Select
+            </Button>
+            {certificate ? (
+              <Button type="button" onClick={() => setCertificate("")} variant="outlined">
+                Clear
+              </Button>
+            ) : null}
+          </Box>
           <Autocomplete
             size="small"
             sx={{ m: 0.8 }}

@@ -94,6 +94,8 @@ func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Cli
 		zap.Int("agent_keys", len(agentSigners)),
 		zap.String("file", ep.Key),
 		zap.Bool("stored_key", ep.KeyPEM != ""),
+		zap.Bool("certificate", ep.Certificate != ""),
+		zap.String("certificate_file", ep.Certificate),
 		zap.Bool("keyboard_interactive", keyboard != nil),
 	)
 	addr := net.JoinHostPort(ep.Host, fmt.Sprintf("%d", ep.Port))
