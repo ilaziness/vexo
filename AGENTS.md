@@ -257,6 +257,7 @@ Go 在项目根目录执行。先格式化，再验证能否编译：
 
 ```bash
 go fmt ./...
+golangci-lint run
 go build .
 ```
 

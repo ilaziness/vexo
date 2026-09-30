@@ -1,8 +1,11 @@
 # Vexo — 跨平台 SSH & SFTP GUI 客户端
 
-[![Go Version](https://img.shields.io/badge/Go-1.27%2B-blue)](https://golang.org)
-[![Wails Version](https://img.shields.io/badge/Wails-v3-8A2BE2)](https://wails.io)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![CI](https://github.com/ilaziness/vexo/actions/workflows/release.yml/badge.svg)](https://github.com/ilaziness/vexo/actions/workflows/release.yml)
+[![Release](https://img.shields.io/github/v/release/ilaziness/vexo)](https://github.com/ilaziness/vexo/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/ilaziness/vexo/releases)
+[![Go](https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Wails](https://img.shields.io/badge/Wails-v3-8A2BE2)](https://wails.io)
+[![License](https://img.shields.io/github/license/ilaziness/vexo)](LICENSE)
 
 一款基于 Go 和 Wails v3 构建的现代化、跨平台 SSH 和 SFTP 桌面 GUI 应用。
 
@@ -12,23 +15,24 @@
 
 **Vexo** 是一个简洁、响应迅速的桌面应用程序，将 SSH 和 SFTP 的强大功能带到您的指尖——无需离开原生 GUI 环境。使用 [Wails v3](https://wails.io) 和 Go 构建，Vexo 原生运行于 Windows、macOS 和 Linux，为开发人员和系统管理员提供统一的远程访问和文件管理工具。
 
-设计理念：清爽简洁、专业可靠、护眼舒适
-
 ---
 
 ## ✨ 特性
 
-- 支持SSH ProxyJump，通过中间节点连接目标服务器
+- SSH 登录：密码、私钥、SSH Agent（Windows Pageant / macOS·Linux `SSH_AUTH_SOCK`）、OpenSSH 证书、keyboard-interactive（OTP/二次验证提问）
+- 应用内生成 SSH 密钥对，公钥可复制，私钥按主密码加密保存或导出
+- 敏感信息主密码保护（Argon2id + AES-GCM，进程内 Vault）
+- 支持 SSH ProxyJump，通过中间节点连接目标服务器
 - SSH 端口转发/隧道，支持本地转发、远程转发、SOCKS5 动态代理
-- 多标签切换,拖动，复制，刷新
+- 多标签切换、拖动、复制、刷新
 - SFTP 文件浏览器，支持上传、下载、删除、重命名文件
 - 文件传输任务管理
-- 书签管理，快速连接常用服务器
-- 主题切换支持，多种主题方案：亮色模式、暗色模式、蓝夜模式、护眼模式
+- 书签管理与分组，快速连接常用服务器
+- 主题切换支持，多种主题方案：亮色模式、暗色模式、护眼模式
 - 命令库功能，建立自己的命令库，一键发送到多个会话
 - 自建数据远程备份功能，在多台设备间恢复配置，本地加密，支持历史版本恢复
 - 自动更新检查，及时获取最新版本
-- AI侧边栏功能，自主分析问题，执行命令
+- AI 侧边栏功能，自主分析问题，执行命令
 
 ---
 
