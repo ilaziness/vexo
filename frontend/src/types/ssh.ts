@@ -20,6 +20,35 @@ export interface SSHLinkInfo {
   certificate?: string;
 }
 
+/** Matches services.ConnectRequest JSON fields (camelCase). */
+export interface ConnectRequest {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  key: string;
+  keyPassword: string;
+  proxyJumpID: string;
+  useAgent: boolean;
+  certificate: string;
+}
+
+/** Build ConnectRequest with stable defaults for optional SSHLinkInfo fields. */
+export function toConnectRequest(li: SSHLinkInfo): ConnectRequest {
+  const key = li.key || "";
+  return {
+    host: li.host,
+    port: li.port,
+    user: li.user,
+    password: li.password || "",
+    key,
+    keyPassword: key ? li.keyPassword || "" : "",
+    proxyJumpID: li.proxyJumpID || "",
+    useAgent: !!li.useAgent,
+    certificate: li.certificate || "",
+  };
+}
+
 export interface SSHTab {
   index: string;
   name: string;

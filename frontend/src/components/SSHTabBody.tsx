@@ -5,7 +5,7 @@ import {
   SSHService,
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
-import { ConnectionStatus, SSHLinkInfo } from "../types/ssh";
+import { ConnectionStatus, SSHLinkInfo, toConnectRequest } from "../types/ssh";
 import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
@@ -71,17 +71,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       if (li.bookmarkID != "" && li.bookmarkID != undefined) {
         nextLinkID = await BookmarkService.ConnectBookmarkByID(li.bookmarkID);
       } else {
-        nextLinkID = await SSHService.Connect(
-          li.host,
-          li.port,
-          li.user,
-          li.password || "",
-          li.key || "",
-          li.keyPassword || "",
-          li.proxyJumpID || "",
-          !!li.useAgent,
-          li.certificate || "",
-        );
+        nextLinkID = await SSHService.Connect(toConnectRequest(li));
       }
       LogService.Debug(`SSH connection established with ID: ${nextLinkID}`);
       setLinkID(nextLinkID);

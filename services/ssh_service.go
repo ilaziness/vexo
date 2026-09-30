@@ -62,6 +62,27 @@ func (p *keyboardInteractivePrompter) Dismiss(id string) {
 	p.app.Event.Emit(EventKeyboardInteractiveClose, id)
 }
 
+// ConnectRequest 直连参数，Connect / TestConnectInfo 共用；不含书签跳板解析结果。
+type ConnectRequest struct {
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	User        string `json:"user"`
+	Password    string `json:"password"`
+	Key         string `json:"key"`
+	KeyPassword string `json:"keyPassword"`
+	ProxyJumpID string `json:"proxyJumpID"`
+	UseAgent    bool   `json:"useAgent"`
+	Certificate string `json:"certificate"`
+}
+
+func (r ConnectRequest) endpoint() ssh.Endpoint {
+	return ssh.Endpoint{
+		Host: r.Host, Port: r.Port, User: r.User,
+		Password: r.Password, Key: r.Key, KeyPassword: r.KeyPassword,
+		UseAgent: r.UseAgent, Certificate: r.Certificate,
+	}
+}
+
 type SSHService struct {
 	app       *application.App
 	mgr       *ssh.Manager
@@ -81,15 +102,15 @@ func (s *SSHService) bind(term *termws.Server, bookmarks *bookmark.Service) {
 	s.bookmarks = bookmarks
 }
 
-func (s *SSHService) hops(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool, certificate string) ([]ssh.Endpoint, error) {
-	target := ssh.Endpoint{Host: host, Port: port, User: user, Password: password, Key: key, KeyPassword: keyPassword, UseAgent: useAgent, Certificate: certificate}
-	if proxyJumpID == "" {
+func (s *SSHService) hops(req ConnectRequest) ([]ssh.Endpoint, error) {
+	target := req.endpoint()
+	if req.ProxyJumpID == "" {
 		return []ssh.Endpoint{target}, nil
 	}
 	if s.bookmarks == nil {
 		return nil, errors.New("bookmark service not initialized")
 	}
-	return s.bookmarks.ResolveHops(target, proxyJumpID)
+	return s.bookmarks.ResolveHops(target, req.ProxyJumpID)
 }
 
 func (s *SSHService) connectHops(hops []ssh.Endpoint) (string, error) {
@@ -118,8 +139,8 @@ func (s *SSHService) annotateSession(linkID, notice string) error {
 	return s.mgr.AnnotateSession(linkID, notice)
 }
 
-func (s *SSHService) Connect(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool, certificate string) (string, error) {
-	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent, certificate)
+func (s *SSHService) Connect(req ConnectRequest) (string, error) {
+	hops, err := s.hops(req)
 	if err != nil {
 		return "", err
 	}
@@ -134,8 +155,8 @@ func (s *SSHService) Start(ID string, cols, rows int) error {
 	return nil
 }
 
-func (s *SSHService) TestConnectInfo(host string, port int, user, password, key, keyPassword, proxyJumpID string, useAgent bool, certificate string) error {
-	hops, err := s.hops(host, port, user, password, key, keyPassword, proxyJumpID, useAgent, certificate)
+func (s *SSHService) TestConnectInfo(req ConnectRequest) error {
+	hops, err := s.hops(req)
 	if err != nil {
 		return err
 	}

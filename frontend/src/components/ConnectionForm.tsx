@@ -22,7 +22,7 @@ import {
   SSHService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import * as BookmarkService from "../../bindings/github.com/ilaziness/vexo/services/bookmarkservice";
-import { SSHLinkInfo } from "../types/ssh";
+import { SSHLinkInfo, toConnectRequest } from "../types/ssh";
 import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
 import {
@@ -139,15 +139,17 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
     setTesting(true);
     try {
       await SSHService.TestConnectInfo(
-        host,
-        p,
-        user,
-        password,
-        key,
-        key ? keyPassword : "",
-        proxyJumpID,
-        useAgent,
-        certificate,
+        toConnectRequest({
+          host,
+          port: p,
+          user,
+          password,
+          key,
+          keyPassword,
+          proxyJumpID,
+          useAgent,
+          certificate,
+        }),
       );
       successMessage("连接测试成功");
     } catch (err) {
