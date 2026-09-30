@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useRef, memo } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  memo,
+} from "react";
 import { Box, Button, Tab, Tabs, Typography } from "@mui/material";
 import {
   LogService,
@@ -42,7 +49,10 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   );
   const [reconnectFailed, setReconnectFailed] = React.useState(false);
   const reloadingRef = useRef(false);
-  const tabInfo = useMemo(() => getByIndex(tabIndex), [tabIndex]);
+  const tabInfo = useMemo(
+    () => getByIndex(tabIndex),
+    [tabIndex, getByIndex],
+  );
   const tabItems = useMemo(
     () => [
       {
@@ -59,43 +69,46 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const sftpIndex = 1;
 
   // connect ssh server
-  const connect = async (li: SSHLinkInfo) => {
-    setConnectionError("");
-    setReconnectFailed(false);
-    setConnecting(true);
-    setLastSSHInfo({ ...li, linkID: undefined });
-    try {
-      LogService.Debug(`SSHLinkInfo ${JSON.stringify(li)}`);
-      setTabConnectionStatus(tabIndex, ConnectionStatus.Connecting);
-      let nextLinkID = "";
-      if (li.bookmarkID != "" && li.bookmarkID != undefined) {
-        nextLinkID = await BookmarkService.ConnectBookmarkByID(li.bookmarkID);
-      } else {
-        nextLinkID = await SSHService.Connect(toConnectRequest(li));
+  const connect = useCallback(
+    async (li: SSHLinkInfo) => {
+      setConnectionError("");
+      setReconnectFailed(false);
+      setConnecting(true);
+      setLastSSHInfo({ ...li, linkID: undefined });
+      try {
+        LogService.Debug(`SSHLinkInfo ${JSON.stringify(li)}`);
+        setTabConnectionStatus(tabIndex, ConnectionStatus.Connecting);
+        let nextLinkID = "";
+        if (li.bookmarkID != "" && li.bookmarkID != undefined) {
+          nextLinkID = await BookmarkService.ConnectBookmarkByID(li.bookmarkID);
+        } else {
+          nextLinkID = await SSHService.Connect(toConnectRequest(li));
+        }
+        LogService.Debug(`SSH connection established with ID: ${nextLinkID}`);
+        setLinkID(nextLinkID);
+        setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
+        setSSHInfo(tabIndex, { ...li, linkID: nextLinkID });
+        // Session is Exec-ready immediately; do not wait for terminal WebSocket.
+        setTabConnectionStatus(tabIndex, ConnectionStatus.Connected);
+      } catch (err: any) {
+        const msg = formatSSHConnectError(err);
+        LogService.Error(`Connection failed: ${err?.message || err}`).then(
+          () => {},
+        );
+        // 旧会话已在刷新时关掉，失败后不能再挂到这个 linkID 上。
+        setLinkID("");
+        setConnectionError(msg);
+        if (reloadingRef.current) {
+          setReconnectFailed(true);
+        }
+        setTabConnectionStatus(tabIndex, ConnectionStatus.Disconnected);
+      } finally {
+        setConnecting(false);
+        setIsReloading(false);
       }
-      LogService.Debug(`SSH connection established with ID: ${nextLinkID}`);
-      setLinkID(nextLinkID);
-      setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
-      setSSHInfo(tabIndex, { ...li, linkID: nextLinkID });
-      // Session is Exec-ready immediately; do not wait for terminal WebSocket.
-      setTabConnectionStatus(tabIndex, ConnectionStatus.Connected);
-    } catch (err: any) {
-      const msg = formatSSHConnectError(err);
-      LogService.Error(`Connection failed: ${err?.message || err}`).then(
-        () => {},
-      );
-      // 旧会话已在刷新时关掉，失败后不能再挂到这个 linkID 上。
-      setLinkID("");
-      setConnectionError(msg);
-      if (reloadingRef.current) {
-        setReconnectFailed(true);
-      }
-      setTabConnectionStatus(tabIndex, ConnectionStatus.Disconnected);
-    } finally {
-      setConnecting(false);
-      setIsReloading(false);
-    }
-  };
+    },
+    [tabIndex, setName, setSSHInfo, setTabConnectionStatus],
+  );
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -104,33 +117,35 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     }
   };
 
-  useEffect(() => {
-    const doReload = async () => {
-      if (reloadTab.index === tabIndex) {
-        LogService.Debug(`reload tab ${reloadTab.index} - ${tabIndex}`);
-        if (linkID != "") {
-          try {
-            await SSHService.CloseByID(linkID);
-          } catch (e) {
-            console.warn("CloseByID error during reload:", e);
-          }
-        }
-        // 重置状态
-        setActiveTab(0);
-        setSftpLoaded(false);
-        // 如果有保存的连接信息，重新连接
-        if (lastSSHInfo) {
-          reloadingRef.current = true;
-          setIsReloading(true);
-          try {
-            await connect(lastSSHInfo);
-          } finally {
-            reloadingRef.current = false;
-          }
-        }
+  const onReloadTab = useEffectEvent(async () => {
+    if (reloadTab.index !== tabIndex) {
+      return;
+    }
+    LogService.Debug(`reload tab ${reloadTab.index} - ${tabIndex}`);
+    if (linkID != "") {
+      try {
+        await SSHService.CloseByID(linkID);
+      } catch (e) {
+        console.warn("CloseByID error during reload:", e);
       }
-    };
-    doReload();
+    }
+    // 重置状态
+    setActiveTab(0);
+    setSftpLoaded(false);
+    // 如果有保存的连接信息，重新连接
+    if (lastSSHInfo) {
+      reloadingRef.current = true;
+      setIsReloading(true);
+      try {
+        await connect(lastSSHInfo);
+      } finally {
+        reloadingRef.current = false;
+      }
+    }
+  });
+
+  useEffect(() => {
+    void onReloadTab();
   }, [reloadTab]);
 
   useEffect(() => {
@@ -146,11 +161,15 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     };
   }, [linkID]);
 
-  useEffect(() => {
+  const onMountConnect = useEffectEvent(() => {
     if (tabInfo?.sshInfo) {
       setIsReloading(true);
-      connect(tabInfo.sshInfo).then(() => {});
+      void connect(tabInfo.sshInfo);
     }
+  });
+
+  useEffect(() => {
+    onMountConnect();
   }, []);
 
   if (isReloading) {

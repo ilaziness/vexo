@@ -64,18 +64,7 @@ export default function Header() {
     [handleAddTab, handleBookmark],
   );
 
-  useEffect(() => {
-    loadBookmarks();
-    const unsubscribe = Events.On("eventBookmarkUpdate", () => {
-      loadBookmarks();
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
-  const loadBookmarks = async () => {
+  const loadBookmarks = useCallback(async () => {
     try {
       const config = await BookmarkService.ListBookmarks();
       if (config && Array.isArray(config)) {
@@ -91,7 +80,18 @@ export default function Header() {
       console.error("Failed to load bookmarks:", error);
       errorMessage(`Failed to load bookmarks:${error}`);
     }
-  };
+  }, [errorMessage]);
+
+  useEffect(() => {
+    void loadBookmarks();
+    const unsubscribe = Events.On("eventBookmarkUpdate", () => {
+      void loadBookmarks();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [loadBookmarks]);
 
   const closeBookmarkMenu = () => {
     setBookmarkAnchorEl(null);

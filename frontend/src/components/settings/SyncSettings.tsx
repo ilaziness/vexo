@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useEffectEvent } from "react";
 import {
   Box,
   Typography,
@@ -110,34 +110,21 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
   const isConfigured =
     localConfig.serverUrl && localConfig.syncId && localConfig.userKey;
 
-  useEffect(() => {
-    if (isConfigured) {
-      checkHealth();
-      loadVersions();
+  const validateSyncConfig = (): boolean => {
+    if (!localConfig.serverUrl.trim()) {
+      errorMessage("服务器地址不能为空");
+      return false;
     }
-  }, [isConfigured]);
-
-  useEffect(() => {
-    if (!loading) {
-      setProgress(null);
-      return;
+    if (!localConfig.syncId.trim()) {
+      errorMessage("同步 ID 不能为空");
+      return false;
     }
-
-    const interval = setInterval(async () => {
-      try {
-        const p = await GetSyncProgress();
-        setProgress(p);
-
-        if (p.isCompleted || p.error) {
-          clearInterval(interval);
-        }
-      } catch (error) {
-        LogService.Warn("Failed to get progress: " + String(error));
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [loading]);
+    if (!localConfig.userKey.trim()) {
+      errorMessage("用户密钥不能为空");
+      return false;
+    }
+    return true;
+  };
 
   const checkHealth = async () => {
     if (!validateSyncConfig()) return;
@@ -165,21 +152,38 @@ const SyncSettings: React.FC<SyncSettingsProps> = ({
     }
   };
 
-  const validateSyncConfig = (): boolean => {
-    if (!localConfig.serverUrl.trim()) {
-      errorMessage("服务器地址不能为空");
-      return false;
+  const onConfigured = useEffectEvent(() => {
+    void checkHealth();
+    void loadVersions();
+  });
+
+  useEffect(() => {
+    if (isConfigured) {
+      onConfigured();
     }
-    if (!localConfig.syncId.trim()) {
-      errorMessage("同步 ID 不能为空");
-      return false;
+  }, [isConfigured]);
+
+  useEffect(() => {
+    if (!loading) {
+      setProgress(null);
+      return;
     }
-    if (!localConfig.userKey.trim()) {
-      errorMessage("用户密钥不能为空");
-      return false;
-    }
-    return true;
-  };
+
+    const interval = setInterval(async () => {
+      try {
+        const p = await GetSyncProgress();
+        setProgress(p);
+
+        if (p.isCompleted || p.error) {
+          clearInterval(interval);
+        }
+      } catch (error) {
+        LogService.Warn("Failed to get progress: " + String(error));
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleSaveConfig = async () => {
     setSaving(true);

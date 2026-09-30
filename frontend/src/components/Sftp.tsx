@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -108,22 +108,23 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   refreshFileListRef.current = refreshFileList;
 
   // 初始化SFTP连接
+  const initSftp = useEffectEvent(async () => {
+    if (sftpLoaded) return;
+    try {
+      await SSHService.StartSftp(linkID);
+      LogService.Debug("SFTP connection established");
+      const homePath = await SftpService.GetWd(linkID);
+      setCurrentPath(homePath);
+      await refreshFileList(homePath);
+      setSftpLoaded(true);
+    } catch (err: any) {
+      showMessageError(parseCallServiceError(err));
+      LogService.Error(`Failed to initialize SFTP: ${err.message || err}`);
+    }
+  });
+
   useEffect(() => {
-    const initSftp = async () => {
-      if (sftpLoaded) return;
-      try {
-        await SSHService.StartSftp(linkID);
-        LogService.Debug("SFTP connection established");
-        const homePath = await SftpService.GetWd(linkID);
-        setCurrentPath(homePath);
-        await refreshFileList(homePath);
-        setSftpLoaded(true);
-      } catch (err: any) {
-        showMessageError(parseCallServiceError(err));
-        LogService.Error(`Failed to initialize SFTP: ${err.message || err}`);
-      }
-    };
-    initSftp().then(() => {});
+    void initSftp();
   }, [linkID]);
 
   useEffect(() => {

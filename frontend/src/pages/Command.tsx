@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -66,43 +66,43 @@ const Command: React.FC = () => {
   // 清空历史确认对话框
   const [clearHistoryConfirmOpen, setClearHistoryConfirmOpen] = useState(false);
 
-  // 加载命令和会话
-  useEffect(() => {
-    loadCommands();
-    loadSessions();
-    loadHistory();
-  }, []);
-
-  const loadCommands = async () => {
+  const loadCommands = useCallback(async () => {
     try {
       const result = await CommandService.GetAllCommands();
       setCommandsByCategory(result as { [key: string]: CommandInfo[] });
     } catch (error) {
       errorMessage(`加载命令失败：${parseCallServiceError(error)}`);
     }
-  };
+  }, [errorMessage]);
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     try {
       const sessionsData = await SSHService.GetActiveSessions();
       setSessions(sessionsData as SSHTunnelSession[]);
     } catch (error) {
       errorMessage(`获取会话列表失败：${parseCallServiceError(error)}`);
     }
-  };
+  }, [errorMessage]);
 
-  // 刷新会话列表
-  const handleRefreshSessions = () => {
-    loadSessions();
-  };
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       const historyData = await CommandService.GetCommandHistory();
       setHistory(historyData as CommandHistory[]);
     } catch (error) {
       errorMessage(`加载历史失败：${parseCallServiceError(error)}`);
     }
+  }, [errorMessage]);
+
+  // 加载命令和会话
+  useEffect(() => {
+    void loadCommands();
+    void loadSessions();
+    void loadHistory();
+  }, [loadCommands, loadSessions, loadHistory]);
+
+  // 刷新会话列表
+  const handleRefreshSessions = () => {
+    void loadSessions();
   };
 
   // 切换分类展开/折叠

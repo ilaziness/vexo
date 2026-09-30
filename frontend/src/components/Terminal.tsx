@@ -1,4 +1,4 @@
-import React, { useEffect, useState, memo } from "react";
+import React, { useEffect, useEffectEvent, useState, memo } from "react";
 import { Box } from "@mui/material";
 import type { Terminal as TerminalLib } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
@@ -174,7 +174,7 @@ function Terminal(props: { readonly linkID: string }) {
     SSHService.Resize(props.linkID, cols, rows);
   };
 
-  const initTerminal = async (mountedRef: { current: boolean }) => {
+  const initTerminal = useEffectEvent(async (mountedRef: { current: boolean }) => {
     if (term.current) {
       return;
     }
@@ -279,7 +279,7 @@ function Terminal(props: { readonly linkID: string }) {
       setIsInitializing(false);
       setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
     }
-  };
+  });
 
   // 监听终端主题变化，动态更新终端主题
   useEffect(() => {

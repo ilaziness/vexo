@@ -118,7 +118,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
         : undefined,
     });
     setCurrentTab(newIndex);
-  }, [tabIndex, sshTabs.length, getByIndex, pushTab, setCurrentTab, closeMenu]);
+  }, [tabIndex, getByIndex, pushTab, setCurrentTab, closeMenu]);
 
   const handleRefreshTab = useCallback(() => {
     closeMenu();

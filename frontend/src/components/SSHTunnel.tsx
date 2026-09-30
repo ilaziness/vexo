@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   List,
@@ -53,7 +53,7 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
   const [stoppingIds, setStoppingIds] = useState<Set<string>>(new Set());
 
   // 获取隧道列表
-  const fetchTunnelList = async () => {
+  const fetchTunnelList = useCallback(async () => {
     if (!open) return;
 
     setLoading(true);
@@ -66,14 +66,14 @@ const SSHTunnel: React.FC<SSHTunnelProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [open, errorMessage]);
 
   // 组件打开时刷新列表
   useEffect(() => {
     if (open) {
-      fetchTunnelList();
+      void fetchTunnelList();
     }
-  }, [open]);
+  }, [open, fetchTunnelList]);
 
   // 处理表单打开
   const handleFormOpen = () => {

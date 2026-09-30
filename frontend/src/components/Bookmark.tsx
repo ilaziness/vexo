@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Box, Paper } from "@mui/material";
 import {
   BookmarkService,
@@ -22,11 +22,7 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
   );
   const { errorMessage, successMessage } = useMessageStore();
 
-  useEffect(() => {
-    loadBookmarks();
-  }, []);
-
-  const loadBookmarks = async () => {
+  const loadBookmarks = useCallback(async () => {
     try {
       const config = await BookmarkService.ListBookmarks();
       if (config && Array.isArray(config)) {
@@ -42,7 +38,11 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       LogService.Warn(`Failed to load bookmarks:${error}`);
       errorMessage("加载书签失败: " + parseCallServiceError(error));
     }
-  };
+  }, [errorMessage]);
+
+  useEffect(() => {
+    void loadBookmarks();
+  }, [loadBookmarks]);
 
   const handleBookmarkSelect = (bookmark: SSHBookmark) => {
     setSelectedBookmark(bookmark);
