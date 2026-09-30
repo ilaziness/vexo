@@ -7,18 +7,21 @@ import React, {
   memo,
 } from "react";
 import { Box, Button, Tab, Tabs, Typography } from "@mui/material";
+import { Events } from "@wailsio/runtime";
 import {
   LogService,
   SSHService,
   BookmarkService,
+  ConfigService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { ConnectionStatus, SSHLinkInfo, toConnectRequest } from "../types/ssh";
 import Terminal from "./Terminal";
 import Sftp from "./Sftp";
 import ConnectionForm from "./ConnectionForm";
 import Loading from "./Loading";
-import { formatSSHConnectError } from "../func/service";
+import { formatSSHConnectError, sleep } from "../func/service";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
+import { useMessageStore } from "../stores/message";
 import { SSH_STATUS_BAR_HEIGHT } from "../func/aiSidebar";
 import StatusBar from "./StatusBar";
 
@@ -28,6 +31,7 @@ interface SSHContainerProps {
 
 const tabHeight = "30px";
 const statusBarHeight = `${SSH_STATUS_BAR_HEIGHT}px`;
+const AUTO_RECONNECT_MAX_ATTEMPTS = 5;
 
 // SSH 连接容器组件，管理连接状态和错误处理
 const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
@@ -38,6 +42,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   const setTabConnectionStatus = useSSHTabsStore(
     (state) => state.setTabConnectionStatus,
   );
+  const { infoMessage, successMessage, errorMessage } = useMessageStore();
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
@@ -49,28 +54,27 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
   );
   const [reconnectFailed, setReconnectFailed] = React.useState(false);
   const reloadingRef = useRef(false);
+  const skipAutoReconnectRef = useRef(false);
+  const autoReconnectingRef = useRef(false);
+  const linkIDRef = useRef(linkID);
+  const lastSSHInfoRef = useRef(lastSSHInfo);
+  linkIDRef.current = linkID;
+  lastSSHInfoRef.current = lastSSHInfo;
+
   const tabInfo = useMemo(
     () => getByIndex(tabIndex),
     [tabIndex, getByIndex],
   );
-  const tabItems = useMemo(
-    () => [
-      {
-        label: "SSH",
-        component: <Terminal linkID={linkID} />,
-      },
-      {
-        label: "SFTP",
-        component: <Sftp linkID={linkID} />,
-      },
-    ],
-    [linkID],
-  );
   const sftpIndex = 1;
+
+  const clearLinkID = () => {
+    setLinkID("");
+    linkIDRef.current = "";
+  };
 
   // connect ssh server
   const connect = useCallback(
-    async (li: SSHLinkInfo) => {
+    async (li: SSHLinkInfo): Promise<string> => {
       setConnectionError("");
       setReconnectFailed(false);
       setConnecting(true);
@@ -86,28 +90,118 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         }
         LogService.Debug(`SSH connection established with ID: ${nextLinkID}`);
         setLinkID(nextLinkID);
+        linkIDRef.current = nextLinkID;
         setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
         setSSHInfo(tabIndex, { ...li, linkID: nextLinkID });
         // Session is Exec-ready immediately; do not wait for terminal WebSocket.
         setTabConnectionStatus(tabIndex, ConnectionStatus.Connected);
+        return nextLinkID;
       } catch (err: any) {
         const msg = formatSSHConnectError(err);
         LogService.Error(`Connection failed: ${err?.message || err}`).then(
           () => {},
         );
         // 旧会话已在刷新时关掉，失败后不能再挂到这个 linkID 上。
-        setLinkID("");
+        clearLinkID();
         setConnectionError(msg);
-        if (reloadingRef.current) {
+        if (reloadingRef.current && !autoReconnectingRef.current) {
           setReconnectFailed(true);
         }
         setTabConnectionStatus(tabIndex, ConnectionStatus.Disconnected);
+        return "";
       } finally {
         setConnecting(false);
-        setIsReloading(false);
+        if (!autoReconnectingRef.current) {
+          setIsReloading(false);
+        }
       }
     },
     [tabIndex, setName, setSSHInfo, setTabConnectionStatus],
+  );
+
+  const connectRef = useRef(connect);
+  connectRef.current = connect;
+
+  const runAutoReconnectRef = useRef(async () => {});
+  runAutoReconnectRef.current = async () => {
+    if (
+      skipAutoReconnectRef.current ||
+      reloadingRef.current ||
+      autoReconnectingRef.current
+    ) {
+      return;
+    }
+    const info = lastSSHInfoRef.current;
+    if (!info) {
+      clearLinkID();
+      return;
+    }
+
+    let autoReconnect = true;
+    try {
+      const cfg = await ConfigService.ReadConfig();
+      autoReconnect = cfg?.SSH?.autoReconnect ?? true;
+    } catch (err) {
+      LogService.Error(
+        `ReadConfig for auto-reconnect failed: ${err}`,
+      ).then(() => {});
+    }
+    if (!autoReconnect) {
+      clearLinkID();
+      return;
+    }
+
+    autoReconnectingRef.current = true;
+    try {
+      for (let attempt = 1; attempt <= AUTO_RECONNECT_MAX_ATTEMPTS; attempt++) {
+        if (skipAutoReconnectRef.current) {
+          return;
+        }
+        infoMessage(
+          `连接已断开，正在重连 (${attempt}/${AUTO_RECONNECT_MAX_ATTEMPTS})…`,
+        );
+        const delayMs = Math.min(1000 * 2 ** (attempt - 1), 8000);
+        await sleep(delayMs);
+        if (skipAutoReconnectRef.current) {
+          return;
+        }
+
+        skipAutoReconnectRef.current = true;
+        reloadingRef.current = true;
+        setIsReloading(true);
+        setActiveTab(0);
+        setSftpLoaded(false);
+        try {
+          const nextID = await connectRef.current(info);
+          if (nextID) {
+            successMessage("已重新连接");
+            return;
+          }
+        } finally {
+          reloadingRef.current = false;
+          skipAutoReconnectRef.current = false;
+        }
+      }
+      errorMessage("自动重连失败，请手动重试");
+      setReconnectFailed(true);
+    } finally {
+      autoReconnectingRef.current = false;
+      setIsReloading(false);
+    }
+  };
+
+  const tabItems = useMemo(
+    () => [
+      {
+        label: "SSH",
+        component: <Terminal linkID={linkID} />,
+      },
+      {
+        label: "SFTP",
+        component: <Sftp linkID={linkID} />,
+      },
+    ],
+    [linkID],
   );
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -122,6 +216,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
       return;
     }
     LogService.Debug(`reload tab ${reloadTab.index} - ${tabIndex}`);
+    skipAutoReconnectRef.current = true;
     if (linkID != "") {
       try {
         await SSHService.CloseByID(linkID);
@@ -140,13 +235,47 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
         await connect(lastSSHInfo);
       } finally {
         reloadingRef.current = false;
+        skipAutoReconnectRef.current = false;
       }
+    } else {
+      skipAutoReconnectRef.current = false;
     }
   });
 
   useEffect(() => {
     void onReloadTab();
   }, [reloadTab]);
+
+  useEffect(() => {
+    const unsubscribe = Events.On("eventSSHSessionClosed", (event: any) => {
+      try {
+        const raw =
+          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        const closedID = raw?.id as string | undefined;
+        const reason = raw?.reason as string | undefined;
+        if (!closedID || closedID !== linkIDRef.current) {
+          return;
+        }
+        // Clean exit (e.g. remote `exit`): drop dead session UI, no auto-reconnect.
+        if (reason !== "unexpected") {
+          clearLinkID();
+          return;
+        }
+        void runAutoReconnectRef.current();
+      } catch (e) {
+        console.error("Invalid SSH session closed payload", e);
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      skipAutoReconnectRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {

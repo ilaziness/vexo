@@ -19,8 +19,10 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { ContentCopy, Delete, FileDownload } from "@mui/icons-material";
 import {
   KeyService,
   SSHKeyInfo,
@@ -170,7 +172,7 @@ const KeySettings: React.FC = () => {
     <Box>
       <Stack direction="row" sx={{ mb: 3, alignItems: "center", justifyContent: "space-between" }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>
-          密钥
+          身份密钥
         </Typography>
         <Button variant="contained" onClick={() => setGenerateOpen(true)}>
           生成密钥
@@ -202,25 +204,38 @@ const KeySettings: React.FC = () => {
               <TableRow key={key.id} hover>
                 <TableCell>{key.name}</TableCell>
                 <TableCell>{key.algorithm}</TableCell>
-                <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{key.fingerprint}</TableCell>
+                <TableCell>{key.fingerprint}</TableCell>
                 <TableCell>{key.comment}</TableCell>
                 <TableCell>{key.created_at}</TableCell>
                 <TableCell align="right">
-                  <Button size="small" onClick={() => copyPublicKey(key.public_key)}>
-                    复制公钥
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setExportPassphrase("");
-                      setExportTarget(key);
-                    }}
-                  >
-                    导出
-                  </Button>
-                  <Button size="small" color="error" onClick={() => setDeleteTarget(key)}>
-                    删除
-                  </Button>
+                  <Tooltip title="复制公钥">
+                    <IconButton
+                      size="small"
+                      onClick={() => copyPublicKey(key.public_key)}
+                    >
+                      <ContentCopy fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="导出">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setExportPassphrase("");
+                        setExportTarget(key);
+                      }}
+                    >
+                      <FileDownload fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="删除">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => setDeleteTarget(key)}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
@@ -298,7 +313,7 @@ const KeySettings: React.FC = () => {
         <DialogActions>
           {generated ? (
             <>
-              <Button onClick={() => copyPublicKey(generated.publicKey)} startIcon={<ContentCopyIcon />}>
+              <Button onClick={() => copyPublicKey(generated.publicKey)} startIcon={<ContentCopy />}>
                 复制公钥
               </Button>
               <Button variant="contained" onClick={closeGenerate}>

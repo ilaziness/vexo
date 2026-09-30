@@ -1,8 +1,11 @@
 package ssh
 
 import (
+	"io"
 	"testing"
 	"time"
+
+	cryptossh "golang.org/x/crypto/ssh"
 )
 
 func TestHopsClientKey(t *testing.T) {
@@ -14,6 +17,18 @@ func TestHopsClientKey(t *testing.T) {
 	want := "t@target:22via:j@jump:22"
 	if got != want {
 		t.Fatalf("hopsClientKey = %q, want %q", got, want)
+	}
+}
+
+func TestCloseReasonFromWait(t *testing.T) {
+	if got := closeReasonFromWait(nil); got != CloseReasonClean {
+		t.Fatalf("nil => %s", got)
+	}
+	if got := closeReasonFromWait(&cryptossh.ExitError{}); got != CloseReasonClean {
+		t.Fatalf("ExitError => %s", got)
+	}
+	if got := closeReasonFromWait(io.EOF); got != CloseReasonUnexpected {
+		t.Fatalf("EOF => %s", got)
 	}
 }
 

@@ -25,6 +25,7 @@ declare module "@wailsio/runtime" {
             "eventKeyboardInteractiveClose": string;
             "eventNewVersion": services$0.NewVersion;
             "eventProgress": services$0.ProgressData;
+            "eventSSHSessionClosed": string;
             "eventSftpFilesDropped": services$0.SftpFilesDroppedData;
         }
     }

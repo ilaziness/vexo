@@ -37,6 +37,7 @@ var defaultFontFamily = []string{
 type Config struct {
 	General  GeneralConfig   `toml:"general"`
 	Terminal TerminalConfig  `toml:"terminal"`
+	SSH      SSHConfig       `toml:"ssh"`
 	Sync     sync.SyncConfig `toml:"sync"`
 	AI       ai.Config       `toml:"ai"`
 }
@@ -50,6 +51,13 @@ type TerminalConfig struct {
 	Font       string  `toml:"font" json:"fontFamily"`
 	FontSize   int     `toml:"font_size" json:"fontSize"`
 	LineHeight float64 `toml:"line_height" json:"lineHeight"`
+}
+
+// SSHConfig holds global SSH client options (ServerAliveInterval-style keepalive, dial timeout, auto-reconnect).
+type SSHConfig struct {
+	ServerAliveInterval int  `toml:"server_alive_interval" json:"serverAliveInterval"`
+	DialTimeoutSec      int  `toml:"dial_timeout_sec" json:"dialTimeoutSec"`
+	AutoReconnect       bool `toml:"auto_reconnect" json:"autoReconnect"`
 }
 
 type AppConfig struct {
@@ -76,6 +84,26 @@ func Default() *Config {
 			FontSize:   14,
 			LineHeight: 1,
 		},
+		SSH: SSHConfig{
+			ServerAliveInterval: 30,
+			DialTimeoutSec:      30,
+			AutoReconnect:       true,
+		},
+	}
+}
+
+// Normalize fills invalid/missing fields with defaults after loading from disk.
+func (c *SSHConfig) Normalize() {
+	def := Default().SSH
+	if *c == (SSHConfig{}) {
+		*c = def
+		return
+	}
+	if c.DialTimeoutSec <= 0 {
+		c.DialTimeoutSec = def.DialTimeoutSec
+	}
+	if c.ServerAliveInterval < 0 {
+		c.ServerAliveInterval = 0
 	}
 }
 
@@ -109,6 +137,7 @@ func Load(logger *zap.Logger) (*Store, error) {
 		if err = toml.Unmarshal(data, finalConfig); err != nil {
 			logger.Error("unmarshal user config failed", zap.Error(err))
 		}
+		finalConfig.SSH.Normalize()
 	} else if os.IsNotExist(err) {
 		if data, err := toml.Marshal(finalConfig); err == nil {
 			_ = os.WriteFile(userConfigPath, data, 0600)

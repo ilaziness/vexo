@@ -6,6 +6,8 @@ import {
   DialogActions,
   Button,
   Typography,
+  Alert,
+  Stack,
 } from "@mui/material";
 import { Events } from "@wailsio/runtime";
 import { SSHService } from "../../bindings/github.com/ilaziness/vexo/services";
@@ -15,7 +17,8 @@ interface Payload {
   address: string;
   fingerprint: string;
   key_type?: string;
-  key_base64?: string;
+  mismatch?: boolean;
+  old_fingerprint?: string;
 }
 
 const HostKeyPrompt: React.FC = () => {
@@ -51,6 +54,8 @@ const HostKeyPrompt: React.FC = () => {
     setPayload(null);
   };
 
+  const mismatch = Boolean(payload?.mismatch);
+
   return (
     <Dialog
       open={open}
@@ -58,26 +63,61 @@ const HostKeyPrompt: React.FC = () => {
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>新的主机密钥</DialogTitle>
+      <DialogTitle>
+        {mismatch ? "主机密钥已变更" : "新的主机密钥"}
+      </DialogTitle>
       <DialogContent>
         {payload && (
-          <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              检测到未知主机密钥。主机: {payload.host} ({payload.address})
+          <Stack spacing={2}>
+            {mismatch && (
+              <Alert severity="warning">
+                服务器主机密钥与本地已信任记录不一致。若你刚重装系统或更换了机器，可选择更新；否则请拒绝连接，以防中间人攻击。
+              </Alert>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              主机: {payload.host} ({payload.address})
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              指纹: {payload.fingerprint}
+            <Typography variant="body2" color="text.secondary">
+              类型: {payload.key_type || "—"}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              若信任此主机，选择“信任并继续”，将会把该主机密钥保存到文件中。
-            </Typography>
-          </>
+            {mismatch ? (
+              <>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ wordBreak: "break-all" }}
+                >
+                  旧指纹: {payload.old_fingerprint || "—"}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ wordBreak: "break-all" }}
+                >
+                  新指纹: {payload.fingerprint}
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ wordBreak: "break-all" }}
+                >
+                  指纹: {payload.fingerprint}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  若信任此主机，选择“信任并继续”，将会把该主机密钥保存到文件中。
+                </Typography>
+              </>
+            )}
+          </Stack>
         )}
       </DialogContent>
       <DialogActions>
         <Button onClick={() => handleClose(false)}>拒绝</Button>
         <Button onClick={() => handleClose(true)} variant="contained">
-          信任并继续
+          {mismatch ? "更新并继续" : "信任并继续"}
         </Button>
       </DialogActions>
     </Dialog>

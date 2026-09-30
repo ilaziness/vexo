@@ -5,6 +5,8 @@ import {
   SettingsTab,
   GeneralSettings,
   TerminalSettings,
+  SSHSettings,
+  KnownHostsSettings,
   SyncSettings,
   AISettings,
   KeySettings,
@@ -128,6 +130,8 @@ const Setting: React.FC = () => {
                 <TerminalSettings config={config.Terminal} />
               )}
 
+              {activeTab === "ssh" && <SSHSettings config={config.SSH} />}
+
               {activeTab === "sync" && (
                 <SyncSettings
                   syncConfig={config.Sync}
@@ -142,6 +146,8 @@ const Setting: React.FC = () => {
               )}
 
               {activeTab === "keys" && <KeySettings />}
+
+              {activeTab === "knownHosts" && <KnownHostsSettings />}
 
               {activeTab === "about" && (
                 <Paper sx={{ p: 3 }} elevation={1}>

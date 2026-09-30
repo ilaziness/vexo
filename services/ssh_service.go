@@ -20,11 +20,13 @@ import (
 const EventHostKeyPrompt = "eventHostKeyPrompt"
 const EventKeyboardInteractive = "eventKeyboardInteractive"
 const EventKeyboardInteractiveClose = "eventKeyboardInteractiveClose"
+const EventSSHSessionClosed = "eventSSHSessionClosed"
 
 func init() {
 	application.RegisterEvent[string](EventHostKeyPrompt)
 	application.RegisterEvent[string](EventKeyboardInteractive)
 	application.RegisterEvent[string](EventKeyboardInteractiveClose)
+	application.RegisterEvent[string](EventSSHSessionClosed)
 }
 
 type hostKeyPrompter struct {
@@ -32,10 +34,14 @@ type hostKeyPrompter struct {
 }
 
 func (p *hostKeyPrompter) Prompt(hp ssh.HostKeyPrompt) error {
-	data, err := json.Marshal(map[string]string{
+	payload := map[string]any{
 		"host": hp.Host, "address": hp.Address, "fingerprint": hp.Fingerprint,
-		"key_type": hp.KeyType, "key_base64": hp.KeyBase64,
-	})
+		"key_type": hp.KeyType, "mismatch": hp.Mismatch,
+	}
+	if hp.Mismatch {
+		payload["old_fingerprint"] = hp.OldFingerprint
+	}
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
@@ -96,6 +102,19 @@ type SSHService struct {
 
 func NewSSHService(app *application.App, mgr *ssh.Manager, sftpMgr *sftp.Manager, tunnels *tunnel.Manager) *SSHService {
 	return &SSHService{app: app, mgr: mgr, sftp: sftpMgr, tunnels: tunnels}
+}
+
+func (s *SSHService) onSessionClosed(id string, reason ssh.CloseReason) {
+	if s.app != nil {
+		data, err := json.Marshal(map[string]string{
+			"id":     id,
+			"reason": string(reason),
+		})
+		if err == nil {
+			s.app.Event.Emit(EventSSHSessionClosed, string(data))
+		}
+	}
+	_ = s.CloseByID(id)
 }
 
 func (s *SSHService) bind(term *termws.Server, bookmarks *bookmark.Service) {
@@ -216,6 +235,14 @@ func (s *SSHService) SendToSession(sessionID, command string) error {
 
 func (s *SSHService) SetHostKeyDecision(host string, accept bool) error {
 	return s.mgr.SetHostKeyDecision(host, accept)
+}
+
+func (s *SSHService) ListKnownHosts() ([]ssh.KnownHostEntry, error) {
+	return s.mgr.ListKnownHosts()
+}
+
+func (s *SSHService) DeleteKnownHost(host, keyType string) error {
+	return s.mgr.DeleteKnownHost(host, keyType)
 }
 
 func (s *SSHService) AnswerKeyboardInteractive(id string, answers []string) error {

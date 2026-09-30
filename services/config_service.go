@@ -26,6 +26,7 @@ func init() {
 type Config = config.Config
 type GeneralConfig = config.GeneralConfig
 type TerminalConfig = config.TerminalConfig
+type SSHConfig = config.SSHConfig
 type AIConfig = ai.Config
 
 type ConfigService struct {
@@ -35,6 +36,7 @@ type ConfigService struct {
 	vault        *secret.Vault
 	passwordChan chan struct{}
 	chanMutex    sync.Mutex
+	onSSHSaved   func(config.SSHConfig)
 }
 
 func NewConfigService(app *application.App, windows *Windows, store *config.Store, vault *secret.Vault) *ConfigService {
@@ -93,6 +95,18 @@ func (cs *ConfigService) SaveGeneralConfig(generalConfig GeneralConfig) error {
 func (cs *ConfigService) SaveTerminalConfig(terminalConfig TerminalConfig) error {
 	cs.current().Terminal = terminalConfig
 	return cs.store.Save()
+}
+
+func (cs *ConfigService) SaveSSHConfig(sshConfig SSHConfig) error {
+	sshConfig.Normalize()
+	cs.current().SSH = sshConfig
+	if err := cs.store.Save(); err != nil {
+		return err
+	}
+	if cs.onSSHSaved != nil {
+		cs.onSSHSaved(sshConfig)
+	}
+	return nil
 }
 
 func (cs *ConfigService) aiConfig() ai.Config {

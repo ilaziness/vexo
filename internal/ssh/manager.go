@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -14,6 +15,25 @@ import (
 )
 
 const ErrConnectionNotFound = "SSH connection with ID %s not found"
+
+// CloseReason distinguishes clean shell exits from unexpected drops for auto-reconnect.
+type CloseReason string
+
+const (
+	CloseReasonClean      CloseReason = "clean"
+	CloseReasonUnexpected CloseReason = "unexpected"
+)
+
+func closeReasonFromWait(err error) CloseReason {
+	if err == nil {
+		return CloseReasonClean
+	}
+	var exitErr *cryptossh.ExitError
+	if errors.As(err, &exitErr) {
+		return CloseReasonClean
+	}
+	return CloseReasonUnexpected
+}
 
 type Endpoint struct {
 	Host        string
@@ -36,11 +56,12 @@ func (e Endpoint) ClientKey() string {
 }
 
 type HostKeyPrompt struct {
-	Host        string
-	Address     string
-	Fingerprint string
-	KeyType     string
-	KeyBase64   string
+	Host           string
+	Address        string
+	Fingerprint    string
+	KeyType        string
+	Mismatch       bool
+	OldFingerprint string
 }
 
 type HostKeyPrompter interface {
@@ -81,13 +102,19 @@ func (h *hopClient) Close() {
 	}
 }
 
+// Options are runtime SSH client settings applied on next dial / new keepalive.
+type Options struct {
+	ServerAliveInterval time.Duration
+	DialTimeout         time.Duration
+}
+
 type Manager struct {
 	logger               *zap.Logger
 	knownHostsPath       string
 	knownHostsMu         sync.Mutex
 	prompter             HostKeyPrompter
 	keyboardPrompter     KeyboardInteractivePrompter
-	onClose              func(sessionID string)
+	onClose              func(sessionID string, reason CloseReason)
 	clients              *sync.Map
 	sessions             *sync.Map
 	clientLocks          sync.Map
@@ -95,6 +122,9 @@ type Manager struct {
 	remoteInfoFetchLocks sync.Map
 	hostKey              *hostKeyStore
 	keyboard             *keyboardStore
+	keepAlives           sync.Map
+	optsMu               sync.RWMutex
+	opts                 Options
 }
 
 func NewManager(logger *zap.Logger, knownHostsPath string, prompter HostKeyPrompter, keyboard KeyboardInteractivePrompter) *Manager {
@@ -110,10 +140,41 @@ func NewManager(logger *zap.Logger, knownHostsPath string, prompter HostKeyPromp
 		sessions:         new(sync.Map),
 		hostKey:          newHostKeyStore(),
 		keyboard:         newKeyboardStore(),
+		opts: Options{
+			ServerAliveInterval: 30 * time.Second,
+			DialTimeout:         30 * time.Second,
+		},
 	}
 }
 
-func (m *Manager) SetOnClose(fn func(sessionID string)) {
+func (m *Manager) SetOptions(opts Options) {
+	if opts.DialTimeout <= 0 {
+		opts.DialTimeout = 30 * time.Second
+	}
+	if opts.ServerAliveInterval < 0 {
+		opts.ServerAliveInterval = 0
+	}
+	m.optsMu.Lock()
+	m.opts = opts
+	m.optsMu.Unlock()
+}
+
+func (m *Manager) dialTimeout() time.Duration {
+	m.optsMu.RLock()
+	defer m.optsMu.RUnlock()
+	if m.opts.DialTimeout <= 0 {
+		return 30 * time.Second
+	}
+	return m.opts.DialTimeout
+}
+
+func (m *Manager) aliveInterval() time.Duration {
+	m.optsMu.RLock()
+	defer m.optsMu.RUnlock()
+	return m.opts.ServerAliveInterval
+}
+
+func (m *Manager) SetOnClose(fn func(sessionID string, reason CloseReason)) {
 	m.onClose = fn
 }
 
@@ -174,12 +235,13 @@ func (m *Manager) Connect(hops []Endpoint) (string, error) {
 		m.logger.Debug("Using existing SSH client", zap.String("clientKey", clientKey))
 		client = v.(*hopClient).target
 	} else {
-		hc, err := m.dialHops(hops, 30*time.Second)
+		hc, err := m.dialHops(hops, m.dialTimeout())
 		if err != nil {
 			return "", err
 		}
 		m.clients.Store(clientKey, hc)
 		client = hc.target
+		m.startKeepAlive(clientKey, client)
 		m.logger.Debug("ssh connect ok and stored in cache", zap.String("clientKey", clientKey))
 	}
 
@@ -194,7 +256,7 @@ func (m *Manager) TestConnect(hops []Endpoint) error {
 	}
 	target := hops[len(hops)-1]
 	m.logger.Debug("Testing SSH connection", zap.String("host", target.Host), zap.Int("port", target.Port))
-	hc, err := m.dialHops(hops, 20*time.Second)
+	hc, err := m.dialHops(hops, m.dialTimeout())
 	if err != nil {
 		return err
 	}
@@ -248,9 +310,9 @@ func (m *Manager) ActiveSessions() []map[string]any {
 	return sessions
 }
 
-func (m *Manager) notifyClosed(id string) {
+func (m *Manager) notifyClosed(id string, reason CloseReason) {
 	if m.onClose != nil {
-		m.onClose(id)
+		m.onClose(id, reason)
 		return
 	}
 	_ = m.CloseSession(id)
@@ -263,6 +325,7 @@ func (m *Manager) CloseAll() {
 		return true
 	})
 	m.clients.Range(func(key, value any) bool {
+		m.stopKeepAlive(key.(string))
 		value.(*hopClient).Close()
 		m.clients.Delete(key)
 		return true
@@ -299,6 +362,7 @@ func (m *Manager) closeClientIfNoConnections(clientKey string) {
 	if hasOther {
 		return
 	}
+	m.stopKeepAlive(clientKey)
 	if client, ok := m.clients.LoadAndDelete(clientKey); ok {
 		client.(*hopClient).Close()
 	}
@@ -346,12 +410,27 @@ func (sc *Session) Start(cols, rows int) error {
 	pty := sc.session
 	go func() {
 		waitErr := pty.Wait()
-		if waitErr != nil {
-			sc.manager.logger.Debug("SSH session ended with error:", zap.String("msg", waitErr.Error()), zap.String("id", sc.ID))
-		} else {
-			sc.manager.logger.Debug("SSH session ended", zap.String("ID", sc.ID))
+		sc.closeMu.Lock()
+		alreadyClosed := sc.isClosed
+		sc.closeMu.Unlock()
+		// CloseByID/closePTY already ran — do not emit a second close notification.
+		if alreadyClosed {
+			return
 		}
-		sc.manager.notifyClosed(sc.ID)
+		reason := closeReasonFromWait(waitErr)
+		if waitErr != nil {
+			sc.manager.logger.Debug("SSH session ended with error:",
+				zap.String("msg", waitErr.Error()),
+				zap.String("id", sc.ID),
+				zap.String("reason", string(reason)),
+			)
+		} else {
+			sc.manager.logger.Debug("SSH session ended",
+				zap.String("ID", sc.ID),
+				zap.String("reason", string(reason)),
+			)
+		}
+		sc.manager.notifyClosed(sc.ID, reason)
 	}()
 	return nil
 }

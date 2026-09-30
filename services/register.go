@@ -2,6 +2,7 @@ package services
 
 import (
 	"path/filepath"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/zap"
@@ -40,6 +41,16 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	hostPrompter := &hostKeyPrompter{app: a}
 	keyboardPrompter := &keyboardInteractivePrompter{app: a}
 	sshMgr := ssh.NewManager(log, filepath.Join(cfgStore.UserDataDir(), "known_hosts"), hostPrompter, keyboardPrompter)
+	sshMgr.SetOptions(ssh.Options{
+		ServerAliveInterval: time.Duration(cfgStore.Config.SSH.ServerAliveInterval) * time.Second,
+		DialTimeout:         time.Duration(cfgStore.Config.SSH.DialTimeoutSec) * time.Second,
+	})
+	configService.onSSHSaved = func(c config.SSHConfig) {
+		sshMgr.SetOptions(ssh.Options{
+			ServerAliveInterval: time.Duration(c.ServerAliveInterval) * time.Second,
+			DialTimeout:         time.Duration(c.DialTimeoutSec) * time.Second,
+		})
+	}
 	transfers := transfer.NewRegistry(func(p transfer.ProgressData) {
 		a.Event.Emit(EventProgress, p)
 	})
@@ -48,7 +59,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 
 	sshService := NewSSHService(a, sshMgr, sftpMgr, tunnelMgr)
 	termWS := termws.NewServer(log, sshMgr, func(id string) { _ = sshService.CloseByID(id) })
-	sshMgr.SetOnClose(func(id string) { _ = sshService.CloseByID(id) })
+	sshMgr.SetOnClose(sshService.onSessionClosed)
 
 	keys := sshkey.New(log, db, configService.getPasswordWithPrompt, vault.Clear)
 	bookmarks := bookmark.New(log, db, configService.getPasswordWithPrompt, func() {
