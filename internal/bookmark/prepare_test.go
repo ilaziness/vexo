@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/secret"
-	"go.uber.org/zap"
 )
 
 func TestPrepareTestSwitchToStoredKeyKeepsPassword(t *testing.T) {

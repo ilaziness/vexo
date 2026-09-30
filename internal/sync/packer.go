@@ -4,16 +4,44 @@ import (
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
 	// 缓冲区大小: 1MB，优化大文件传输性能
 	bufferSize = 1024 * 1024
 )
+
+// archiveTargetPath joins dstDir with an archive entry name and rejects path escapes.
+func archiveTargetPath(dstDir, name string) (string, error) {
+	if name == "" || strings.Contains(name, "\x00") {
+		return "", fmt.Errorf("invalid archive entry name")
+	}
+	clean := filepath.Clean("/" + filepath.ToSlash(name))
+	rel := strings.TrimPrefix(clean, "/")
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", fmt.Errorf("invalid archive entry path: %q", name)
+	}
+	target := filepath.Join(dstDir, filepath.FromSlash(rel))
+	absBase, err := filepath.Abs(dstDir)
+	if err != nil {
+		return "", err
+	}
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return "", err
+	}
+	sep := string(os.PathSeparator)
+	if absTarget != absBase && !strings.HasPrefix(absTarget, absBase+sep) {
+		return "", fmt.Errorf("archive entry escapes destination: %q", name)
+	}
+	return target, nil
+}
 
 // PackStream 流式打包压缩加密
 // srcDir: 源目录
@@ -178,7 +206,7 @@ func PackStreamWithProgress(srcDir string, writer io.Writer, userKey string, onP
 						onProgress(doneSize, totalSize)
 					}
 				}
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {
@@ -230,14 +258,17 @@ func UnpackStream(reader io.Reader, dstDir string, userKey string) error {
 	buf := make([]byte, bufferSize)
 	for {
 		header, err := tarReader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		targetPath := filepath.Join(dstDir, header.Name)
+		targetPath, err := archiveTargetPath(dstDir, header.Name)
+		if err != nil {
+			return err
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -298,14 +329,17 @@ func UnpackStreamWithProgress(reader io.Reader, dstDir string, userKey string, t
 	buf := make([]byte, bufferSize)
 	for {
 		header, err := tarReader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		targetPath := filepath.Join(dstDir, header.Name)
+		targetPath, err := archiveTargetPath(dstDir, header.Name)
+		if err != nil {
+			return err
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -337,7 +371,7 @@ func UnpackStreamWithProgress(reader io.Reader, dstDir string, userKey string, t
 						onProgress(doneSize, totalSize)
 					}
 				}
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {

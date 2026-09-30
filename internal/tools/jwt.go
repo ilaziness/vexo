@@ -63,7 +63,11 @@ func decodeJWTPart(part string) (string, error) {
 		}
 	}
 	var buf bytes.Buffer
-	if err := json.Indent(&buf, raw, "", "  "); err != nil {
+	if !json.Valid(raw) {
+		return string(raw), nil
+	}
+	_ = json.Indent(&buf, raw, "", "  ")
+	if buf.Len() == 0 {
 		return string(raw), nil
 	}
 	return buf.String(), nil

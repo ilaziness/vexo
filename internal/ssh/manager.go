@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ilaziness/vexo/internal/system"
-	"github.com/ilaziness/vexo/internal/utils"
 	"go.uber.org/zap"
 	cryptossh "golang.org/x/crypto/ssh"
+
+	"github.com/ilaziness/vexo/internal/system"
+	"github.com/ilaziness/vexo/internal/utils"
 )
 
 const ErrConnectionNotFound = "SSH connection with ID %s not found"
@@ -208,10 +209,7 @@ func (m *Manager) Start(id string, cols, rows int) error {
 	if err != nil {
 		return err
 	}
-	if err := sess.Start(cols, rows); err != nil {
-		return err
-	}
-	return nil
+	return sess.Start(cols, rows)
 }
 
 func (m *Manager) Resize(id string, cols, rows int) error {

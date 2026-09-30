@@ -107,7 +107,7 @@ func restoreBackup(backupDir, dstDir string) error {
 	// 先清理目标目录（如果存在）
 	if err := os.RemoveAll(dstDir); err != nil {
 		// 清理失败但仍尝试恢复备份
-		os.Rename(backupDir, dstDir)
+		_ = os.Rename(backupDir, dstDir)
 		return fmt.Errorf("failed to remove dst dir before restore: %w", err)
 	}
 	return os.Rename(backupDir, dstDir)
@@ -170,7 +170,7 @@ func (sm *SyncManager) Download(dstDir string, version int, db *database.Databas
 	if err := os.MkdirAll(dstDir, 0755); err != nil {
 		// 恢复备份
 		if err := restoreBackup(backupDir, dstDir); err != nil {
-			return fmt.Errorf("failed to create dst dir and restore backup: %v", err)
+			return fmt.Errorf("failed to create dst dir and restore backup: %w", err)
 		}
 		return fmt.Errorf("failed to create dst dir: %w", err)
 	}
@@ -180,7 +180,7 @@ func (sm *SyncManager) Download(dstDir string, version int, db *database.Databas
 		// 恢复备份
 		os.RemoveAll(dstDir)
 		if err := restoreBackup(backupDir, dstDir); err != nil {
-			return fmt.Errorf("failed to copy data and restore backup: %v", err)
+			return fmt.Errorf("failed to copy data and restore backup: %w", err)
 		}
 		return fmt.Errorf("failed to copy data: %w", err)
 	}

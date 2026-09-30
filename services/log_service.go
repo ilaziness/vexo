@@ -5,10 +5,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ilaziness/vexo/internal/buildinfo"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/ilaziness/vexo/internal/buildinfo"
 )
 
 type LogService struct {

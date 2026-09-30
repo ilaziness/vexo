@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -213,7 +214,7 @@ func migrateAddSSHKeys(db *sql.DB, logger *zap.Logger) error {
 
 	var columnName string
 	err = db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'ssh_key_id'`).Scan(&columnName)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		if _, err := db.Exec(`ALTER TABLE bookmarks ADD COLUMN ssh_key_id TEXT NOT NULL DEFAULT ''`); err != nil {
 			return fmt.Errorf("add column bookmarks.ssh_key_id failed: %w", err)
 		}

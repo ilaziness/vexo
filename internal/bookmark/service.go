@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/ilaziness/vexo/internal/ssh"
 	"github.com/ilaziness/vexo/internal/utils"
-	"go.uber.org/zap"
 )
 
 const PasswordMask = "********"
@@ -225,7 +226,7 @@ func (s *Service) ResolveHops(target ssh.Endpoint, jumpID string) ([]ssh.Endpoin
 		}
 		b, err := s.GetDecrypted(id)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load proxy jump bookmark: %v", err)
+			return nil, fmt.Errorf("failed to load proxy jump bookmark: %w", err)
 		}
 		ep, err := s.endpointWithKey(*b)
 		if err != nil {

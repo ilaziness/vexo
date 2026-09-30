@@ -79,7 +79,7 @@ func agentUnavailableIsFatal(ep Endpoint, keyboardEnabled bool) bool {
 func signerFromPEM(pem string) (cryptossh.Signer, error) {
 	signer, err := cryptossh.ParsePrivateKey([]byte(pem))
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse private key: %v", err)
+		return nil, fmt.Errorf("unable to parse private key: %w", err)
 	}
 	return signer, nil
 }
@@ -87,7 +87,7 @@ func signerFromPEM(pem string) (cryptossh.Signer, error) {
 func signerFromKeyFile(path, passphrase string) (cryptossh.Signer, error) {
 	keyContent, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read private key: %v", err)
+		return nil, fmt.Errorf("unable to read private key: %w", err)
 	}
 	if passphrase == "" {
 		return cryptossh.ParsePrivateKey(keyContent)

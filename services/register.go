@@ -3,6 +3,9 @@ package services
 import (
 	"path/filepath"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/bookmark"
 	"github.com/ilaziness/vexo/internal/command"
 	"github.com/ilaziness/vexo/internal/config"
@@ -14,8 +17,6 @@ import (
 	"github.com/ilaziness/vexo/internal/termws"
 	"github.com/ilaziness/vexo/internal/transfer"
 	"github.com/ilaziness/vexo/internal/tunnel"
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"go.uber.org/zap"
 )
 
 func RegisterServices(a *application.App, mainWindow *application.WebviewWindow, log *zap.Logger, commandsJSON []byte) error {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"go.uber.org/zap"
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // SQLite driver
 )
 
 var dbFileName = "vexo.db"

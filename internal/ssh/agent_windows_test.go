@@ -47,7 +47,7 @@ func TestCreatePageantMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer windows.CloseHandle(mapping)
+	defer func() { _ = windows.CloseHandle(mapping) }()
 	if mapping == 0 || name == "" {
 		t.Fatalf("mapping = %d, name = %q", mapping, name)
 	}

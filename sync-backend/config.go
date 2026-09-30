@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -21,13 +22,13 @@ type Server struct {
 
 // Database 数据库配置
 type Database struct {
-	Type     string `toml:"type"`      // 数据库类型: sqlite 或 mysql
-	Host     string `toml:"host"`      // MySQL 主机
-	Port     int    `toml:"port"`      // MySQL 端口
-	User     string `toml:"user"`      // MySQL 用户名
-	Password string `toml:"password"`  // MySQL 密码
-	Name     string `toml:"name"`      // MySQL 数据库名
-	DBPath   string `toml:"db_path"`   // SQLite 数据库路径
+	Type     string `toml:"type"`     // 数据库类型: sqlite 或 mysql
+	Host     string `toml:"host"`     // MySQL 主机
+	Port     int    `toml:"port"`     // MySQL 端口
+	User     string `toml:"user"`     // MySQL 用户名
+	Password string `toml:"password"` // MySQL 密码
+	Name     string `toml:"name"`     // MySQL 数据库名
+	DBPath   string `toml:"db_path"`  // SQLite 数据库路径
 }
 
 // Data 数据存储配置
@@ -59,9 +60,9 @@ func DefaultConfig() *ServerConfig {
 func LoadConfig(path string) (*ServerConfig, error) {
 	config := DefaultConfig()
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			// 配置文件不存在，创建默认配置
 			return config, SaveConfig(path, config)
 		}
@@ -92,10 +93,11 @@ func SaveConfig(path string, config *ServerConfig) error {
 		return err
 	}
 
+	path = filepath.Clean(path)
 	// 确保目录存在
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o600)
 }

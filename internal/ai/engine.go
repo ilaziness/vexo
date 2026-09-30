@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 
+	"uuid"
+
 	genkitAI "github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/firebase/genkit/go/plugins/compat_oai"
@@ -13,7 +15,6 @@ import (
 	"github.com/firebase/genkit/go/plugins/googlegenai"
 	"github.com/firebase/genkit/go/plugins/ollama"
 	"go.uber.org/zap"
-	"uuid"
 )
 
 // AIEngine AI引擎
@@ -87,8 +88,7 @@ func (e *AIEngine) Init(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("unsupported provider: %s", cfg.Provider)
 	}
 
-	switch cfg.Provider {
-	case ProviderOllama:
+	if cfg.Provider == ProviderOllama {
 		if ollamaPlugin == nil {
 			return fmt.Errorf("ollama plugin not initialized")
 		}

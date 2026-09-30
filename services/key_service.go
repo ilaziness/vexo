@@ -3,9 +3,10 @@ package services
 import (
 	"strings"
 
-	"github.com/ilaziness/vexo/internal/sshkey"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/zap"
+
+	"github.com/ilaziness/vexo/internal/sshkey"
 )
 
 type SSHKeyInfo = sshkey.Info

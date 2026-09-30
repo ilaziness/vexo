@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/services"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 //go:embed all:frontend/dist

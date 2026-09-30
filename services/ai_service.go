@@ -9,11 +9,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/ai"
 	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/ssh"
-	"github.com/wailsapp/wails/v3/pkg/application"
-	"go.uber.org/zap"
 )
 
 const EventAIStreamChunk = "eventAIStreamChunk"

@@ -21,16 +21,16 @@ const (
 
 // 请求头常量
 const (
-	HeaderSyncID       = "X-Sync-ID"
-	HeaderUserKey      = "X-User-Key"
-	HeaderFileHash     = "X-File-Hash"
+	HeaderSyncID        = "X-Sync-ID"
+	HeaderUserKey       = "X-User-Key"
+	HeaderFileHash      = "X-File-Hash"
 	HeaderVersionNumber = "X-Version-Number"
-	HeaderContentType  = "Content-Type"
+	HeaderContentType   = "Content-Type"
 )
 
 // Content-Type 常量
 const (
-	ContentTypeJSON = "application/json"
+	ContentTypeJSON   = "application/json"
 	ContentTypeBinary = "application/octet-stream"
 )
 
@@ -58,7 +58,7 @@ func NewHandler(service *SyncService, rateLimiter *RateLimiter) *Handler {
 func (h *Handler) writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func (h *Handler) writeError(w http.ResponseWriter, status int, message string) {
@@ -111,7 +111,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.service.UpdateLastSyncAt(user.ID)
+	_ = h.service.UpdateLastSyncAt(user.ID)
 
 	h.writeJSON(w, StatusOK, map[string]any{
 		"version_number": version.VersionNumber,
@@ -152,7 +152,7 @@ func (h *Handler) DownloadHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(HeaderVersionNumber, strconv.Itoa(version.VersionNumber))
 
-	io.Copy(w, reader)
+	_, _ = io.Copy(w, reader)
 }
 
 // getVersionNumber 获取版本号（从查询参数或最新版本）

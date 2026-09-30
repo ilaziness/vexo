@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -123,7 +124,7 @@ func (r *BookmarkRepository) GetBookmarkByID(id string) (*BookmarkDB, error) {
 	query := `SELECT ` + bookmarkSelectCols + ` FROM bookmarks WHERE bookmark_id = ?`
 	b, err := scanBookmark(r.db.QueryRow(query, id))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("bookmark not found")
 		}
 		return nil, fmt.Errorf(errQuery, "bookmark by id", err)
@@ -136,7 +137,7 @@ func (r *BookmarkRepository) GetBookmarkByTitleAndGroup(title string, groupID in
 	query := `SELECT ` + bookmarkSelectCols + ` FROM bookmarks WHERE title = ? AND group_id = ?`
 	b, err := scanBookmark(r.db.QueryRow(query, title, groupID))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("bookmark not found")
 		}
 		return nil, fmt.Errorf(errQuery, "bookmark by title and group", err)

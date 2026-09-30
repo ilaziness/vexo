@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+
 	"github.com/ilaziness/vexo/internal/bookmark"
 	"github.com/ilaziness/vexo/internal/sftp"
 	"github.com/ilaziness/vexo/internal/ssh"
 	"github.com/ilaziness/vexo/internal/termws"
 	"github.com/ilaziness/vexo/internal/tunnel"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const EventHostKeyPrompt = "eventHostKeyPrompt"
@@ -147,9 +148,9 @@ func (s *SSHService) Connect(req ConnectRequest) (string, error) {
 	return s.connectHops(hops)
 }
 
-func (s *SSHService) Start(ID string, cols, rows int) error {
-	if err := s.mgr.Start(ID, cols, rows); err != nil {
-		_ = s.CloseByID(ID)
+func (s *SSHService) Start(id string, cols, rows int) error {
+	if err := s.mgr.Start(id, cols, rows); err != nil {
+		_ = s.CloseByID(id)
 		return err
 	}
 	return nil
@@ -163,12 +164,12 @@ func (s *SSHService) TestConnectInfo(req ConnectRequest) error {
 	return s.testHops(hops)
 }
 
-func (s *SSHService) StartSftp(ID string) error {
-	return s.sftp.Connect(ID)
+func (s *SSHService) StartSftp(id string) error {
+	return s.sftp.Connect(id)
 }
 
-func (s *SSHService) Resize(ID string, cols, rows int) error {
-	return s.mgr.Resize(ID, cols, rows)
+func (s *SSHService) Resize(id string, cols, rows int) error {
+	return s.mgr.Resize(id, cols, rows)
 }
 
 func (s *SSHService) Close() {
@@ -181,18 +182,18 @@ func (s *SSHService) Close() {
 	})
 }
 
-func (s *SSHService) CloseByID(ID string) error {
-	if _, loaded := s.closing.LoadOrStore(ID, struct{}{}); loaded {
+func (s *SSHService) CloseByID(id string) error {
+	if _, loaded := s.closing.LoadOrStore(id, struct{}{}); loaded {
 		return nil
 	}
-	defer s.closing.Delete(ID)
+	defer s.closing.Delete(id)
 	if s.termws != nil {
-		s.termws.CloseClient(ID)
+		s.termws.CloseClient(id)
 	}
 	var err error
-	s.tunnels.StopSessionAfter(ID, func() {
-		s.sftp.CloseSession(ID)
-		err = s.mgr.CloseSession(ID)
+	s.tunnels.StopSessionAfter(id, func() {
+		s.sftp.CloseSession(id)
+		err = s.mgr.CloseSession(id)
 	})
 	return err
 }

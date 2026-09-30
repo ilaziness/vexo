@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -66,7 +67,7 @@ func (r *SSHKeyRepository) List() ([]*SSHKeyDB, error) {
 func (r *SSHKeyRepository) Get(id string) (*SSHKeyDB, error) {
 	k, err := scanSSHKey(r.db.QueryRow(`SELECT `+sshKeySelectCols+` FROM ssh_keys WHERE id = ?`, id))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("密钥不存在")
 		}
 		return nil, fmt.Errorf(errQuery, "ssh key", err)

@@ -88,11 +88,15 @@ func (r *SQLiteAISessionRepository) GetSession(ctx context.Context, id string) (
 // ListSessions lists sessions ordered by updated_at DESC
 func (r *SQLiteAISessionRepository) ListSessions(ctx context.Context, limit int) ([]*AISession, error) {
 	query := `SELECT id, title, created_at, updated_at FROM ai_sessions ORDER BY updated_at DESC`
+	var (
+		rows *sql.Rows
+		err  error
+	)
 	if limit > 0 {
-		query += fmt.Sprintf(" LIMIT %d", limit)
+		rows, err = r.db.QueryContext(ctx, query+` LIMIT ?`, limit)
+	} else {
+		rows, err = r.db.QueryContext(ctx, query)
 	}
-
-	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions failed: %w", err)
 	}
@@ -167,7 +171,7 @@ func (r *SQLiteAISessionRepository) CreateMessages(ctx context.Context, msgs []*
 	if err != nil {
 		return fmt.Errorf("begin message tx failed: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	now := time.Now()
 	for _, msg := range msgs {

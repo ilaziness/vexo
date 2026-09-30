@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/database"
 	internalsync "github.com/ilaziness/vexo/internal/sync"
-	"go.uber.org/zap"
 )
 
 var ErrSyncNotConfigured = errors.New("sync not configured")
@@ -66,12 +67,12 @@ func (s *SyncService) uploadWithRetry(manager *internalsync.SyncManager, userDat
 			time.Sleep(time.Second * time.Duration(i))
 		}
 		s.progress.SetStage("packing")
-		if err := manager.Upload(userDataDir); err == nil {
+		err := manager.Upload(userDataDir)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
-			s.logger.Error("Upload failed, will retry", zap.Int("attempt", i+1), zap.Error(err))
 		}
+		lastErr = err
+		s.logger.Error("Upload failed, will retry", zap.Int("attempt", i+1), zap.Error(err))
 	}
 	return fmt.Errorf("upload failed after %d attempts: %w", maxRetries, lastErr)
 }
@@ -100,12 +101,12 @@ func (s *SyncService) downloadWithRetry(manager *internalsync.SyncManager, userD
 			time.Sleep(time.Second * time.Duration(i))
 		}
 		s.progress.SetStage("downloading")
-		if err := manager.Download(userDataDir, version, s.db); err == nil {
+		err := manager.Download(userDataDir, version, s.db)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
-			s.logger.Error("Download failed, will retry", zap.Int("attempt", i+1), zap.Error(err))
 		}
+		lastErr = err
+		s.logger.Error("Download failed, will retry", zap.Int("attempt", i+1), zap.Error(err))
 	}
 	return fmt.Errorf("download failed after %d attempts: %w", maxRetries, lastErr)
 }

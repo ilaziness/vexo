@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/ssh"
 	"github.com/ilaziness/vexo/internal/system"
-	"go.uber.org/zap"
 )
 
 type Client struct {
@@ -69,7 +70,10 @@ func (s *Server) Start() error {
 	s.logger.Debug("Starting WebSocket server", zap.String("addr", s.addr))
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/terminal", s.handle)
-	s.httpServer = &http.Server{Handler: mux}
+	s.httpServer = &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 	go func() {
 		defer system.RecoverFromPanic()
 		if err := s.httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {

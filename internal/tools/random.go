@@ -54,9 +54,9 @@ func generateRandomString(length int, charsetName string, customCharset string) 
 
 	var b strings.Builder
 	b.Grow(length)
-	max := big.NewInt(int64(len(charset)))
+	charsetLen := big.NewInt(int64(len(charset)))
 	for i := 0; i < length; i++ {
-		n, err := rand.Int(rand.Reader, max)
+		n, err := rand.Int(rand.Reader, charsetLen)
 		if err != nil {
 			return RandomResult{Success: false, Error: "生成随机数失败: " + err.Error()}
 		}

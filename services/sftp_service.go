@@ -3,9 +3,10 @@ package services
 import (
 	"path/filepath"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+
 	"github.com/ilaziness/vexo/internal/sftp"
 	"github.com/ilaziness/vexo/internal/transfer"
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const (

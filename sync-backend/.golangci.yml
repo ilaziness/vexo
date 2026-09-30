@@ -1,0 +1,66 @@
+# golangci-lint v2 — sync-backend (independent module)
+# https://golangci-lint.run/docs/configuration/file/
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errorlint
+    - gocheckcompilerdirectives
+    - gocritic
+    - gosec
+    - misspell
+    - nilerr
+    - nolintlint
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+  settings:
+    govet:
+      enable:
+        - nilness
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # Test fixtures / helpers.
+      - path: _test\.go
+        linters:
+          - gosec
+      # Config path comes from CLI/operator, not untrusted request input.
+      - path: config\.go
+        linters:
+          - gosec
+        text: "G703:"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ilaziness/vexo/sync-backend
+  exclusions:
+    generated: lax

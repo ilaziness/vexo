@@ -69,7 +69,7 @@ func (r *UserCommandRepository) SaveCommands(commands []*UserCommandDB) error {
 	if err != nil {
 		return fmt.Errorf(errBeginTx, err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// 清空现有数据
 	if _, err := tx.Exec(`DELETE FROM user_commands`); err != nil {
@@ -196,7 +196,7 @@ func (r *CommandHistoryRepository) SaveHistory(history []*CommandHistoryDB) erro
 	if err != nil {
 		return fmt.Errorf(errBeginTx, err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// 清空现有数据
 	if _, err := tx.Exec(`DELETE FROM command_history`); err != nil {

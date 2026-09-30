@@ -6,9 +6,9 @@ import (
 
 // User 用户模型
 type User struct {
-	ID         string    `gorm:"primaryKey;size:32" json:"id"`         // sync_id
-	UserKey    string    `gorm:"size:64;not null" json:"-"`            // user_key (不在 JSON 中暴露)
-	LastSyncAt time.Time `json:"last_sync_at"`                         // 上次同步时间
+	ID         string    `gorm:"primaryKey;size:32" json:"id"` // sync_id
+	UserKey    string    `gorm:"size:64;not null" json:"-"`    // user_key (不在 JSON 中暴露)
+	LastSyncAt time.Time `json:"last_sync_at"`                 // 上次同步时间
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }

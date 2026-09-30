@@ -156,11 +156,11 @@ func echoResult(tc *genkitAI.ToolContext, deps ToolDeps, out string, execErr err
 	_ = deps.SSH.Annotate(tc, deps.LinkID, b.String())
 }
 
-func truncateEcho(s string, max int) string {
-	if max <= 0 || len(s) <= max {
+func truncateEcho(s string, maxLen int) string {
+	if maxLen <= 0 || len(s) <= maxLen {
 		return s
 	}
-	s = s[:max]
+	s = s[:maxLen]
 	for !utf8.ValidString(s) && len(s) > 0 {
 		s = s[:len(s)-1]
 	}

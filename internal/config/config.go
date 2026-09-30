@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/ai"
 	"github.com/ilaziness/vexo/internal/sync"
 	"github.com/ilaziness/vexo/internal/system"
-	"github.com/pelletier/go-toml/v2"
-	"go.uber.org/zap"
 )
 
 const FileName = "config.toml"

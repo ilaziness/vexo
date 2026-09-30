@@ -64,11 +64,12 @@ func lcsDiff(a, b []string) []DiffLine {
 	}
 	for i := m - 1; i >= 0; i-- {
 		for j := n - 1; j >= 0; j-- {
-			if a[i] == b[j] {
+			switch {
+			case a[i] == b[j]:
 				dp[i][j] = dp[i+1][j+1] + 1
-			} else if dp[i+1][j] >= dp[i][j+1] {
+			case dp[i+1][j] >= dp[i][j+1]:
 				dp[i][j] = dp[i+1][j]
-			} else {
+			default:
 				dp[i][j] = dp[i][j+1]
 			}
 		}
@@ -78,17 +79,18 @@ func lcsDiff(a, b []string) []DiffLine {
 	i, j := 0, 0
 	oldLine, newLine := 1, 1
 	for i < m && j < n {
-		if a[i] == b[j] {
+		switch {
+		case a[i] == b[j]:
 			lines = append(lines, DiffLine{Type: "equal", Content: a[i], OldLine: oldLine, NewLine: newLine})
 			i++
 			j++
 			oldLine++
 			newLine++
-		} else if dp[i+1][j] >= dp[i][j+1] {
+		case dp[i+1][j] >= dp[i][j+1]:
 			lines = append(lines, DiffLine{Type: "remove", Content: a[i], OldLine: oldLine})
 			i++
 			oldLine++
-		} else {
+		default:
 			lines = append(lines, DiffLine{Type: "add", Content: b[j], NewLine: newLine})
 			j++
 			newLine++

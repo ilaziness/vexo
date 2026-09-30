@@ -11,12 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/things-go/go-socks5"
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/buildinfo"
 	"github.com/ilaziness/vexo/internal/ssh"
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/internal/utils"
-	"github.com/things-go/go-socks5"
-	"go.uber.org/zap"
 )
 
 const (
@@ -312,8 +313,8 @@ func pipe(tn *tunnelConn, a, b net.Conn) {
 	var once sync.Once
 	closeCh := func() { once.Do(func() { close(exitCh) }) }
 	tn.wg.Add(2)
-	system.SafeGo(func() { defer tn.wg.Done(); io.Copy(b, a); closeCh() })
-	system.SafeGo(func() { defer tn.wg.Done(); io.Copy(a, b); closeCh() })
+	system.SafeGo(func() { defer tn.wg.Done(); _, _ = io.Copy(b, a); closeCh() })
+	system.SafeGo(func() { defer tn.wg.Done(); _, _ = io.Copy(a, b); closeCh() })
 	select {
 	case <-exitCh:
 	case <-tn.exitCh:

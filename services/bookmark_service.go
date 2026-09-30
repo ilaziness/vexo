@@ -3,8 +3,9 @@ package services
 import (
 	"fmt"
 
-	"github.com/ilaziness/vexo/internal/bookmark"
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"github.com/ilaziness/vexo/internal/bookmark"
 )
 
 const (

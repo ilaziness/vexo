@@ -1,0 +1,91 @@
+# golangci-lint v2 — https://golangci-lint.run/docs/configuration/file/
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errorlint
+    - gocheckcompilerdirectives
+    - gocritic
+    - gosec
+    - loggercheck
+    - misspell
+    - nilerr
+    - nolintlint
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+  settings:
+    govet:
+      enable:
+        - nilness
+    loggercheck:
+      zap: true
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      # Keep default revive rules; only disable ones that force Wails/API renames.
+      rules:
+        - name: exported
+          disabled: true
+        - name: var-naming
+          disabled: true
+        - name: package-comments
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      # Wails platform scaffolding (not app business code).
+      - ^build/
+    rules:
+      # Intentional hash toolbox (MD5/SHA1 as user-facing utilities).
+      - path: internal/tools/tools\.go
+        linters:
+          - gosec
+        text: "(G401|G501|G505)"
+      # Test fixtures / helpers.
+      - path: _test\.go
+        linters:
+          - gosec
+      # Localhost-only probe URL for proxy detection.
+      - path: internal/httpproxy/
+        linters:
+          - gosec
+        text: "G704:"
+      # Packing trusted local user-data; Walk TOCTOU / decompress-bomb are low value.
+      - path: internal/sync/packer\.go
+        linters:
+          - gosec
+        text: "(G110|G122)"
+      # Known-range platform/protocol conversions (time, PID, token caps, tar mode).
+      - path: internal/(ai/config\.go|ssh/|sync/packer\.go)
+        linters:
+          - gosec
+        text: "G115:"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ilaziness/vexo
+  exclusions:
+    generated: lax
+    paths:
+      - ^build/

@@ -9,14 +9,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ilaziness/vexo/internal/buildinfo"
-	"github.com/ilaziness/vexo/internal/httpproxy"
-	"github.com/ilaziness/vexo/internal/system"
-	"github.com/ilaziness/vexo/internal/termws"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 	"go.uber.org/zap"
+
+	"github.com/ilaziness/vexo/internal/buildinfo"
+	"github.com/ilaziness/vexo/internal/httpproxy"
+	"github.com/ilaziness/vexo/internal/system"
+	"github.com/ilaziness/vexo/internal/termws"
 )
 
 const (

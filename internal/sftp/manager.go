@@ -2,6 +2,7 @@ package sftp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,10 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ilaziness/vexo/internal/ssh"
-	"github.com/ilaziness/vexo/internal/transfer"
 	"github.com/pkg/sftp"
 	"go.uber.org/zap"
+
+	"github.com/ilaziness/vexo/internal/ssh"
+	"github.com/ilaziness/vexo/internal/transfer"
 )
 
 const (
@@ -184,7 +186,7 @@ func (sft *Manager) uploadFile(sessionID string, localPathFile, remoteDir string
 	defer remoteFile.Close()
 
 	if tracker == nil {
-		return fmt.Errorf(ErrTrackerRequired)
+		return errors.New(ErrTrackerRequired)
 	}
 
 	progressReader := &transfer.Reader{Reader: localFile, Tracker: tracker}
@@ -248,7 +250,7 @@ func (sft *Manager) downloadFile(sessionID string, localPathFile, remotePathFile
 	defer localFile.Close()
 
 	if tracker == nil {
-		return fmt.Errorf(ErrTrackerRequired)
+		return errors.New(ErrTrackerRequired)
 	}
 
 	progressWriter := &transfer.Writer{Writer: localFile, Tracker: tracker}
@@ -337,7 +339,7 @@ func (sft *Manager) uploadDirectory(sessionID string, localPath, remotePath stri
 	}
 
 	if tracker == nil {
-		return fmt.Errorf(ErrTrackerRequired)
+		return errors.New(ErrTrackerRequired)
 	}
 
 	// Validate local directory
@@ -420,7 +422,7 @@ func (sft *Manager) downloadDirectory(sessionID string, localPath, remotePath st
 	}
 
 	if tracker == nil {
-		return fmt.Errorf(ErrTrackerRequired)
+		return errors.New(ErrTrackerRequired)
 	}
 
 	// Validate remote directory
@@ -497,10 +499,8 @@ func (sft *Manager) DeleteFile(sessionID string, path string) error {
 	if info.IsDir() {
 		// It's a directory, recursively delete contents
 		return ftpClient.RemoveAll(path)
-	} else {
-		// It's a file
-		return ftpClient.Remove(path)
 	}
+	return ftpClient.Remove(path)
 }
 
 // RenameFile renames a file or directory at the specified path

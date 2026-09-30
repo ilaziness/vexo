@@ -98,7 +98,7 @@ func appendKnownHost(path, host, keyType, keyBase64 string) error {
 		return err
 	}
 	defer f2.Close()
-	_, err = f2.WriteString(fmt.Sprintf("%s %s %s\n", host, keyType, keyBase64))
+	_, err = fmt.Fprintf(f2, "%s %s %s\n", host, keyType, keyBase64)
 	return err
 }
 

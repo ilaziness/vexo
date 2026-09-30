@@ -95,7 +95,7 @@ func (s *SyncService) SaveVersion(userID string, reader io.Reader) (*SyncVersion
 	}
 	if err := s.db.Create(version).Error; err != nil {
 		// 清理文件
-		s.storage.Delete(userID, newVersion)
+		_ = s.storage.Delete(userID, newVersion)
 		return nil, fmt.Errorf("failed to create version record: %w", err)
 	}
 

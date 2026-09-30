@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ilaziness/vexo/internal/database"
 	"go.uber.org/zap"
+
+	"github.com/ilaziness/vexo/internal/database"
 )
 
 type BuiltinCommand struct {

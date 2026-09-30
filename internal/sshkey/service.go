@@ -5,10 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/ilaziness/vexo/internal/database"
 	"github.com/ilaziness/vexo/internal/secret"
 	"github.com/ilaziness/vexo/internal/utils"
-	"go.uber.org/zap"
 )
 
 // Info 是密钥列表项，不含私钥。

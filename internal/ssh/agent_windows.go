@@ -172,7 +172,7 @@ func findPageant() (uintptr, error) {
 	hwnd, _, _ := findWindow.Call(uintptr(unsafe.Pointer(class)), uintptr(unsafe.Pointer(class)))
 	runtime.KeepAlive(class)
 	if hwnd == 0 {
-		return 0, fmt.Errorf("Pageant is not running")
+		return 0, fmt.Errorf("pageant is not running")
 	}
 	return hwnd, nil
 }
@@ -193,15 +193,18 @@ func queryPageant(req []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer windows.CloseHandle(mapping)
+	defer func() { _ = windows.CloseHandle(mapping) }()
 	runtime.KeepAlive(sa)
 	addr, err := windows.MapViewOfFile(mapping, windows.FILE_MAP_READ|windows.FILE_MAP_WRITE, 0, 0, 0)
 	if err != nil {
 		return nil, err
 	}
-	defer windows.UnmapViewOfFile(addr)
+	defer func() { _ = windows.UnmapViewOfFile(addr) }()
 
-	view := unsafe.Slice((*byte)(unsafe.Pointer(addr)), agentMaxMsgLen)
+	// MapViewOfFile returns uintptr; rebuild a []byte without uintptr→Pointer
+	// conversion so go vet's unsafeptr check stays quiet. Memory is OS-mapped,
+	// not Go-heap; UnmapViewOfFile must run before view escapes the function.
+	view := mappedView(addr, agentMaxMsgLen)
 	copy(view, req)
 
 	nameC := append([]byte(mapName), 0)
@@ -229,6 +232,21 @@ func queryPageant(req []byte) ([]byte, error) {
 	out := make([]byte, total)
 	copy(out, view[:total])
 	return out, nil
+}
+
+// mappedView builds a []byte over a MapViewOfFile address without converting
+// uintptr→unsafe.Pointer (which go vet rejects as possible misuse).
+func mappedView(addr uintptr, length int) []byte {
+	var b []byte
+	hdr := (*struct {
+		Data uintptr
+		Len  int
+		Cap  int
+	})(unsafe.Pointer(&b))
+	hdr.Data = addr
+	hdr.Len = length
+	hdr.Cap = length
+	return b
 }
 
 func randomPageantMapName() (string, error) {

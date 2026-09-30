@@ -26,7 +26,7 @@ func Encrypt(password, plaintext string) (string, error) {
 	// Generate random salt
 	salt := make([]byte, saltLen)
 	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("failed to generate salt: %v", err)
+		return "", fmt.Errorf("failed to generate salt: %w", err)
 	}
 
 	// Derive key using Argon2
@@ -36,19 +36,19 @@ func Encrypt(password, plaintext string) (string, error) {
 	// Create AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", fmt.Errorf("failed to create AES cipher: %v", err)
+		return "", fmt.Errorf("failed to create AES cipher: %w", err)
 	}
 
 	// Generate nonce
 	nonce := make([]byte, nonceLen)
 	if _, err := rand.Read(nonce); err != nil {
-		return "", fmt.Errorf("failed to generate nonce: %v", err)
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
 	// Create GCM
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", fmt.Errorf("failed to create GCM: %v", err)
+		return "", fmt.Errorf("failed to create GCM: %w", err)
 	}
 
 	// Encrypt
@@ -69,7 +69,7 @@ func Decrypt(password, encrypted string) (string, error) {
 	// Base64 decode
 	combined, err := base64.StdEncoding.DecodeString(encrypted)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode base64: %v", err)
+		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
 
 	if len(combined) < saltLen+nonceLen {
@@ -88,19 +88,19 @@ func Decrypt(password, encrypted string) (string, error) {
 	// Create AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return "", fmt.Errorf("failed to create AES cipher: %v", err)
+		return "", fmt.Errorf("failed to create AES cipher: %w", err)
 	}
 
 	// Create GCM
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", fmt.Errorf("failed to create GCM: %v", err)
+		return "", fmt.Errorf("failed to create GCM: %w", err)
 	}
 
 	// Decrypt
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to decrypt: %v", err)
+		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
 
 	return string(plaintext), nil
