@@ -271,6 +271,7 @@ func (s *Service) ResolveHops(target ssh.Endpoint, jumpID string) ([]ssh.Endpoin
 		ep.StartupCmd = ""
 		ep.Env = nil
 		ep.Term = ""
+		ep.ForwardAgent = false
 		if seen[ep.Addr()] {
 			return nil, fmt.Errorf("检测到跳板机循环引用: %s", ep.Addr())
 		}

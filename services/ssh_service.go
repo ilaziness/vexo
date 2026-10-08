@@ -70,24 +70,23 @@ func (p *keyboardInteractivePrompter) Dismiss(id string) {
 	p.app.Event.Emit(EventKeyboardInteractiveClose, id)
 }
 
-// ConnectRequest 临时直连参数；会话选项（TERM/env/startup）仅书签支持。
+// ConnectRequest 临时直连参数；会话选项（TERM/env/startup/ForwardAgent）仅书签支持。
 type ConnectRequest struct {
-	Host         string `json:"host"`
-	Port         int    `json:"port"`
-	User         string `json:"user"`
-	Password     string `json:"password"`
-	Key          string `json:"key"`
-	KeyPassword  string `json:"keyPassword"`
-	ProxyJumpID  string `json:"proxyJumpID"`
-	Certificate  string `json:"certificate"`
-	ForwardAgent bool   `json:"forwardAgent"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	User        string `json:"user"`
+	Password    string `json:"password"`
+	Key         string `json:"key"`
+	KeyPassword string `json:"keyPassword"`
+	ProxyJumpID string `json:"proxyJumpID"`
+	Certificate string `json:"certificate"`
 }
 
 func (r ConnectRequest) endpoint() ssh.Endpoint {
 	return ssh.Endpoint{
 		Host: r.Host, Port: r.Port, User: r.User,
 		Password: r.Password, Key: r.Key, KeyPassword: r.KeyPassword,
-		Certificate: r.Certificate, ForwardAgent: r.ForwardAgent,
+		Certificate: r.Certificate,
 	}
 }
 

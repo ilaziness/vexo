@@ -10,8 +10,6 @@ import {
   DialogActions,
   Select,
   MenuItem,
-  Checkbox,
-  FormControlLabel,
   InputLabel,
   Box,
   Autocomplete,
@@ -53,7 +51,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [key, setKey] = useState("");
   const [keyPassword, setKeyPassword] = useState("");
   const [proxyJumpID, setProxyJumpID] = useState("");
-  const [forwardAgent, setForwardAgent] = useState(false);
   const [certificate, setCertificate] = useState("");
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -128,7 +125,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       keyPassword: key ? keyPassword : undefined,
       proxyJumpID,
       certificate,
-      forwardAgent,
     });
   };
 
@@ -149,7 +145,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           keyPassword,
           proxyJumpID,
           certificate,
-          forwardAgent,
         }),
       );
       successMessage("连接测试成功");
@@ -193,7 +188,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       use_agent: true,
       ssh_key_id: "",
       certificate,
-      forward_agent: forwardAgent,
+      forward_agent: false,
       proxy_mode: ProxyMode.Inherit,
       proxy_type: ProxyType.None,
       proxy_host: "",
@@ -217,7 +212,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           keyPassword: key ? keyPassword : undefined,
           proxyJumpID: proxyJumpID,
           certificate,
-          forwardAgent,
         });
       })
       .catch((err) => {
@@ -268,16 +262,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             margin="normal"
             size="small"
             sx={{ m: 0.8 }}
-          />
-          <FormControlLabel
-            sx={{ m: 0.8, alignSelf: "flex-start" }}
-            control={
-              <Checkbox
-                checked={forwardAgent}
-                onChange={(_, checked) => setForwardAgent(checked)}
-              />
-            }
-            label="Forward SSH Agent"
           />
           <TextField
             label="Password"
