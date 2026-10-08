@@ -16,8 +16,8 @@ export interface SSHLinkInfo {
   key?: string;
   keyPassword?: string;
   proxyJumpID?: string;
-  useAgent?: boolean;
   certificate?: string;
+  forwardAgent?: boolean;
 }
 
 /** Matches services.ConnectRequest JSON fields (camelCase). */
@@ -29,8 +29,8 @@ export interface ConnectRequest {
   key: string;
   keyPassword: string;
   proxyJumpID: string;
-  useAgent: boolean;
   certificate: string;
+  forwardAgent: boolean;
 }
 
 /** Build ConnectRequest with stable defaults for optional SSHLinkInfo fields. */
@@ -44,8 +44,8 @@ export function toConnectRequest(li: SSHLinkInfo): ConnectRequest {
     key,
     keyPassword: key ? li.keyPassword || "" : "",
     proxyJumpID: li.proxyJumpID || "",
-    useAgent: !!li.useAgent,
     certificate: li.certificate || "",
+    forwardAgent: !!li.forwardAgent,
   };
 }
 

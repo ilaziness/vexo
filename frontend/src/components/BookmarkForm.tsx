@@ -55,9 +55,10 @@ const emptyBookmark = (): SSHBookmark => ({
   user: "",
   password: "",
   icon: "",
-  use_agent: false,
+  use_agent: true,
   ssh_key_id: "",
   certificate: "",
+  forward_agent: false,
 });
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -407,17 +408,20 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                 认证信息
               </Typography>
               <Stack spacing={2}>
-                <FormRow label="SSH Agent" labelWidth={120}>
+                <FormRow label="Agent 转发" labelWidth={120}>
                   <FormControlLabel
                     control={
                       <Checkbox
-                        checked={formData.use_agent}
+                        checked={formData.forward_agent}
                         onChange={(_, checked) =>
-                          setFormData((prev) => ({ ...prev, use_agent: checked }))
+                          setFormData((prev) => ({
+                            ...prev,
+                            forward_agent: checked,
+                          }))
                         }
                       />
                     }
-                    label="使用 SSH Agent"
+                    label="转发 SSH Agent（需本机 Agent 在运行）"
                   />
                 </FormRow>
                 <FormRow label="密码" labelWidth={120}>

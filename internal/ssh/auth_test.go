@@ -41,7 +41,7 @@ func methodTypes(methods []cryptossh.AuthMethod) []string {
 }
 
 func TestAuthMethodsAgentOnly(t *testing.T) {
-	methods, err := authMethods(Endpoint{UseAgent: true}, []cryptossh.Signer{newTestSigner(t)})
+	methods, err := authMethods(Endpoint{}, []cryptossh.Signer{newTestSigner(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestAuthMethodsAgentOnly(t *testing.T) {
 }
 
 func TestAuthMethodsAgentWithoutKeys(t *testing.T) {
-	methods, err := authMethods(Endpoint{UseAgent: true}, nil)
+	methods, err := authMethods(Endpoint{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestAuthMethodsAgentWithoutKeys(t *testing.T) {
 }
 
 func TestAuthMethodsAgentAndPassword(t *testing.T) {
-	methods, err := authMethods(Endpoint{UseAgent: true, Password: "secret"}, []cryptossh.Signer{newTestSigner(t)})
+	methods, err := authMethods(Endpoint{Password: "secret"}, []cryptossh.Signer{newTestSigner(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestAuthMethodOrder(t *testing.T) {
 	if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	methods, err := authMethods(Endpoint{UseAgent: true, Key: path, Password: "secret"}, []cryptossh.Signer{newTestSigner(t)})
+	methods, err := authMethods(Endpoint{Key: path, Password: "secret"}, []cryptossh.Signer{newTestSigner(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestAuthMethodsKeyPEM(t *testing.T) {
 }
 
 func TestAgentUnavailableIsFatal(t *testing.T) {
-	if !agentUnavailableIsFatal(Endpoint{UseAgent: true}, false) {
+	if !agentUnavailableIsFatal(Endpoint{}, false) {
 		t.Fatal("expected fatal without other auth")
 	}
 	if agentUnavailableIsFatal(Endpoint{Password: "x"}, false) {
@@ -160,6 +160,12 @@ func TestAgentUnavailableIsFatal(t *testing.T) {
 	}
 	if agentUnavailableIsFatal(Endpoint{}, true) {
 		t.Fatal("keyboard-interactive should keep dialing")
+	}
+	if !agentUnavailableIsFatal(Endpoint{Certificate: "/cert.pub"}, true) {
+		t.Fatal("certificate without local key requires agent even with keyboard")
+	}
+	if agentUnavailableIsFatal(Endpoint{Certificate: "/cert.pub", Key: "k"}, true) {
+		t.Fatal("certificate with key file should keep dialing")
 	}
 }
 
@@ -246,7 +252,7 @@ func TestUserCertificateSignerMatchesAgent(t *testing.T) {
 	if _, ok := got.PublicKey().(*cryptossh.Certificate); !ok {
 		t.Fatalf("public key = %T", got.PublicKey())
 	}
-	methods, err := authMethods(Endpoint{UseAgent: true, Certificate: path, User: "root"}, []cryptossh.Signer{other, match})
+	methods, err := authMethods(Endpoint{Certificate: path, User: "root"}, []cryptossh.Signer{other, match})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +280,7 @@ func TestUserCertificateSignerMatchesAgentAdvertisedCert(t *testing.T) {
 	if _, ok := got.PublicKey().(*cryptossh.Certificate); !ok {
 		t.Fatalf("public key = %T", got.PublicKey())
 	}
-	methods, err := authMethods(Endpoint{UseAgent: true, Certificate: path, User: "root"}, []cryptossh.Signer{agent})
+	methods, err := authMethods(Endpoint{Certificate: path, User: "root"}, []cryptossh.Signer{agent})
 	if err != nil {
 		t.Fatal(err)
 	}

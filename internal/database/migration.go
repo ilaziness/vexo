@@ -24,6 +24,7 @@ var migrations = []Migration{
 	{Version: 5, Name: "add bookmark use_agent", Up: migrateAddBookmarkUseAgent},
 	{Version: 6, Name: "add ssh keys", Up: migrateAddSSHKeys},
 	{Version: 7, Name: "add bookmark certificate", Up: migrateAddBookmarkCertificate},
+	{Version: 8, Name: "add bookmark forward_agent", Up: migrateAddBookmarkForwardAgent},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -240,6 +241,23 @@ func migrateAddBookmarkCertificate(db *sql.DB, logger *zap.Logger) error {
 	}
 	if err != nil {
 		return fmt.Errorf("check column bookmarks.certificate failed: %w", err)
+	}
+	return nil
+}
+
+// migrateAddBookmarkForwardAgent 为书签增加 SSH Agent 转发开关（幂等）。
+func migrateAddBookmarkForwardAgent(db *sql.DB, logger *zap.Logger) error {
+	var columnName string
+	err := db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = 'forward_agent'`).Scan(&columnName)
+	if err == sql.ErrNoRows {
+		if _, err := db.Exec(`ALTER TABLE bookmarks ADD COLUMN forward_agent INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("add column bookmarks.forward_agent failed: %w", err)
+		}
+		logger.Debug("migration: added bookmarks.forward_agent column")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check column bookmarks.forward_agent failed: %w", err)
 	}
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 	cryptossh "golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/internal/utils"
@@ -36,15 +37,15 @@ func closeReasonFromWait(err error) CloseReason {
 }
 
 type Endpoint struct {
-	Host        string
-	Port        int
-	User        string
-	Password    string
-	Key         string
-	KeyPassword string
-	KeyPEM      string
-	UseAgent    bool
-	Certificate string
+	Host         string
+	Port         int
+	User         string
+	Password     string
+	Key          string
+	KeyPassword  string
+	KeyPEM       string
+	Certificate  string
+	ForwardAgent bool
 }
 
 func (e Endpoint) Addr() string {
@@ -83,23 +84,37 @@ type Session struct {
 	stopOutput     chan struct{}
 	stopOutputOnce sync.Once
 	manager        *Manager
+	forwardAgent   bool
 }
 
 type hopClient struct {
-	target *cryptossh.Client
-	jumps  []*cryptossh.Client
+	target         *cryptossh.Client
+	jumps          []*cryptossh.Client
+	forwardMu      sync.Mutex
+	agentForwarded bool
+	agentClosers   []io.Closer
 }
 
 func (h *hopClient) Close() {
 	if h == nil {
 		return
 	}
+	// 先关 SSH，停掉 auth-agent 通道上的 ServeAgent，再关本机 Agent 连接。
 	if h.target != nil {
 		_ = h.target.Close()
 	}
 	for i := len(h.jumps) - 1; i >= 0; i-- {
 		_ = h.jumps[i].Close()
 	}
+	h.forwardMu.Lock()
+	for _, c := range h.agentClosers {
+		if c != nil {
+			_ = c.Close()
+		}
+	}
+	h.agentClosers = nil
+	h.agentForwarded = false
+	h.forwardMu.Unlock()
 }
 
 // Options are runtime SSH client settings applied on next dial / new keepalive.
@@ -245,7 +260,7 @@ func (m *Manager) Connect(hops []Endpoint) (string, error) {
 		m.logger.Debug("ssh connect ok and stored in cache", zap.String("clientKey", clientKey))
 	}
 
-	sess := newSession(m, clientKey, client)
+	sess := newSession(m, clientKey, client, target.ForwardAgent)
 	m.sessions.Store(sess.ID, sess)
 	return sess.ID, nil
 }
@@ -372,7 +387,7 @@ func (m *Manager) SetHostKeyDecision(host string, accept bool) error {
 	return m.hostKey.decide(host, accept)
 }
 
-func newSession(m *Manager, clientKey string, client *cryptossh.Client) *Session {
+func newSession(m *Manager, clientKey string, client *cryptossh.Client, forwardAgent bool) *Session {
 	return &Session{
 		manager:        m,
 		ClientKey:      clientKey,
@@ -381,15 +396,28 @@ func newSession(m *Manager, clientKey string, client *cryptossh.Client) *Session
 		OutputChan:     make(chan []byte, 200),
 		stopOutput:     make(chan struct{}),
 		outputBuffSize: 1024 * 10,
+		forwardAgent:   forwardAgent,
 	}
 }
 
 func (sc *Session) Start(cols, rows int) error {
 	sc.manager.logger.Debug("Starting SSH session", zap.String("id", sc.ID), zap.String("size", fmt.Sprintf("%dx%d", cols, rows)))
+	if sc.forwardAgent {
+		if err := sc.manager.enableAgentForward(sc.ClientKey); err != nil {
+			sc.manager.logger.Error("SSH agent forwarding enable failed", zap.Error(err), zap.String("id", sc.ID))
+			return fmt.Errorf("SSH agent 转发失败: %w", err)
+		}
+	}
 	var err error
 	sc.session, err = sc.client.NewSession()
 	if err != nil {
 		return fmt.Errorf("Start session fail")
+	}
+	if sc.forwardAgent {
+		if err = agent.RequestAgentForwarding(sc.session); err != nil {
+			sc.manager.logger.Error("SSH agent forwarding request denied", zap.Error(err), zap.String("id", sc.ID))
+			return sc.failStart(fmt.Errorf("SSH agent 转发请求被拒绝: %w", err))
+		}
 	}
 	if err = sc.session.RequestPty("xterm-256color", rows, cols, cryptossh.TerminalModes{
 		cryptossh.ECHO:          1,

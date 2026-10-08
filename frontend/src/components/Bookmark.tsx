@@ -119,9 +119,10 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       user: "",
       password: "",
       icon: "",
-      use_agent: false,
+      use_agent: true,
       ssh_key_id: "",
       certificate: "",
+      forward_agent: false,
     };
     setSelectedBookmark(newBookmark);
   };

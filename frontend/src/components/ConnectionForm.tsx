@@ -52,7 +52,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const [key, setKey] = useState("");
   const [keyPassword, setKeyPassword] = useState("");
   const [proxyJumpID, setProxyJumpID] = useState("");
-  const [useAgent, setUseAgent] = useState(false);
+  const [forwardAgent, setForwardAgent] = useState(false);
   const [certificate, setCertificate] = useState("");
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -126,8 +126,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       key,
       keyPassword: key ? keyPassword : undefined,
       proxyJumpID,
-      useAgent,
       certificate,
+      forwardAgent,
     });
   };
 
@@ -147,8 +147,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           key,
           keyPassword,
           proxyJumpID,
-          useAgent,
           certificate,
+          forwardAgent,
         }),
       );
       successMessage("连接测试成功");
@@ -190,9 +190,10 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       user,
       password,
       icon: "",
-      use_agent: useAgent,
+      use_agent: true,
       ssh_key_id: "",
       certificate,
+      forward_agent: forwardAgent,
     };
 
     // 保存到书签
@@ -208,8 +209,8 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           key,
           keyPassword: key ? keyPassword : undefined,
           proxyJumpID: proxyJumpID,
-          useAgent,
           certificate,
+          forwardAgent,
         });
       })
       .catch((err) => {
@@ -265,11 +266,11 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             sx={{ m: 0.8, alignSelf: "flex-start" }}
             control={
               <Checkbox
-                checked={useAgent}
-                onChange={(_, checked) => setUseAgent(checked)}
+                checked={forwardAgent}
+                onChange={(_, checked) => setForwardAgent(checked)}
               />
             }
-            label="Use SSH Agent"
+            label="Forward SSH Agent"
           />
           <TextField
             label="Password"

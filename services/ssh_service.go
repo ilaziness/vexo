@@ -71,22 +71,22 @@ func (p *keyboardInteractivePrompter) Dismiss(id string) {
 
 // ConnectRequest 直连参数，Connect / TestConnectInfo 共用；不含书签跳板解析结果。
 type ConnectRequest struct {
-	Host        string `json:"host"`
-	Port        int    `json:"port"`
-	User        string `json:"user"`
-	Password    string `json:"password"`
-	Key         string `json:"key"`
-	KeyPassword string `json:"keyPassword"`
-	ProxyJumpID string `json:"proxyJumpID"`
-	UseAgent    bool   `json:"useAgent"`
-	Certificate string `json:"certificate"`
+	Host         string `json:"host"`
+	Port         int    `json:"port"`
+	User         string `json:"user"`
+	Password     string `json:"password"`
+	Key          string `json:"key"`
+	KeyPassword  string `json:"keyPassword"`
+	ProxyJumpID  string `json:"proxyJumpID"`
+	Certificate  string `json:"certificate"`
+	ForwardAgent bool   `json:"forwardAgent"`
 }
 
 func (r ConnectRequest) endpoint() ssh.Endpoint {
 	return ssh.Endpoint{
 		Host: r.Host, Port: r.Port, User: r.User,
 		Password: r.Password, Key: r.Key, KeyPassword: r.KeyPassword,
-		UseAgent: r.UseAgent, Certificate: r.Certificate,
+		Certificate: r.Certificate, ForwardAgent: r.ForwardAgent,
 	}
 }
 

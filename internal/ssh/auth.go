@@ -17,15 +17,11 @@ func authMethods(ep Endpoint, agentSigners []cryptossh.Signer) ([]cryptossh.Auth
 		return nil, err
 	}
 	if ep.Certificate != "" {
-		var agents []cryptossh.Signer
-		if ep.UseAgent {
-			agents = agentSigners
-		}
-		certSigner, fromAgent, err := userCertificateSigner(ep.Certificate, ep.User, keySigner, agents)
+		certSigner, fromAgent, err := userCertificateSigner(ep.Certificate, ep.User, keySigner, agentSigners)
 		if err != nil {
 			return nil, err
 		}
-		rest := agentSignersExceptCertKey(agents, certSigner)
+		rest := agentSignersExceptCertKey(agentSigners, certSigner)
 		if fromAgent {
 			methods = append(methods, cryptossh.PublicKeys(certSigner))
 			if len(rest) > 0 {
@@ -38,7 +34,7 @@ func authMethods(ep Endpoint, agentSigners []cryptossh.Signer) ([]cryptossh.Auth
 			methods = append(methods, cryptossh.PublicKeys(certSigner))
 		}
 	} else {
-		if ep.UseAgent && len(agentSigners) > 0 {
+		if len(agentSigners) > 0 {
 			methods = append(methods, cryptossh.PublicKeys(agentSigners...))
 		}
 		if keySigner != nil {
@@ -73,7 +69,14 @@ func finalizeAuthMethods(methods []cryptossh.AuthMethod, keyboard cryptossh.Auth
 }
 
 func agentUnavailableIsFatal(ep Endpoint, keyboardEnabled bool) bool {
-	return ep.Password == "" && ep.Key == "" && ep.KeyPEM == "" && !keyboardEnabled
+	if ep.Password != "" || ep.Key != "" || ep.KeyPEM != "" {
+		return false
+	}
+	// 用户证书没有本地私钥时只能靠 Agent，与是否启用 keyboard-interactive 无关。
+	if ep.Certificate != "" {
+		return true
+	}
+	return !keyboardEnabled
 }
 
 func signerFromPEM(pem string) (cryptossh.Signer, error) {

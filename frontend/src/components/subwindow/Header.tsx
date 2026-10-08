@@ -113,10 +113,6 @@ export default function Header() {
         errorMessage("bookmark not found");
         return;
       }
-      if (!bookmark.password && !bookmark.private_key && !bookmark.ssh_key_id && !bookmark.use_agent) {
-        errorMessage("未设置密码、密钥或 SSH Agent");
-        return;
-      }
       const sshInfo = {
         bookmarkID: bookmark.id,
         host: bookmark.host,

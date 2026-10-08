@@ -55,19 +55,17 @@ func (m *Manager) dialHops(hops []Endpoint, timeout time.Duration) (*hopClient, 
 
 func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Client) (*cryptossh.Client, error) {
 	var agentSigners []cryptossh.Signer
-	if ep.UseAgent {
-		signers, cleanup, err := openAgentSigners()
-		if cleanup != nil {
-			defer cleanup()
+	signers, cleanup, err := openAgentSigners()
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err != nil {
+		if agentUnavailableIsFatal(ep, m.keyboardPrompter != nil) {
+			return nil, fmt.Errorf("SSH agent 不可用: %w", err)
 		}
-		if err != nil {
-			if agentUnavailableIsFatal(ep, m.keyboardPrompter != nil) {
-				return nil, fmt.Errorf("SSH agent 不可用: %w", err)
-			}
-			m.logger.Debug("ssh agent unavailable, continuing with other auth", zap.Error(err))
-		} else {
-			agentSigners = signers
-		}
+		m.logger.Debug("ssh agent unavailable, continuing with other auth", zap.Error(err))
+	} else {
+		agentSigners = signers
 	}
 	methods, err := authMethods(ep, agentSigners)
 	if err != nil {
@@ -90,7 +88,6 @@ func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Cli
 	}
 
 	m.logger.Debug("ssh auth",
-		zap.Bool("agent", ep.UseAgent),
 		zap.Int("agent_keys", len(agentSigners)),
 		zap.String("file", ep.Key),
 		zap.Bool("stored_key", ep.KeyPEM != ""),
