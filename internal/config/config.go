@@ -53,11 +53,16 @@ type TerminalConfig struct {
 	LineHeight float64 `toml:"line_height" json:"lineHeight"`
 }
 
-// SSHConfig holds global SSH client options (ServerAliveInterval-style keepalive, dial timeout, auto-reconnect).
+// SSHConfig holds global SSH client options (ServerAliveInterval-style keepalive, dial timeout, auto-reconnect, dial proxy).
 type SSHConfig struct {
-	ServerAliveInterval int  `toml:"server_alive_interval" json:"serverAliveInterval"`
-	DialTimeoutSec      int  `toml:"dial_timeout_sec" json:"dialTimeoutSec"`
-	AutoReconnect       bool `toml:"auto_reconnect" json:"autoReconnect"`
+	ServerAliveInterval int    `toml:"server_alive_interval" json:"serverAliveInterval"`
+	DialTimeoutSec      int    `toml:"dial_timeout_sec" json:"dialTimeoutSec"`
+	AutoReconnect       bool   `toml:"auto_reconnect" json:"autoReconnect"`
+	ProxyType           string `toml:"proxy_type" json:"proxyType"`
+	ProxyHost           string `toml:"proxy_host" json:"proxyHost"`
+	ProxyPort           int    `toml:"proxy_port" json:"proxyPort"`
+	ProxyUser           string `toml:"proxy_user" json:"proxyUser"`
+	ProxyPassword       string `toml:"proxy_password" json:"proxyPassword"`
 }
 
 type AppConfig struct {
@@ -105,6 +110,33 @@ func (c *SSHConfig) Normalize() {
 	if c.ServerAliveInterval < 0 {
 		c.ServerAliveInterval = 0
 	}
+	switch strings.ToLower(strings.TrimSpace(c.ProxyType)) {
+	case "", "http", "socks5":
+		c.ProxyType = strings.ToLower(strings.TrimSpace(c.ProxyType))
+	default:
+		c.ProxyType = ""
+	}
+	if c.ProxyPort < 0 {
+		c.ProxyPort = 0
+	}
+}
+
+// ValidateProxy returns an error when a dial proxy is enabled but misconfigured.
+func (c *SSHConfig) ValidateProxy() error {
+	if strings.TrimSpace(c.ProxyType) == "" {
+		return nil
+	}
+	typ := strings.ToLower(strings.TrimSpace(c.ProxyType))
+	if typ != "http" && typ != "socks5" {
+		return fmt.Errorf("不支持的代理类型: %s", c.ProxyType)
+	}
+	if strings.TrimSpace(c.ProxyHost) == "" {
+		return fmt.Errorf("代理主机不能为空")
+	}
+	if c.ProxyPort < 1 || c.ProxyPort > 65535 {
+		return fmt.Errorf("代理端口必须在 1–65535 之间")
+	}
+	return nil
 }
 
 func Load(logger *zap.Logger) (*Store, error) {

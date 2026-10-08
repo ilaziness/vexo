@@ -58,6 +58,9 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	tunnelMgr := tunnel.NewManager(log, sshMgr)
 
 	sshService := NewSSHService(a, sshMgr, sftpMgr, tunnelMgr)
+	sshService.setSSHConfigGetter(func() config.SSHConfig {
+		return cfgStore.Config.SSH
+	})
 	termWS := termws.NewServer(log, sshMgr, func(id string) { _ = sshService.CloseByID(id) })
 	sshMgr.SetOnClose(sshService.onSessionClosed)
 

@@ -13,10 +13,15 @@ func TestHopsClientKey(t *testing.T) {
 		{Host: "jump", Port: 22, User: "j"},
 		{Host: "target", Port: 22, User: "t"},
 	}
-	got := hopsClientKey(hops)
-	want := "t@target:22via:j@jump:22"
+	got := hopsClientKey(hops, ProxyConfig{})
+	want := "t@target:22via:j@jump:22|proxy:direct"
 	if got != want {
 		t.Fatalf("hopsClientKey = %q, want %q", got, want)
+	}
+	proxied := hopsClientKey(hops, ProxyConfig{Type: "socks5", Host: "127.0.0.1", Port: 1080, User: "u"})
+	wantProxy := "t@target:22via:j@jump:22|proxy:socks5|127.0.0.1|1080|u"
+	if proxied != wantProxy {
+		t.Fatalf("hopsClientKey with proxy = %q, want %q", proxied, wantProxy)
 	}
 }
 

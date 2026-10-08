@@ -11,6 +11,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/ilaziness/vexo/internal/bookmark"
+	"github.com/ilaziness/vexo/internal/config"
 	"github.com/ilaziness/vexo/internal/sftp"
 	"github.com/ilaziness/vexo/internal/ssh"
 	"github.com/ilaziness/vexo/internal/termws"
@@ -91,17 +92,22 @@ func (r ConnectRequest) endpoint() ssh.Endpoint {
 }
 
 type SSHService struct {
-	app       *application.App
-	mgr       *ssh.Manager
-	sftp      *sftp.Manager
-	tunnels   *tunnel.Manager
-	termws    *termws.Server
-	bookmarks *bookmark.Service
-	closing   sync.Map
+	app          *application.App
+	mgr          *ssh.Manager
+	sftp         *sftp.Manager
+	tunnels      *tunnel.Manager
+	termws       *termws.Server
+	bookmarks    *bookmark.Service
+	getSSHConfig func() config.SSHConfig
+	closing      sync.Map
 }
 
 func NewSSHService(app *application.App, mgr *ssh.Manager, sftpMgr *sftp.Manager, tunnels *tunnel.Manager) *SSHService {
 	return &SSHService{app: app, mgr: mgr, sftp: sftpMgr, tunnels: tunnels}
+}
+
+func (s *SSHService) setSSHConfigGetter(fn func() config.SSHConfig) {
+	s.getSSHConfig = fn
 }
 
 func (s *SSHService) onSessionClosed(id string, reason ssh.CloseReason) {
@@ -133,12 +139,12 @@ func (s *SSHService) hops(req ConnectRequest) ([]ssh.Endpoint, error) {
 	return s.bookmarks.ResolveHops(target, req.ProxyJumpID)
 }
 
-func (s *SSHService) connectHops(hops []ssh.Endpoint) (string, error) {
-	return s.mgr.Connect(hops)
+func (s *SSHService) connectHops(hops []ssh.Endpoint, proxy ssh.ProxyConfig) (string, error) {
+	return s.mgr.Connect(hops, proxy)
 }
 
-func (s *SSHService) testHops(hops []ssh.Endpoint) error {
-	return s.mgr.TestConnect(hops)
+func (s *SSHService) testHops(hops []ssh.Endpoint, proxy ssh.ProxyConfig) error {
+	return s.mgr.TestConnect(hops, proxy)
 }
 
 func (s *SSHService) hasSession(id string) bool {
@@ -164,7 +170,11 @@ func (s *SSHService) Connect(req ConnectRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return s.connectHops(hops)
+	proxy, err := s.globalDialProxy()
+	if err != nil {
+		return "", err
+	}
+	return s.connectHops(hops, proxy)
 }
 
 func (s *SSHService) Start(id string, cols, rows int) error {
@@ -180,7 +190,11 @@ func (s *SSHService) TestConnectInfo(req ConnectRequest) error {
 	if err != nil {
 		return err
 	}
-	return s.testHops(hops)
+	proxy, err := s.globalDialProxy()
+	if err != nil {
+		return err
+	}
+	return s.testHops(hops, proxy)
 }
 
 func (s *SSHService) StartSftp(id string) error {

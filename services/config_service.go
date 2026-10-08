@@ -99,6 +99,9 @@ func (cs *ConfigService) SaveTerminalConfig(terminalConfig TerminalConfig) error
 
 func (cs *ConfigService) SaveSSHConfig(sshConfig SSHConfig) error {
 	sshConfig.Normalize()
+	if err := sshConfig.ValidateProxy(); err != nil {
+		return err
+	}
 	cs.current().SSH = sshConfig
 	if err := cs.store.Save(); err != nil {
 		return err

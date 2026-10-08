@@ -8,6 +8,7 @@ import {
   Stack,
   FormControlLabel,
   Switch,
+  MenuItem,
 } from "@mui/material";
 import FormRow from "../FormRow";
 import { useMessageStore } from "../../stores/message";
@@ -16,6 +17,7 @@ import {
   ConfigService,
 } from "../../../bindings/github.com/ilaziness/vexo/services";
 import { parseCallServiceError } from "../../func/service";
+import { ProxyType } from "../../types/proxy";
 
 interface SSHSettingsProps {
   config: Config["SSH"];
@@ -25,6 +27,11 @@ const defaultSSHConfig: Config["SSH"] = {
   serverAliveInterval: 30,
   dialTimeoutSec: 30,
   autoReconnect: true,
+  proxyType: ProxyType.None,
+  proxyHost: "",
+  proxyPort: 0,
+  proxyUser: "",
+  proxyPassword: "",
 };
 
 const SSHSettings: React.FC<SSHSettingsProps> = ({ config }) => {
@@ -46,6 +53,8 @@ const SSHSettings: React.FC<SSHSettingsProps> = ({ config }) => {
     setLocalConfig((prev) => ({ ...prev, [field]: value }));
   };
 
+  const proxyEnabled = Boolean(localConfig.proxyType);
+
   const validateConfig = (): string[] => {
     const errors: string[] = [];
     if (localConfig.serverAliveInterval < 0) {
@@ -53,6 +62,15 @@ const SSHSettings: React.FC<SSHSettingsProps> = ({ config }) => {
     }
     if (!localConfig.dialTimeoutSec || localConfig.dialTimeoutSec < 1) {
       errors.push("拨号超时必须大于等于 1 秒");
+    }
+    if (proxyEnabled) {
+      if (!localConfig.proxyHost?.trim()) {
+        errors.push("代理主机不能为空");
+      }
+      const port = localConfig.proxyPort ?? 0;
+      if (port < 1 || port > 65535) {
+        errors.push("代理端口必须在 1–65535 之间");
+      }
     }
     return errors;
   };
@@ -66,7 +84,14 @@ const SSHSettings: React.FC<SSHSettingsProps> = ({ config }) => {
 
     setSaving(true);
     try {
-      await ConfigService.SaveSSHConfig(localConfig);
+      const toSave = { ...localConfig };
+      if (!toSave.proxyType) {
+        toSave.proxyHost = "";
+        toSave.proxyPort = 0;
+        toSave.proxyUser = "";
+        toSave.proxyPassword = "";
+      }
+      await ConfigService.SaveSSHConfig(toSave);
       successMessage("连接配置保存成功");
     } catch (error) {
       console.error("Failed to save SSH config:", error);
@@ -139,6 +164,89 @@ const SSHSettings: React.FC<SSHSettingsProps> = ({ config }) => {
               label={localConfig.autoReconnect ? "已开启" : "已关闭"}
             />
           </FormRow>
+          <Typography variant="subtitle2" sx={{ pt: 1, fontWeight: 600 }}>
+            拨号代理
+          </Typography>
+          <FormRow label="代理类型">
+            <TextField
+              select
+              fullWidth
+              size="small"
+              value={localConfig.proxyType || ProxyType.None}
+              onChange={(e) =>
+                handleChange("proxyType", e.target.value as string)
+              }
+              slotProps={{
+                select: {
+                  displayEmpty: true,
+                  renderValue: (selected) => {
+                    const v = String(selected ?? "");
+                    if (v === ProxyType.Http) return "HTTP";
+                    if (v === ProxyType.Socks5) return "SOCKS5";
+                    return "关闭";
+                  },
+                },
+              }}
+              helperText="仅用于 SSH 拨号，与系统代理无关"
+            >
+              <MenuItem value={ProxyType.None}>关闭</MenuItem>
+              <MenuItem value={ProxyType.Http}>HTTP</MenuItem>
+              <MenuItem value={ProxyType.Socks5}>SOCKS5</MenuItem>
+            </TextField>
+          </FormRow>
+          {proxyEnabled && (
+            <>
+              <FormRow label="代理主机">
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={localConfig.proxyHost ?? ""}
+                  onChange={(e) => handleChange("proxyHost", e.target.value)}
+                  placeholder="例如: 127.0.0.1 或 proxy.example.com"
+                />
+              </FormRow>
+              <FormRow label="代理端口">
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  slotProps={{ htmlInput: { min: 1, max: 65535, step: 1 } }}
+                  value={localConfig.proxyPort || ""}
+                  onChange={(e) => {
+                    const value =
+                      e.target.value === ""
+                        ? 0
+                        : Number.parseInt(e.target.value, 10);
+                    handleChange(
+                      "proxyPort",
+                      Number.isNaN(value) ? 0 : value,
+                    );
+                  }}
+                />
+              </FormRow>
+              <FormRow label="用户名">
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={localConfig.proxyUser ?? ""}
+                  onChange={(e) => handleChange("proxyUser", e.target.value)}
+                  placeholder="可选"
+                />
+              </FormRow>
+              <FormRow label="密码">
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="password"
+                  value={localConfig.proxyPassword ?? ""}
+                  onChange={(e) =>
+                    handleChange("proxyPassword", e.target.value)
+                  }
+                  placeholder="可选"
+                />
+              </FormRow>
+            </>
+          )}
         </Stack>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
           <Button variant="contained" onClick={handleSave} loading={saving}>

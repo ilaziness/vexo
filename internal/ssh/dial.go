@@ -10,7 +10,7 @@ import (
 	cryptossh "golang.org/x/crypto/ssh"
 )
 
-func (m *Manager) dialHops(hops []Endpoint, timeout time.Duration) (*hopClient, error) {
+func (m *Manager) dialHops(hops []Endpoint, timeout time.Duration, proxy ProxyConfig) (*hopClient, error) {
 	const maxDepth = 5
 	if len(hops) == 0 {
 		return nil, fmt.Errorf("empty hop list")
@@ -40,7 +40,11 @@ func (m *Manager) dialHops(hops []Endpoint, timeout time.Duration) (*hopClient, 
 			closeOpened()
 			return nil, fmt.Errorf("跳板机不能与目标主机相同")
 		}
-		client, err := m.dialOne(hop, timeout, prev)
+		var hopProxy ProxyConfig
+		if i == 0 {
+			hopProxy = proxy
+		}
+		client, err := m.dialOne(hop, timeout, prev, hopProxy)
 		if err != nil {
 			closeOpened()
 			return nil, err
@@ -53,7 +57,7 @@ func (m *Manager) dialHops(hops []Endpoint, timeout time.Duration) (*hopClient, 
 	return &hopClient{target: prev, jumps: jumps}, nil
 }
 
-func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Client) (*cryptossh.Client, error) {
+func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Client, proxy ProxyConfig) (*cryptossh.Client, error) {
 	var agentSigners []cryptossh.Signer
 	signers, cleanup, err := openAgentSigners()
 	if cleanup != nil {
@@ -97,25 +101,34 @@ func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Cli
 	)
 	addr := net.JoinHostPort(ep.Host, fmt.Sprintf("%d", ep.Port))
 
-	isProxyConn := via != nil
-	if via != nil {
-		m.logger.Debug("Connecting via ProxyJump", zap.String("proxyHost", ep.Host), zap.Int("proxyPort", ep.Port))
+	viaJump := via != nil
+	if viaJump {
+		m.logger.Debug("Connecting via ProxyJump", zap.String("host", ep.Host), zap.Int("port", ep.Port))
 		dialCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		conn, err = via.DialContext(dialCtx, "tcp", addr)
 		if err != nil {
-			m.logger.Debug("proxy dial tcp error", zap.Error(err))
+			m.logger.Debug("proxyjump dial tcp error", zap.Error(err))
 			return nil, err
 		}
 	} else {
-		conn, err = net.DialTimeout("tcp", addr, timeout)
+		if proxy.Enabled() {
+			m.logger.Debug("Connecting via dial proxy",
+				zap.String("type", proxy.Type),
+				zap.String("proxyHost", proxy.Host),
+				zap.Int("proxyPort", proxy.Port),
+				zap.String("target", addr),
+			)
+		}
+		conn, err = dialTCP(addr, timeout, proxy)
 		if err != nil {
 			m.logger.Debug("tcp connect error", zap.Error(err))
 			return nil, err
 		}
 	}
 
-	if !isProxyConn {
+	// Jump channel dials have no reliable local deadline; apply only for direct/proxy TCP.
+	if !viaJump {
 		if err = conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 			conn.Close()
 			m.logger.Debug("set deadline error", zap.Error(err))
@@ -128,7 +141,7 @@ func (m *Manager) dialOne(ep Endpoint, timeout time.Duration, via *cryptossh.Cli
 		m.logger.Debug("ssh handshake error", zap.Error(err))
 		return nil, err
 	}
-	if !isProxyConn {
+	if !viaJump {
 		if err := conn.SetDeadline(time.Time{}); err != nil {
 			c.Close()
 			m.logger.Debug("set deadline error", zap.Error(err))

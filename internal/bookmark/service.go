@@ -37,6 +37,12 @@ type Bookmark struct {
 	SshKeyID           string `json:"ssh_key_id"`
 	Certificate        string `json:"certificate"`
 	ForwardAgent       bool   `json:"forward_agent"`
+	ProxyMode          string `json:"proxy_mode"` // inherit | none | custom
+	ProxyType          string `json:"proxy_type"` // http | socks5
+	ProxyHost          string `json:"proxy_host"`
+	ProxyPort          int    `json:"proxy_port"`
+	ProxyUser          string `json:"proxy_user"`
+	ProxyPassword      string `json:"proxy_password"`
 }
 
 func (b Bookmark) Endpoint() ssh.Endpoint {
@@ -125,6 +131,13 @@ func (s *Service) encryptBookmark(b Bookmark) (Bookmark, error) {
 		}
 		b.Password = v
 	}
+	if b.ProxyPassword != "" {
+		v, err := s.encryptField(b.ProxyPassword, "proxy password")
+		if err != nil {
+			return b, err
+		}
+		b.ProxyPassword = v
+	}
 	return b, nil
 }
 
@@ -171,6 +184,13 @@ func (s *Service) decryptBookmark(b Bookmark) (Bookmark, error) {
 		}
 		b.Password = v
 	}
+	if b.ProxyPassword != "" {
+		v, err := s.decryptField(b.ProxyPassword, "proxy password")
+		if err != nil {
+			return b, err
+		}
+		b.ProxyPassword = v
+	}
 	return b, nil
 }
 
@@ -187,11 +207,17 @@ func (s *Service) Get(id string) (*Bookmark, error) {
 }
 
 func fromDB(b *database.BookmarkDB, groupName string) *Bookmark {
+	mode := b.ProxyMode
+	if mode == "" {
+		mode = "inherit"
+	}
 	return &Bookmark{
 		ID: b.ID, GroupName: groupName, Title: b.Title, Host: b.Host, Port: b.Port,
 		User: b.User, Password: b.Password, PrivateKey: b.PrivateKey,
 		PrivateKeyPassword: b.PrivateKeyPassword, ProxyJumpID: b.ProxyJumpID, Icon: b.Icon,
 		UseAgent: true, SshKeyID: b.SshKeyID, Certificate: b.Certificate, ForwardAgent: b.ForwardAgent,
+		ProxyMode: mode, ProxyType: b.ProxyType, ProxyHost: b.ProxyHost, ProxyPort: b.ProxyPort,
+		ProxyUser: b.ProxyUser, ProxyPassword: b.ProxyPassword,
 	}
 }
 
@@ -202,6 +228,7 @@ func (s *Service) GetMasked(id string) (*Bookmark, error) {
 	}
 	b.Password = mask(b.Password)
 	b.PrivateKeyPassword = mask(b.PrivateKeyPassword)
+	b.ProxyPassword = mask(b.ProxyPassword)
 	return b, nil
 }
 
@@ -246,12 +273,9 @@ func (s *Service) ResolveHops(target ssh.Endpoint, jumpID string) ([]ssh.Endpoin
 	return hops, nil
 }
 
-func (s *Service) ResolveHopsForBookmark(id string) ([]ssh.Endpoint, error) {
-	b, err := s.GetDecrypted(id)
-	if err != nil {
-		return nil, err
-	}
-	ep, err := s.endpointWithKey(*b)
+// ResolveHopsBookmark builds the hop chain from an already-decrypted bookmark.
+func (s *Service) ResolveHopsBookmark(b Bookmark) ([]ssh.Endpoint, error) {
+	ep, err := s.endpointWithKey(b)
 	if err != nil {
 		return nil, err
 	}
@@ -299,6 +323,7 @@ func (s *Service) ListGrouped() ([]*Group, error) {
 		item := fromDB(b, groupIDToName[b.GroupID])
 		item.Password = mask(item.Password)
 		item.PrivateKeyPassword = mask(item.PrivateKeyPassword)
+		item.ProxyPassword = mask(item.ProxyPassword)
 		if g, ok := groupMap[b.GroupID]; ok {
 			g.Bookmarks = append(g.Bookmarks, *item)
 		}
@@ -347,7 +372,9 @@ func (s *Service) Save(b Bookmark) (string, error) {
 }
 
 func (s *Service) update(b Bookmark, existing *database.BookmarkDB) error {
-	processed, err := s.encryptBookmarkForSave(b, &Bookmark{Password: existing.Password, PrivateKeyPassword: existing.PrivateKeyPassword})
+	processed, err := s.encryptBookmarkForSave(b, &Bookmark{
+		Password: existing.Password, PrivateKeyPassword: existing.PrivateKeyPassword, ProxyPassword: existing.ProxyPassword,
+	})
 	if err != nil {
 		return err
 	}
@@ -373,13 +400,26 @@ func (s *Service) update(b Bookmark, existing *database.BookmarkDB) error {
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
 		Icon: processed.Icon, UseAgent: true, SshKeyID: processed.SshKeyID, Certificate: processed.Certificate,
-		ForwardAgent: processed.ForwardAgent, UpdatedAt: time.Now(),
+		ForwardAgent: processed.ForwardAgent,
+		ProxyMode:    normalizeProxyMode(processed.ProxyMode), ProxyType: processed.ProxyType,
+		ProxyHost: processed.ProxyHost, ProxyPort: processed.ProxyPort,
+		ProxyUser: processed.ProxyUser, ProxyPassword: processed.ProxyPassword,
+		UpdatedAt: time.Now(),
 	}
 	if err := s.db.BookmarkRepo.UpdateBookmark(dbBookmark); err != nil {
 		return err
 	}
 	s.emit()
 	return nil
+}
+
+func normalizeProxyMode(mode string) string {
+	switch mode {
+	case "none", "custom":
+		return mode
+	default:
+		return "inherit"
+	}
 }
 
 func (s *Service) encryptBookmarkForSave(b Bookmark, existing *Bookmark) (Bookmark, error) {
@@ -392,6 +432,10 @@ func (s *Service) encryptBookmarkForSave(b Bookmark, existing *Bookmark) (Bookma
 		return b, err
 	}
 	b.Password, err = s.encryptFieldIfNeeded(b.Password, existing.Password, "login password")
+	if err != nil {
+		return b, err
+	}
+	b.ProxyPassword, err = s.encryptFieldIfNeeded(b.ProxyPassword, existing.ProxyPassword, "proxy password")
 	return b, err
 }
 
@@ -422,7 +466,11 @@ func (s *Service) insert(b Bookmark) (string, error) {
 		User: processed.User, Password: processed.Password, PrivateKey: processed.PrivateKey,
 		PrivateKeyPassword: processed.PrivateKeyPassword, ProxyJumpID: processed.ProxyJumpID,
 		Icon: processed.Icon, UseAgent: true, SshKeyID: processed.SshKeyID, Certificate: processed.Certificate,
-		ForwardAgent: processed.ForwardAgent, CreatedAt: now, UpdatedAt: now,
+		ForwardAgent: processed.ForwardAgent,
+		ProxyMode:    normalizeProxyMode(processed.ProxyMode), ProxyType: processed.ProxyType,
+		ProxyHost: processed.ProxyHost, ProxyPort: processed.ProxyPort,
+		ProxyUser: processed.ProxyUser, ProxyPassword: processed.ProxyPassword,
+		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return "", err
 	}
@@ -484,7 +532,11 @@ func (s *Service) Copy(id string) (*Bookmark, error) {
 		User: src.User, Password: src.Password, PrivateKey: src.PrivateKey,
 		PrivateKeyPassword: src.PrivateKeyPassword, ProxyJumpID: src.ProxyJumpID,
 		Icon: src.Icon, UseAgent: true, SshKeyID: src.SshKeyID, Certificate: src.Certificate,
-		ForwardAgent: src.ForwardAgent, CreatedAt: now, UpdatedAt: now,
+		ForwardAgent: src.ForwardAgent,
+		ProxyMode:    normalizeProxyMode(src.ProxyMode), ProxyType: src.ProxyType,
+		ProxyHost: src.ProxyHost, ProxyPort: src.ProxyPort,
+		ProxyUser: src.ProxyUser, ProxyPassword: src.ProxyPassword,
+		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return nil, err
 	}
@@ -498,6 +550,7 @@ func (s *Service) Copy(id string) (*Bookmark, error) {
 	copied.Title = title
 	copied.Password = mask(copied.Password)
 	copied.PrivateKeyPassword = mask(copied.PrivateKeyPassword)
+	copied.ProxyPassword = mask(copied.ProxyPassword)
 	return copied, nil
 }
 
@@ -551,29 +604,44 @@ func (s *Service) DeleteGroup(name string) error {
 	return nil
 }
 
-func (s *Service) PrepareTest(b Bookmark) (ssh.Endpoint, string, error) {
+// PrepareTestResult holds dial credentials ready for a connection test.
+// ProxyPassword is restored from storage when the form still shows the mask.
+type PrepareTestResult struct {
+	Endpoint      ssh.Endpoint
+	JumpID        string
+	ProxyPassword string
+}
+
+func (s *Service) PrepareTest(b Bookmark) (PrepareTestResult, error) {
 	ep := b.Endpoint()
 	jumpID := b.ProxyJumpID
+	proxyPass := b.ProxyPassword
 	if b.ID != "" {
 		existing, err := s.Get(b.ID)
 		if err != nil {
-			return ssh.Endpoint{}, "", err
+			return PrepareTestResult{}, err
 		}
 		sameHost := b.Host == existing.Host && b.Port == existing.Port && b.User == existing.User
 		passwordUnchanged := b.Password == "" || b.Password == PasswordMask
 		keyPassUnchanged := b.PrivateKeyPassword == "" || b.PrivateKeyPassword == PasswordMask
+		proxyPassUnchanged := b.ProxyPassword == "" || b.ProxyPassword == PasswordMask
 		sameKeyFile := b.PrivateKey == existing.PrivateKey
 		sameStoredKey := b.SshKeyID == existing.SshKeyID
-		if sameHost && passwordUnchanged && keyPassUnchanged && sameKeyFile && sameStoredKey {
+		fullReuse := sameHost && passwordUnchanged && keyPassUnchanged && sameKeyFile && sameStoredKey
+		switch {
+		case fullReuse:
 			decrypted, err := s.GetDecrypted(b.ID)
 			if err != nil {
-				return ssh.Endpoint{}, "", err
+				return PrepareTestResult{}, err
 			}
 			ep = decrypted.Endpoint()
-		} else if sameHost && b.Password == PasswordMask {
+			if proxyPassUnchanged {
+				proxyPass = decrypted.ProxyPassword
+			}
+		case sameHost && b.Password == PasswordMask:
 			decrypted, err := s.GetDecrypted(b.ID)
 			if err != nil {
-				return ssh.Endpoint{}, "", err
+				return PrepareTestResult{}, err
 			}
 			ep.Password = decrypted.Password
 			if sameKeyFile && keyPassUnchanged {
@@ -581,15 +649,24 @@ func (s *Service) PrepareTest(b Bookmark) (ssh.Endpoint, string, error) {
 			} else if b.PrivateKeyPassword == PasswordMask {
 				ep.KeyPassword = ""
 			}
+			if proxyPassUnchanged {
+				proxyPass = decrypted.ProxyPassword
+			}
+		case b.ProxyPassword == PasswordMask:
+			decrypted, err := s.GetDecrypted(b.ID)
+			if err != nil {
+				return PrepareTestResult{}, err
+			}
+			proxyPass = decrypted.ProxyPassword
 		}
 	}
 	ep, err := s.attachKey(ep, b.SshKeyID)
 	if err != nil {
-		return ssh.Endpoint{}, "", err
+		return PrepareTestResult{}, err
 	}
 	ep.Certificate = b.Certificate
 	ep.ForwardAgent = b.ForwardAgent
-	return ep, jumpID, nil
+	return PrepareTestResult{Endpoint: ep, JumpID: jumpID, ProxyPassword: proxyPass}, nil
 }
 
 func (s *Service) normalizeKeySource(b Bookmark) (Bookmark, error) {

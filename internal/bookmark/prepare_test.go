@@ -12,7 +12,7 @@ import (
 
 func TestPrepareTestSwitchToStoredKeyKeepsPassword(t *testing.T) {
 	svc, id := testBookmarkService(t, "/keys/id_ed25519", "key-pass")
-	ep, _, err := svc.PrepareTest(Bookmark{
+	prep, err := svc.PrepareTest(Bookmark{
 		ID: id, Host: "h", Port: 22, User: "root",
 		Password: PasswordMask, PrivateKey: "", PrivateKeyPassword: "",
 		SshKeyID: "key-1",
@@ -20,6 +20,7 @@ func TestPrepareTestSwitchToStoredKeyKeepsPassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ep := prep.Endpoint
 	if ep.Password != "login-secret" {
 		t.Fatalf("password = %q", ep.Password)
 	}
@@ -33,7 +34,7 @@ func TestPrepareTestSwitchToStoredKeyKeepsPassword(t *testing.T) {
 
 func TestPrepareTestClearedPasswordStaysEmpty(t *testing.T) {
 	svc, id := testBookmarkService(t, "/keys/id_ed25519", "key-pass")
-	ep, _, err := svc.PrepareTest(Bookmark{
+	prep, err := svc.PrepareTest(Bookmark{
 		ID: id, Host: "h", Port: 22, User: "root",
 		Password: "", PrivateKey: "", PrivateKeyPassword: "",
 		SshKeyID: "key-1",
@@ -41,6 +42,7 @@ func TestPrepareTestClearedPasswordStaysEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ep := prep.Endpoint
 	if ep.Password != "" {
 		t.Fatalf("password = %q", ep.Password)
 	}
@@ -51,7 +53,7 @@ func TestPrepareTestClearedPasswordStaysEmpty(t *testing.T) {
 
 func TestPrepareTestUnchangedFileKeepsKeyPassword(t *testing.T) {
 	svc, id := testBookmarkService(t, "/keys/id_ed25519", "key-pass")
-	ep, jumpID, err := svc.PrepareTest(Bookmark{
+	prep, err := svc.PrepareTest(Bookmark{
 		ID: id, Host: "h", Port: 22, User: "root",
 		Password: PasswordMask, PrivateKey: "/keys/id_ed25519", PrivateKeyPassword: PasswordMask,
 		ProxyJumpID: "jump-new",
@@ -59,9 +61,10 @@ func TestPrepareTestUnchangedFileKeepsKeyPassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if jumpID != "jump-new" {
-		t.Fatalf("jump = %q", jumpID)
+	if prep.JumpID != "jump-new" {
+		t.Fatalf("jump = %q", prep.JumpID)
 	}
+	ep := prep.Endpoint
 	if ep.Password != "login-secret" || ep.KeyPassword != "key-pass" || ep.Key != "/keys/id_ed25519" {
 		t.Fatalf("endpoint = %+v", ep)
 	}
@@ -72,7 +75,7 @@ func TestPrepareTestUnchangedFileKeepsKeyPassword(t *testing.T) {
 
 func TestPrepareTestKeepsFormCertificate(t *testing.T) {
 	svc, id := testBookmarkService(t, "/keys/id_ed25519", "key-pass")
-	ep, _, err := svc.PrepareTest(Bookmark{
+	prep, err := svc.PrepareTest(Bookmark{
 		ID: id, Host: "h", Port: 22, User: "root",
 		Password: PasswordMask, PrivateKey: "/keys/id_ed25519", PrivateKeyPassword: PasswordMask,
 		Certificate: "/keys/user-cert.pub",
@@ -80,11 +83,28 @@ func TestPrepareTestKeepsFormCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ep := prep.Endpoint
 	if ep.Certificate != "/keys/user-cert.pub" {
 		t.Fatalf("certificate = %q", ep.Certificate)
 	}
 	if ep.Password != "login-secret" || ep.KeyPassword != "key-pass" {
 		t.Fatalf("endpoint = %+v", ep)
+	}
+}
+
+func TestPrepareTestRestoresProxyPassword(t *testing.T) {
+	svc, id := testBookmarkService(t, "/keys/id_ed25519", "key-pass")
+	prep, err := svc.PrepareTest(Bookmark{
+		ID: id, Host: "h", Port: 22, User: "root",
+		Password: PasswordMask, PrivateKey: "/keys/id_ed25519", PrivateKeyPassword: PasswordMask,
+		ProxyMode: "custom", ProxyType: "socks5", ProxyHost: "127.0.0.1", ProxyPort: 1080,
+		ProxyUser: "pu", ProxyPassword: PasswordMask,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prep.ProxyPassword != "proxy-secret" {
+		t.Fatalf("proxy password = %q", prep.ProxyPassword)
 	}
 }
 
@@ -110,12 +130,19 @@ func testBookmarkService(t *testing.T, keyPath, keyPass string) (*Service, strin
 	if err != nil {
 		t.Fatal(err)
 	}
+	proxyPass, err := secret.Encrypt("master", "proxy-secret")
+	if err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now()
 	const id = "bm-1"
 	if err := db.BookmarkRepo.InsertBookmark(&database.BookmarkDB{
 		ID: id, GroupID: group.ID, Title: "t", Host: "h", Port: 22, User: "root",
 		Password: login, PrivateKey: keyPath, PrivateKeyPassword: keyPassword,
-		ProxyJumpID: "jump-old", CreatedAt: now, UpdatedAt: now,
+		ProxyJumpID: "jump-old",
+		ProxyMode:   "custom", ProxyType: "socks5", ProxyHost: "127.0.0.1", ProxyPort: 1080,
+		ProxyUser: "pu", ProxyPassword: proxyPass,
+		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}

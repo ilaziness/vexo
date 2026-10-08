@@ -30,6 +30,7 @@ import {
   BookmarkGroup,
   BookmarkListItem,
 } from "../../bindings/github.com/ilaziness/vexo/services/models";
+import { ProxyMode, ProxyType } from "../types/proxy";
 
 // 输入连接信息表单
 interface ConnectionFormProps {
@@ -194,6 +195,12 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       ssh_key_id: "",
       certificate,
       forward_agent: forwardAgent,
+      proxy_mode: ProxyMode.Inherit,
+      proxy_type: ProxyType.None,
+      proxy_host: "",
+      proxy_port: 0,
+      proxy_user: "",
+      proxy_password: "",
     };
 
     // 保存到书签

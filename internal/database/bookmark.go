@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const bookmarkSelectCols = `id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, COALESCE(icon, ''), COALESCE(use_agent, 0), COALESCE(ssh_key_id, ''), COALESCE(certificate, ''), COALESCE(forward_agent, 0), created_at, updated_at`
+const bookmarkSelectCols = `id, bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, COALESCE(icon, ''), COALESCE(use_agent, 0), COALESCE(ssh_key_id, ''), COALESCE(certificate, ''), COALESCE(forward_agent, 0), COALESCE(proxy_mode, 'inherit'), COALESCE(proxy_type, ''), COALESCE(proxy_host, ''), COALESCE(proxy_port, 0), COALESCE(proxy_user, ''), COALESCE(proxy_password, ''), created_at, updated_at`
 
 // BookmarkGroupDB 书签分组数据库模型
 type BookmarkGroupDB struct {
@@ -36,6 +36,12 @@ type BookmarkDB struct {
 	SshKeyID           string    `json:"ssh_key_id"`
 	Certificate        string    `json:"certificate"`
 	ForwardAgent       bool      `json:"forward_agent"`
+	ProxyMode          string    `json:"proxy_mode"`
+	ProxyType          string    `json:"proxy_type"`
+	ProxyHost          string    `json:"proxy_host"`
+	ProxyPort          int       `json:"proxy_port"`
+	ProxyUser          string    `json:"proxy_user"`
+	ProxyPassword      string    `json:"proxy_password"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
@@ -62,6 +68,7 @@ func scanBookmark(scanner interface{ Scan(dest ...any) error }) (*BookmarkDB, er
 		&autoID, &b.ID, &b.GroupID, &b.Title, &b.Host, &b.Port,
 		&b.User, &b.Password, &b.PrivateKey, &b.PrivateKeyPassword, &b.ProxyJumpID, &b.Icon,
 		&useAgent, &b.SshKeyID, &b.Certificate, &forwardAgent,
+		&b.ProxyMode, &b.ProxyType, &b.ProxyHost, &b.ProxyPort, &b.ProxyUser, &b.ProxyPassword,
 		&b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
@@ -69,6 +76,9 @@ func scanBookmark(scanner interface{ Scan(dest ...any) error }) (*BookmarkDB, er
 	}
 	b.UseAgent = useAgent != 0
 	b.ForwardAgent = forwardAgent != 0
+	if b.ProxyMode == "" {
+		b.ProxyMode = "inherit"
+	}
 	return &b, nil
 }
 
@@ -150,11 +160,12 @@ func (r *BookmarkRepository) GetBookmarkByTitleAndGroup(title string, groupID in
 
 // InsertBookmark 插入书签
 func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
-	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, icon, use_agent, ssh_key_id, certificate, forward_agent, created_at, updated_at) 
-			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO bookmarks (bookmark_id, group_id, title, host, port, user, password, private_key, private_key_password, proxy_jump_id, icon, use_agent, ssh_key_id, certificate, forward_agent, proxy_mode, proxy_type, proxy_host, proxy_port, proxy_user, proxy_password, created_at, updated_at) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query,
 		bookmark.ID, bookmark.GroupID, bookmark.Title, bookmark.Host, bookmark.Port,
 		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent), bookmark.SshKeyID, bookmark.Certificate, boolInt(bookmark.ForwardAgent),
+		bookmark.ProxyMode, bookmark.ProxyType, bookmark.ProxyHost, bookmark.ProxyPort, bookmark.ProxyUser, bookmark.ProxyPassword,
 		bookmark.CreatedAt, bookmark.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "bookmark", err)
@@ -168,11 +179,13 @@ func (r *BookmarkRepository) InsertBookmark(bookmark *BookmarkDB) error {
 func (r *BookmarkRepository) UpdateBookmark(bookmark *BookmarkDB) error {
 	query := `UPDATE bookmarks 
 			  SET group_id = ?, title = ?, host = ?, port = ?, user = ?, password = ?, 
-			      private_key = ?, private_key_password = ?, proxy_jump_id = ?, icon = ?, use_agent = ?, ssh_key_id = ?, certificate = ?, forward_agent = ?, updated_at = ? 
+			      private_key = ?, private_key_password = ?, proxy_jump_id = ?, icon = ?, use_agent = ?, ssh_key_id = ?, certificate = ?, forward_agent = ?,
+			      proxy_mode = ?, proxy_type = ?, proxy_host = ?, proxy_port = ?, proxy_user = ?, proxy_password = ?, updated_at = ? 
 			  WHERE bookmark_id = ?`
 	_, err := r.db.Exec(query,
 		bookmark.GroupID, bookmark.Title, bookmark.Host, bookmark.Port,
 		bookmark.User, bookmark.Password, bookmark.PrivateKey, bookmark.PrivateKeyPassword, bookmark.ProxyJumpID, bookmark.Icon, boolInt(bookmark.UseAgent), bookmark.SshKeyID, bookmark.Certificate, boolInt(bookmark.ForwardAgent),
+		bookmark.ProxyMode, bookmark.ProxyType, bookmark.ProxyHost, bookmark.ProxyPort, bookmark.ProxyUser, bookmark.ProxyPassword,
 		bookmark.UpdatedAt, bookmark.ID)
 	if err != nil {
 		return fmt.Errorf(errInsertQuery, "update bookmark", err)

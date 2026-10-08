@@ -10,6 +10,7 @@ import BookmarkTree from "./BookmarkTree";
 import BookmarkForm from "./BookmarkForm";
 import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
+import { ProxyMode, ProxyType } from "../types/proxy";
 
 interface BookmarkProps {
   onRequestClose?: () => void;
@@ -123,6 +124,12 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       ssh_key_id: "",
       certificate: "",
       forward_agent: false,
+      proxy_mode: ProxyMode.Inherit,
+      proxy_type: ProxyType.None,
+      proxy_host: "",
+      proxy_port: 0,
+      proxy_user: "",
+      proxy_password: "",
     };
     setSelectedBookmark(newBookmark);
   };

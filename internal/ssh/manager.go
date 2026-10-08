@@ -222,7 +222,7 @@ func (m *Manager) clientLock(key string) *sync.Mutex {
 	return mu.(*sync.Mutex)
 }
 
-func hopsClientKey(hops []Endpoint) string {
+func hopsClientKey(hops []Endpoint, proxy ProxyConfig) string {
 	if len(hops) == 0 {
 		return ""
 	}
@@ -230,17 +230,18 @@ func hopsClientKey(hops []Endpoint) string {
 	for i := 0; i < len(hops)-1; i++ {
 		key += fmt.Sprintf("via:%s@%s", hops[i].User, hops[i].Addr())
 	}
+	key += "|proxy:" + proxy.cacheKey()
 	return key
 }
 
-func (m *Manager) Connect(hops []Endpoint) (string, error) {
+func (m *Manager) Connect(hops []Endpoint, proxy ProxyConfig) (string, error) {
 	if len(hops) == 0 {
 		return "", fmt.Errorf("empty hop list")
 	}
 	target := hops[len(hops)-1]
 	m.logger.Debug("Connecting to SSH server", zap.String("host", target.Host), zap.Int("port", target.Port))
 
-	clientKey := hopsClientKey(hops)
+	clientKey := hopsClientKey(hops, proxy)
 	lock := m.clientLock(clientKey)
 	lock.Lock()
 	defer lock.Unlock()
@@ -250,7 +251,7 @@ func (m *Manager) Connect(hops []Endpoint) (string, error) {
 		m.logger.Debug("Using existing SSH client", zap.String("clientKey", clientKey))
 		client = v.(*hopClient).target
 	} else {
-		hc, err := m.dialHops(hops, m.dialTimeout())
+		hc, err := m.dialHops(hops, m.dialTimeout(), proxy)
 		if err != nil {
 			return "", err
 		}
@@ -265,13 +266,13 @@ func (m *Manager) Connect(hops []Endpoint) (string, error) {
 	return sess.ID, nil
 }
 
-func (m *Manager) TestConnect(hops []Endpoint) error {
+func (m *Manager) TestConnect(hops []Endpoint, proxy ProxyConfig) error {
 	if len(hops) == 0 {
 		return fmt.Errorf("empty hop list")
 	}
 	target := hops[len(hops)-1]
 	m.logger.Debug("Testing SSH connection", zap.String("host", target.Host), zap.Int("port", target.Port))
-	hc, err := m.dialHops(hops, m.dialTimeout())
+	hc, err := m.dialHops(hops, m.dialTimeout(), proxy)
 	if err != nil {
 		return err
 	}

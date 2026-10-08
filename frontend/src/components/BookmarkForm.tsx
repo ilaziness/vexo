@@ -34,6 +34,7 @@ import {
   BookmarkIconView,
   OsIconPicker,
 } from "./icons/bookmarkIcons";
+import { ProxyMode, ProxyType } from "../types/proxy";
 
 interface BookmarkFormProps {
   bookmark: SSHBookmark | null;
@@ -59,6 +60,12 @@ const emptyBookmark = (): SSHBookmark => ({
   ssh_key_id: "",
   certificate: "",
   forward_agent: false,
+  proxy_mode: ProxyMode.Inherit,
+  proxy_type: ProxyType.None,
+  proxy_host: "",
+  proxy_port: 0,
+  proxy_user: "",
+  proxy_password: "",
 });
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -99,7 +106,12 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
 
   useEffect(() => {
     if (bookmark) {
-      setFormData({ ...bookmark, icon: bookmark.icon || "" });
+      setFormData({
+        ...emptyBookmark(),
+        ...bookmark,
+        icon: bookmark.icon || "",
+        proxy_mode: bookmark.proxy_mode || ProxyMode.Inherit,
+      });
     } else {
       setFormData(emptyBookmark());
     }
@@ -113,7 +125,8 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "port" ? Number(value) : value,
+      [name]:
+        name === "port" || name === "proxy_port" ? Number(value) : value,
     }));
   };
 
@@ -133,6 +146,21 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
     if (!formData.user.trim()) {
       errorMessage("用户名不能为空");
       return false;
+    }
+    if (formData.proxy_mode === ProxyMode.Custom) {
+      if (!formData.proxy_type) {
+        errorMessage("请选择代理类型");
+        return false;
+      }
+      if (!formData.proxy_host?.trim()) {
+        errorMessage("代理主机不能为空");
+        return false;
+      }
+      const proxyPort = formData.proxy_port ?? 0;
+      if (proxyPort < 1 || proxyPort > 65535) {
+        errorMessage("代理端口必须在 1–65535 之间");
+        return false;
+      }
     }
     return true;
   };
@@ -396,6 +424,107 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                     placeholder="SSH 登录用户名"
                   />
                 </FormRow>
+              </Stack>
+            </Box>
+
+            {/* 拨号代理 */}
+            <Box>
+              <Typography
+                variant="subtitle2"
+                sx={{ mb: 2, fontWeight: 600, color: "primary.main" }}
+              >
+                拨号代理
+              </Typography>
+              <Stack spacing={2}>
+                <FormRow label="代理模式" labelWidth={120}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={formData.proxy_mode || ProxyMode.Inherit}
+                      onChange={(e) => {
+                        const mode = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          proxy_mode: mode,
+                          ...(mode === ProxyMode.Custom && !prev.proxy_type
+                            ? { proxy_type: ProxyType.Http }
+                            : {}),
+                        }));
+                      }}
+                    >
+                      <MenuItem value={ProxyMode.Inherit}>
+                        跟随全局设置
+                      </MenuItem>
+                      <MenuItem value={ProxyMode.None}>直连（不使用代理）</MenuItem>
+                      <MenuItem value={ProxyMode.Custom}>自定义代理</MenuItem>
+                    </Select>
+                  </FormControl>
+                </FormRow>
+                {formData.proxy_mode === ProxyMode.Custom && (
+                  <>
+                    <FormRow label="代理类型" labelWidth={120}>
+                      <TextField
+                        select
+                        fullWidth
+                        size="small"
+                        value={formData.proxy_type || ProxyType.Http}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            proxy_type: e.target.value,
+                          }))
+                        }
+                      >
+                        <MenuItem value={ProxyType.Http}>HTTP</MenuItem>
+                        <MenuItem value={ProxyType.Socks5}>SOCKS5</MenuItem>
+                      </TextField>
+                    </FormRow>
+                    <FormRow label="代理主机" labelWidth={120}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        name="proxy_host"
+                        value={formData.proxy_host || ""}
+                        onChange={handleChange}
+                        placeholder="例如: 127.0.0.1"
+                      />
+                    </FormRow>
+                    <FormRow label="代理端口" labelWidth={120}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        name="proxy_port"
+                        type="number"
+                        value={formData.proxy_port || ""}
+                        onChange={handleChange}
+                        placeholder="例如: 1080"
+                      />
+                    </FormRow>
+                    <FormRow label="用户名" labelWidth={120}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        name="proxy_user"
+                        value={formData.proxy_user || ""}
+                        onChange={handleChange}
+                        placeholder="可选"
+                      />
+                    </FormRow>
+                    <FormRow label="密码" labelWidth={120}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        name="proxy_password"
+                        type="password"
+                        value={formData.proxy_password || ""}
+                        onChange={handleChange}
+                        placeholder="可选"
+                      />
+                    </FormRow>
+                    <Typography variant="caption" color="text.secondary">
+                      有跳板机时，代理只作用于连到第一跳；与系统代理无关
+                    </Typography>
+                  </>
+                )}
               </Stack>
             </Box>
 

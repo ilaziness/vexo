@@ -25,6 +25,7 @@ var migrations = []Migration{
 	{Version: 6, Name: "add ssh keys", Up: migrateAddSSHKeys},
 	{Version: 7, Name: "add bookmark certificate", Up: migrateAddBookmarkCertificate},
 	{Version: 8, Name: "add bookmark forward_agent", Up: migrateAddBookmarkForwardAgent},
+	{Version: 9, Name: "add bookmark dial proxy", Up: migrateAddBookmarkDialProxy},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -258,6 +259,36 @@ func migrateAddBookmarkForwardAgent(db *sql.DB, logger *zap.Logger) error {
 	}
 	if err != nil {
 		return fmt.Errorf("check column bookmarks.forward_agent failed: %w", err)
+	}
+	return nil
+}
+
+// migrateAddBookmarkDialProxy 为书签增加拨号代理字段（幂等）。
+func migrateAddBookmarkDialProxy(db *sql.DB, logger *zap.Logger) error {
+	cols := []struct {
+		name string
+		ddl  string
+	}{
+		{"proxy_mode", `ALTER TABLE bookmarks ADD COLUMN proxy_mode TEXT NOT NULL DEFAULT 'inherit'`},
+		{"proxy_type", `ALTER TABLE bookmarks ADD COLUMN proxy_type TEXT NOT NULL DEFAULT ''`},
+		{"proxy_host", `ALTER TABLE bookmarks ADD COLUMN proxy_host TEXT NOT NULL DEFAULT ''`},
+		{"proxy_port", `ALTER TABLE bookmarks ADD COLUMN proxy_port INTEGER NOT NULL DEFAULT 0`},
+		{"proxy_user", `ALTER TABLE bookmarks ADD COLUMN proxy_user TEXT NOT NULL DEFAULT ''`},
+		{"proxy_password", `ALTER TABLE bookmarks ADD COLUMN proxy_password TEXT NOT NULL DEFAULT ''`},
+	}
+	for _, c := range cols {
+		var columnName string
+		err := db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = ?`, c.name).Scan(&columnName)
+		if err == sql.ErrNoRows {
+			if _, err := db.Exec(c.ddl); err != nil {
+				return fmt.Errorf("add column bookmarks.%s failed: %w", c.name, err)
+			}
+			logger.Debug("migration: added bookmarks column", zap.String("column", c.name))
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("check column bookmarks.%s failed: %w", c.name, err)
+		}
 	}
 	return nil
 }

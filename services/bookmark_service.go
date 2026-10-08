@@ -2,10 +2,13 @@ package services
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/ilaziness/vexo/internal/bookmark"
+	"github.com/ilaziness/vexo/internal/config"
+	"github.com/ilaziness/vexo/internal/ssh"
 )
 
 const (
@@ -38,11 +41,29 @@ func (bs *BookmarkService) ConnectBookmark(bookmarkID string) {
 }
 
 func (bs *BookmarkService) ConnectBookmarkByID(bookmarkID string) (string, error) {
-	hops, err := bs.core.ResolveHopsForBookmark(bookmarkID)
+	b, err := bs.core.GetDecrypted(bookmarkID)
 	if err != nil {
 		return "", err
 	}
-	return bs.ssh.connectHops(hops)
+	hops, err := bs.core.ResolveHopsBookmark(*b)
+	if err != nil {
+		return "", err
+	}
+	proxy, err := resolveDialProxy(b.ProxyMode, ssh.ProxyConfig{
+		Type: b.ProxyType, Host: b.ProxyHost, Port: b.ProxyPort,
+		User: b.ProxyUser, Password: b.ProxyPassword,
+	}, bs.sshConfig())
+	if err != nil {
+		return "", err
+	}
+	return bs.ssh.connectHops(hops, proxy)
+}
+
+func (bs *BookmarkService) sshConfig() config.SSHConfig {
+	if bs.ssh == nil || bs.ssh.getSSHConfig == nil {
+		return config.SSHConfig{}
+	}
+	return bs.ssh.getSSHConfig()
 }
 
 func (bs *BookmarkService) ListBookmarks() ([]*BookmarkGroup, error) {
@@ -55,6 +76,9 @@ func (bs *BookmarkService) GetBookmarkByID(id string) (*SSHBookmark, error) {
 	return bs.core.GetMasked(id)
 }
 func (bs *BookmarkService) SaveBookmark(b SSHBookmark) (string, error) {
+	if err := validateBookmarkProxy(b); err != nil {
+		return "", err
+	}
 	return bs.core.Save(b)
 }
 func (bs *BookmarkService) DeleteBookmark(id string) error {
@@ -73,16 +97,40 @@ func (bs *BookmarkService) DeleteGroup(name string) error {
 	return bs.core.DeleteGroup(name)
 }
 func (bs *BookmarkService) TestConnection(b SSHBookmark) error {
-	ep, jumpID, err := bs.core.PrepareTest(b)
+	prep, err := bs.core.PrepareTest(b)
 	if err != nil {
 		return err
 	}
-	hops, err := bs.core.ResolveHops(ep, jumpID)
+	hops, err := bs.core.ResolveHops(prep.Endpoint, prep.JumpID)
 	if err != nil {
 		return err
 	}
-	return bs.ssh.testHops(hops)
+	proxy, err := resolveDialProxy(b.ProxyMode, ssh.ProxyConfig{
+		Type: b.ProxyType, Host: b.ProxyHost, Port: b.ProxyPort,
+		User: b.ProxyUser, Password: prep.ProxyPassword,
+	}, bs.sshConfig())
+	if err != nil {
+		return err
+	}
+	return bs.ssh.testHops(hops, proxy)
 }
+
+func validateBookmarkProxy(b SSHBookmark) error {
+	mode := strings.ToLower(strings.TrimSpace(b.ProxyMode))
+	if mode == "" {
+		mode = "inherit"
+	}
+	switch mode {
+	case "inherit", "none":
+		return nil
+	case "custom":
+		p := ssh.ProxyConfig{Type: b.ProxyType, Host: b.ProxyHost, Port: b.ProxyPort}
+		return p.Validate("书签自定义代理")
+	default:
+		return fmt.Errorf("无效的代理模式: %s", b.ProxyMode)
+	}
+}
+
 func (bs *BookmarkService) SaveAndConnect(b SSHBookmark) (string, error) {
 	if err := bs.TestConnection(b); err != nil {
 		return "", fmt.Errorf("连接测试失败: %w", err)
