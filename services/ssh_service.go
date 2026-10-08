@@ -70,7 +70,7 @@ func (p *keyboardInteractivePrompter) Dismiss(id string) {
 	p.app.Event.Emit(EventKeyboardInteractiveClose, id)
 }
 
-// ConnectRequest 直连参数，Connect / TestConnectInfo 共用；不含书签跳板解析结果。
+// ConnectRequest 临时直连参数；会话选项（TERM/env/startup）仅书签支持。
 type ConnectRequest struct {
 	Host         string `json:"host"`
 	Port         int    `json:"port"`

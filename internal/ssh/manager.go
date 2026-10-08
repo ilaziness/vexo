@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,7 +48,19 @@ type Endpoint struct {
 	KeyPEM       string
 	Certificate  string
 	ForwardAgent bool
+	StartupCmd   string
+	Env          map[string]string
+	Term         string // empty → xterm-256color at RequestPty
 }
+
+const defaultTermType = "xterm-256color"
+
+// Wait for MOTD/prompt to finish before stdin injection (avoids double echo).
+const (
+	shellReadyQuiet   = 300 * time.Millisecond
+	shellReadyTimeout = 3 * time.Second
+	shellReadyPoll    = 20 * time.Millisecond
+)
 
 func (e Endpoint) Addr() string {
 	return fmt.Sprintf("%s:%d", e.Host, e.Port)
@@ -85,6 +99,12 @@ type Session struct {
 	stopOutputOnce sync.Once
 	manager        *Manager
 	forwardAgent   bool
+	startupCmd     string
+	env            map[string]string
+	term           string
+	outputMu       sync.Mutex
+	gotOutput      bool
+	lastOutputAt   time.Time
 }
 
 type hopClient struct {
@@ -261,7 +281,7 @@ func (m *Manager) Connect(hops []Endpoint, proxy ProxyConfig) (string, error) {
 		m.logger.Debug("ssh connect ok and stored in cache", zap.String("clientKey", clientKey))
 	}
 
-	sess := newSession(m, clientKey, client, target.ForwardAgent)
+	sess := newSession(m, clientKey, client, target)
 	m.sessions.Store(sess.ID, sess)
 	return sess.ID, nil
 }
@@ -388,7 +408,7 @@ func (m *Manager) SetHostKeyDecision(host string, accept bool) error {
 	return m.hostKey.decide(host, accept)
 }
 
-func newSession(m *Manager, clientKey string, client *cryptossh.Client, forwardAgent bool) *Session {
+func newSession(m *Manager, clientKey string, client *cryptossh.Client, target Endpoint) *Session {
 	return &Session{
 		manager:        m,
 		ClientKey:      clientKey,
@@ -397,7 +417,10 @@ func newSession(m *Manager, clientKey string, client *cryptossh.Client, forwardA
 		OutputChan:     make(chan []byte, 200),
 		stopOutput:     make(chan struct{}),
 		outputBuffSize: 1024 * 10,
-		forwardAgent:   forwardAgent,
+		forwardAgent:   target.ForwardAgent,
+		startupCmd:     target.StartupCmd,
+		env:            target.Env,
+		term:           target.Term,
 	}
 }
 
@@ -420,12 +443,24 @@ func (sc *Session) Start(cols, rows int) error {
 			return sc.failStart(fmt.Errorf("SSH agent 转发请求被拒绝: %w", err))
 		}
 	}
-	if err = sc.session.RequestPty("xterm-256color", rows, cols, cryptossh.TerminalModes{
+	term := sc.term
+	if term == "" {
+		term = defaultTermType
+	}
+	if err = sc.session.RequestPty(term, rows, cols, cryptossh.TerminalModes{
 		cryptossh.ECHO:          1,
 		cryptossh.TTY_OP_ISPEED: 14400,
 		cryptossh.TTY_OP_OSPEED: 14400,
 	}); err != nil {
 		return sc.failStart(err)
+	}
+	// Best-effort Setenv (often rejected without AcceptEnv). Env is also
+	// applied via stdin after the shell prompt is ready.
+	for k, v := range filterEnv(sc.env) {
+		if setErr := sc.session.Setenv(k, v); setErr != nil {
+			sc.manager.logger.Debug("SSH Setenv skipped",
+				zap.String("id", sc.ID), zap.String("key", k), zap.Error(setErr))
+		}
 	}
 	if err = sc.startInput(); err != nil {
 		return sc.failStart(err)
@@ -435,6 +470,24 @@ func (sc *Session) Start(cols, rows int) error {
 	}
 	if err = sc.session.Shell(); err != nil {
 		return sc.failStart(err)
+	}
+	if payload := buildStdinBootstrap(sc.env, sc.startupCmd); payload != "" {
+		stdin := sc.Stdin
+		id := sc.ID
+		logger := sc.manager.logger
+		system.SafeGo(func() {
+			sc.waitShellReady(shellReadyTimeout)
+			sc.closeMu.Lock()
+			closed := sc.isClosed
+			sc.closeMu.Unlock()
+			if closed || stdin == nil {
+				return
+			}
+			if writeErr := writeStdinLine(stdin, payload); writeErr != nil {
+				logger.Warn("session stdin bootstrap failed",
+					zap.String("id", id), zap.Error(writeErr))
+			}
+		})
 	}
 	pty := sc.session
 	go func() {
@@ -502,6 +555,7 @@ func (sc *Session) readFromPipe(pipe io.Reader, pipeName string) func() {
 				return
 			}
 			if n > 0 {
+				sc.noteOutput()
 				data := make([]byte, n)
 				copy(data, buf[:n])
 				select {
@@ -557,4 +611,87 @@ func (sc *Session) Resize(cols, rows int) error {
 		return fmt.Errorf("no active session")
 	}
 	return sc.session.WindowChange(rows, cols)
+}
+
+func (sc *Session) noteOutput() {
+	sc.outputMu.Lock()
+	sc.gotOutput = true
+	sc.lastOutputAt = time.Now()
+	sc.outputMu.Unlock()
+}
+
+// waitShellReady waits until remote output has gone quiet after the first
+// chunk (MOTD/prompt), or until timeout — then stdin injection is safer.
+func (sc *Session) waitShellReady(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		sc.closeMu.Lock()
+		closed := sc.isClosed
+		sc.closeMu.Unlock()
+		if closed {
+			return
+		}
+		sc.outputMu.Lock()
+		got := sc.gotOutput
+		last := sc.lastOutputAt
+		sc.outputMu.Unlock()
+		if got && time.Since(last) >= shellReadyQuiet {
+			return
+		}
+		time.Sleep(shellReadyPoll)
+	}
+}
+
+// filterEnv drops empty keys and TERM (PTY term owns TERM).
+func filterEnv(env map[string]string) map[string]string {
+	if len(env) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(env))
+	for k, v := range env {
+		k = strings.TrimSpace(k)
+		if k == "" || strings.EqualFold(k, "TERM") {
+			continue
+		}
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// buildStdinBootstrap builds one shell line: exports + optional startup command.
+// Empty when neither is configured.
+func buildStdinBootstrap(env map[string]string, startup string) string {
+	env = filterEnv(env)
+	startup = strings.TrimSpace(startup)
+	if len(env) == 0 && startup == "" {
+		return ""
+	}
+	var parts []string
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		parts = append(parts, "export "+bashSingleQuote(k)+"="+bashSingleQuote(env[k]))
+	}
+	if startup != "" {
+		parts = append(parts, startup)
+	}
+	return strings.Join(parts, "; ")
+}
+
+func bashSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+func writeStdinLine(stdin io.Writer, line string) error {
+	if stdin == nil {
+		return fmt.Errorf("stdin not available")
+	}
+	_, err := io.WriteString(stdin, line+"\n")
+	return err
 }

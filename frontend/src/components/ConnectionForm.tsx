@@ -178,7 +178,6 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   };
 
   const handleSaveBookmark = () => {
-    // 创建新的SSHBookmark对象
     const newBookmark: SSHBookmark = {
       id: "",
       title: `${host}:${port}`,
@@ -201,13 +200,14 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       proxy_port: 0,
       proxy_user: "",
       proxy_password: "",
+      startup_cmd: "",
+      env_vars: "",
+      term: "",
     };
 
-    // 保存到书签
     BookmarkService.SaveBookmark(newBookmark)
       .then(() => {
         setSaveDialogOpen(false);
-        // 也可以选择连接
         onConnect({
           host,
           port: Number(port),

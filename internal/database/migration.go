@@ -26,6 +26,7 @@ var migrations = []Migration{
 	{Version: 7, Name: "add bookmark certificate", Up: migrateAddBookmarkCertificate},
 	{Version: 8, Name: "add bookmark forward_agent", Up: migrateAddBookmarkForwardAgent},
 	{Version: 9, Name: "add bookmark dial proxy", Up: migrateAddBookmarkDialProxy},
+	{Version: 10, Name: "add bookmark session options", Up: migrateAddBookmarkSessionOptions},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -275,6 +276,33 @@ func migrateAddBookmarkDialProxy(db *sql.DB, logger *zap.Logger) error {
 		{"proxy_port", `ALTER TABLE bookmarks ADD COLUMN proxy_port INTEGER NOT NULL DEFAULT 0`},
 		{"proxy_user", `ALTER TABLE bookmarks ADD COLUMN proxy_user TEXT NOT NULL DEFAULT ''`},
 		{"proxy_password", `ALTER TABLE bookmarks ADD COLUMN proxy_password TEXT NOT NULL DEFAULT ''`},
+	}
+	for _, c := range cols {
+		var columnName string
+		err := db.QueryRow(`SELECT name FROM pragma_table_info('bookmarks') WHERE name = ?`, c.name).Scan(&columnName)
+		if err == sql.ErrNoRows {
+			if _, err := db.Exec(c.ddl); err != nil {
+				return fmt.Errorf("add column bookmarks.%s failed: %w", c.name, err)
+			}
+			logger.Debug("migration: added bookmarks column", zap.String("column", c.name))
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("check column bookmarks.%s failed: %w", c.name, err)
+		}
+	}
+	return nil
+}
+
+// migrateAddBookmarkSessionOptions 为书签增加启动命令、环境变量与 TERM（幂等）。
+func migrateAddBookmarkSessionOptions(db *sql.DB, logger *zap.Logger) error {
+	cols := []struct {
+		name string
+		ddl  string
+	}{
+		{"startup_cmd", `ALTER TABLE bookmarks ADD COLUMN startup_cmd TEXT NOT NULL DEFAULT ''`},
+		{"env_vars", `ALTER TABLE bookmarks ADD COLUMN env_vars TEXT NOT NULL DEFAULT ''`},
+		{"term", `ALTER TABLE bookmarks ADD COLUMN term TEXT NOT NULL DEFAULT ''`},
 	}
 	for _, c := range cols {
 		var columnName string

@@ -3,6 +3,7 @@ package bookmark
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -43,13 +44,18 @@ type Bookmark struct {
 	ProxyPort          int    `json:"proxy_port"`
 	ProxyUser          string `json:"proxy_user"`
 	ProxyPassword      string `json:"proxy_password"`
+	StartupCmd         string `json:"startup_cmd"`
+	EnvVars            string `json:"env_vars"` // JSON object
+	Term               string `json:"term"`
 }
 
 func (b Bookmark) Endpoint() ssh.Endpoint {
+	env, _ := ParseEnvVars(b.EnvVars)
 	return ssh.Endpoint{
 		Host: b.Host, Port: b.Port, User: b.User,
 		Password: b.Password, Key: b.PrivateKey, KeyPassword: b.PrivateKeyPassword,
 		Certificate: b.Certificate, ForwardAgent: b.ForwardAgent,
+		StartupCmd: b.StartupCmd, Env: env, Term: b.Term,
 	}
 }
 
@@ -218,6 +224,7 @@ func fromDB(b *database.BookmarkDB, groupName string) *Bookmark {
 		UseAgent: true, SshKeyID: b.SshKeyID, Certificate: b.Certificate, ForwardAgent: b.ForwardAgent,
 		ProxyMode: mode, ProxyType: b.ProxyType, ProxyHost: b.ProxyHost, ProxyPort: b.ProxyPort,
 		ProxyUser: b.ProxyUser, ProxyPassword: b.ProxyPassword,
+		StartupCmd: b.StartupCmd, EnvVars: b.EnvVars, Term: b.Term,
 	}
 }
 
@@ -260,6 +267,10 @@ func (s *Service) ResolveHops(target ssh.Endpoint, jumpID string) ([]ssh.Endpoin
 		if err != nil {
 			return nil, err
 		}
+		// Session options belong only to the interactive target hop.
+		ep.StartupCmd = ""
+		ep.Env = nil
+		ep.Term = ""
 		if seen[ep.Addr()] {
 			return nil, fmt.Errorf("检测到跳板机循环引用: %s", ep.Addr())
 		}
@@ -362,6 +373,9 @@ func (s *Service) Save(b Bookmark) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := validateSessionOptions(&b); err != nil {
+		return "", err
+	}
 	if b.ID != "" {
 		existing, err := s.db.BookmarkRepo.GetBookmarkByID(b.ID)
 		if err == nil && existing != nil {
@@ -404,6 +418,7 @@ func (s *Service) update(b Bookmark, existing *database.BookmarkDB) error {
 		ProxyMode:    normalizeProxyMode(processed.ProxyMode), ProxyType: processed.ProxyType,
 		ProxyHost: processed.ProxyHost, ProxyPort: processed.ProxyPort,
 		ProxyUser: processed.ProxyUser, ProxyPassword: processed.ProxyPassword,
+		StartupCmd: processed.StartupCmd, EnvVars: processed.EnvVars, Term: processed.Term,
 		UpdatedAt: time.Now(),
 	}
 	if err := s.db.BookmarkRepo.UpdateBookmark(dbBookmark); err != nil {
@@ -470,12 +485,31 @@ func (s *Service) insert(b Bookmark) (string, error) {
 		ProxyMode:    normalizeProxyMode(processed.ProxyMode), ProxyType: processed.ProxyType,
 		ProxyHost: processed.ProxyHost, ProxyPort: processed.ProxyPort,
 		ProxyUser: processed.ProxyUser, ProxyPassword: processed.ProxyPassword,
+		StartupCmd: processed.StartupCmd, EnvVars: processed.EnvVars, Term: processed.Term,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return "", err
 	}
 	s.emit()
 	return id, nil
+}
+
+func validateSessionOptions(b *Bookmark) error {
+	m, err := ParseEnvVars(b.EnvVars)
+	if err != nil {
+		return err
+	}
+	normalized, err := FormatEnvVars(m)
+	if err != nil {
+		return err
+	}
+	b.EnvVars = normalized
+	b.StartupCmd = strings.TrimSpace(b.StartupCmd)
+	if strings.ContainsAny(b.StartupCmd, "\r\n") {
+		return fmt.Errorf("启动命令不能包含换行")
+	}
+	b.Term = strings.TrimSpace(b.Term)
+	return nil
 }
 
 func (s *Service) Delete(id string) error {
@@ -536,6 +570,7 @@ func (s *Service) Copy(id string) (*Bookmark, error) {
 		ProxyMode:    normalizeProxyMode(src.ProxyMode), ProxyType: src.ProxyType,
 		ProxyHost: src.ProxyHost, ProxyPort: src.ProxyPort,
 		ProxyUser: src.ProxyUser, ProxyPassword: src.ProxyPassword,
+		StartupCmd: src.StartupCmd, EnvVars: src.EnvVars, Term: src.Term,
 		CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		return nil, err
@@ -666,6 +701,11 @@ func (s *Service) PrepareTest(b Bookmark) (PrepareTestResult, error) {
 	}
 	ep.Certificate = b.Certificate
 	ep.ForwardAgent = b.ForwardAgent
+	ep.StartupCmd = b.StartupCmd
+	ep.Term = b.Term
+	if env, err := ParseEnvVars(b.EnvVars); err == nil {
+		ep.Env = env
+	}
 	return PrepareTestResult{Endpoint: ep, JumpID: jumpID, ProxyPassword: proxyPass}, nil
 }
 

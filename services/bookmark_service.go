@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -25,6 +26,8 @@ func init() {
 type SSHBookmark = bookmark.Bookmark
 type BookmarkGroup = bookmark.Group
 type BookmarkListItem = bookmark.ListItem
+type SSHConfigImportResult = bookmark.ImportResult
+type SSHConfigExportResult = bookmark.ExportResult
 
 type BookmarkService struct {
 	app  *application.App
@@ -141,4 +144,61 @@ func (bs *BookmarkService) SaveAndConnect(b SSHBookmark) (string, error) {
 	}
 	bs.ConnectBookmark(id)
 	return id, nil
+}
+
+// ImportSSHConfig opens a file dialog and imports OpenSSH config into groupName.
+// Cancelled dialog returns Cancelled=true without error.
+func (bs *BookmarkService) ImportSSHConfig(groupName string) (SSHConfigImportResult, error) {
+	path, err := bs.app.Dialog.OpenFile().
+		SetTitle("选择 OpenSSH 配置文件").
+		CanChooseDirectories(false).
+		CanChooseFiles(true).
+		PromptForSingleSelection()
+	if dialogCancelled(err) || path == "" {
+		return SSHConfigImportResult{Cancelled: true}, nil
+	}
+	if err != nil {
+		return SSHConfigImportResult{}, err
+	}
+	return bs.core.ImportOpenSSH(path, groupName)
+}
+
+// ExportSSHConfig writes bookmarks as OpenSSH config via save dialog.
+// groupName empty exports all. Cancelled dialog returns Cancelled=true without error.
+func (bs *BookmarkService) ExportSSHConfig(groupName string) (SSHConfigExportResult, error) {
+	content, warnings, err := bs.core.ExportOpenSSH(groupName)
+	if err != nil {
+		return SSHConfigExportResult{Warnings: warnings}, err
+	}
+	if strings.TrimSpace(content) == "" {
+		if len(warnings) == 0 {
+			warnings = []string{"没有可导出的内容"}
+		}
+		return SSHConfigExportResult{Warnings: warnings}, nil
+	}
+	if len(warnings) > 0 {
+		var b strings.Builder
+		for _, w := range warnings {
+			b.WriteString("# warning: ")
+			b.WriteString(w)
+			b.WriteByte('\n')
+		}
+		b.WriteString(content)
+		content = b.String()
+	}
+	path, err := bs.app.Dialog.SaveFile().
+		SetMessage("导出 OpenSSH 配置").
+		SetFilename("config").
+		CanCreateDirectories(true).
+		PromptForSingleSelection()
+	if dialogCancelled(err) || path == "" {
+		return SSHConfigExportResult{Cancelled: true, Warnings: warnings}, nil
+	}
+	if err != nil {
+		return SSHConfigExportResult{Warnings: warnings}, err
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return SSHConfigExportResult{Warnings: warnings}, err
+	}
+	return SSHConfigExportResult{Written: true, Warnings: warnings}, nil
 }

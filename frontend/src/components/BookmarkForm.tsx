@@ -35,6 +35,7 @@ import {
   OsIconPicker,
 } from "./icons/bookmarkIcons";
 import { ProxyMode, ProxyType } from "../types/proxy";
+import { envFromJSON, envToJSON, formatEnvLines, parseEnvLines } from "../func/envVars";
 
 interface BookmarkFormProps {
   bookmark: SSHBookmark | null;
@@ -43,6 +44,17 @@ interface BookmarkFormProps {
   onTestConnection: (bookmark: SSHBookmark) => Promise<void>;
   onSaveAndConnect: (bookmark: SSHBookmark) => Promise<SSHBookmark>;
 }
+
+const TERM_OPTIONS = [
+  "xterm-256color",
+  "xterm",
+  "vt100",
+  "linux",
+  "screen",
+  "screen-256color",
+  "tmux",
+  "tmux-256color",
+] as const;
 
 const emptyBookmark = (): SSHBookmark => ({
   id: "",
@@ -66,6 +78,9 @@ const emptyBookmark = (): SSHBookmark => ({
   proxy_port: 0,
   proxy_user: "",
   proxy_password: "",
+  startup_cmd: "",
+  env_vars: "",
+  term: "",
 });
 
 const BookmarkForm: React.FC<BookmarkFormProps> = ({
@@ -78,6 +93,7 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
   const { errorMessage } = useMessageStore();
 
   const [formData, setFormData] = useState<SSHBookmark>(emptyBookmark());
+  const [envText, setEnvText] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [allBookmarks, setAllBookmarks] = useState<BookmarkListItem[]>([]);
@@ -106,16 +122,37 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
 
   useEffect(() => {
     if (bookmark) {
-      setFormData({
+      const next = {
         ...emptyBookmark(),
         ...bookmark,
         icon: bookmark.icon || "",
         proxy_mode: bookmark.proxy_mode || ProxyMode.Inherit,
-      });
+        startup_cmd: bookmark.startup_cmd || "",
+        env_vars: bookmark.env_vars || "",
+        term: bookmark.term || "",
+      };
+      setFormData(next);
+      setEnvText(formatEnvLines(envFromJSON(next.env_vars)));
     } else {
       setFormData(emptyBookmark());
+      setEnvText("");
     }
   }, [bookmark]);
+
+  const withSessionOptions = (data: SSHBookmark): SSHBookmark | null => {
+    try {
+      const env = parseEnvLines(envText);
+      return {
+        ...data,
+        startup_cmd: (data.startup_cmd || "").trim(),
+        term: (data.term || "").trim(),
+        env_vars: envToJSON(env),
+      };
+    } catch (err) {
+      errorMessage(err instanceof Error ? err.message : String(err));
+      return null;
+    }
+  };
 
   const filterOptions = createFilterOptions<BookmarkListItem>({
     limit: 20,
@@ -166,37 +203,54 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
   };
 
   const handleSave = async () => {
-    if (validateForm()) {
-      setIsLoading(true);
-      try {
-        const savedBookmark = await onSave(formData);
-        setFormData(savedBookmark);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!validateForm()) {
+      return;
+    }
+    const payload = withSessionOptions(formData);
+    if (!payload) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const savedBookmark = await onSave(payload);
+      setFormData(savedBookmark);
+      setEnvText(formatEnvLines(envFromJSON(savedBookmark.env_vars)));
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleTestConnection = async () => {
-    if (validateForm()) {
-      setIsLoading(true);
-      try {
-        await onTestConnection(formData);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!validateForm()) {
+      return;
+    }
+    const payload = withSessionOptions(formData);
+    if (!payload) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await onTestConnection(payload);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSaveAndConnect = async () => {
-    if (validateForm()) {
-      setIsLoading(true);
-      try {
-        const savedBookmark = await onSaveAndConnect(formData);
-        setFormData(savedBookmark);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!validateForm()) {
+      return;
+    }
+    const payload = withSessionOptions(formData);
+    if (!payload) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const savedBookmark = await onSaveAndConnect(payload);
+      setFormData(savedBookmark);
+      setEnvText(formatEnvLines(envFromJSON(savedBookmark.env_vars)));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -665,6 +719,69 @@ const BookmarkForm: React.FC<BookmarkFormProps> = ({
                         ),
                       },
                     }}
+                  />
+                </FormRow>
+              </Stack>
+            </Box>
+
+            {/* 会话选项 */}
+            <Box>
+              <Typography
+                variant="subtitle2"
+                sx={{ mb: 2, fontWeight: 600, color: "primary.main" }}
+              >
+                会话选项
+              </Typography>
+              <Stack spacing={2}>
+                <FormRow label="TERM" labelWidth={120}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    name="term"
+                    value={formData.term || ""}
+                    onChange={handleChange}
+                    slotProps={{
+                      select: {
+                        displayEmpty: true,
+                        renderValue: (selected) => {
+                          const v = String(selected ?? "");
+                          return v || "默认（xterm-256color）";
+                        },
+                      },
+                    }}
+                  >
+                    <MenuItem value="">默认（xterm-256color）</MenuItem>
+                    {TERM_OPTIONS.map((t) => (
+                      <MenuItem key={t} value={t}>
+                        {t}
+                      </MenuItem>
+                    ))}
+                    {formData.term &&
+                      !(TERM_OPTIONS as readonly string[]).includes(formData.term) && (
+                        <MenuItem value={formData.term}>{formData.term}</MenuItem>
+                      )}
+                  </TextField>
+                </FormRow>
+                <FormRow label="环境变量" labelWidth={120}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    multiline
+                    minRows={2}
+                    value={envText}
+                    onChange={(e) => setEnvText(e.target.value)}
+                    placeholder={"每行一条 KEY=value"}
+                  />
+                </FormRow>
+                <FormRow label="启动命令" labelWidth={120}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    name="startup_cmd"
+                    value={formData.startup_cmd || ""}
+                    onChange={handleChange}
+                    placeholder="登录后自动执行，例如：cd /var/www && ls（可选）"
                   />
                 </FormRow>
               </Stack>

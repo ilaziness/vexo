@@ -1,5 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Box, Paper } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import {
   BookmarkService,
   LogService,
@@ -12,6 +24,9 @@ import { useMessageStore } from "../stores/message";
 import { parseCallServiceError } from "../func/service";
 import { ProxyMode, ProxyType } from "../types/proxy";
 
+const IMPORT_GROUP_DEFAULT = "Imported";
+const EXPORT_ALL = "";
+
 interface BookmarkProps {
   onRequestClose?: () => void;
 }
@@ -21,6 +36,13 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
   const [selectedBookmark, setSelectedBookmark] = useState<SSHBookmark | null>(
     null,
   );
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [importGroup, setImportGroup] = useState(IMPORT_GROUP_DEFAULT);
+  const [exportGroup, setExportGroup] = useState(EXPORT_ALL);
+  const [busyIO, setBusyIO] = useState(false);
+  const [warningsOpen, setWarningsOpen] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const { errorMessage, successMessage } = useMessageStore();
 
   const loadBookmarks = useCallback(async () => {
@@ -130,8 +152,66 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
       proxy_port: 0,
       proxy_user: "",
       proxy_password: "",
+      startup_cmd: "",
+      env_vars: "",
+      term: "",
     };
     setSelectedBookmark(newBookmark);
+  };
+
+  const showWarnings = (list: string[] | null | undefined) => {
+    const cleaned = (list || []).filter(Boolean);
+    if (cleaned.length === 0) {
+      return;
+    }
+    setWarnings(cleaned);
+    setWarningsOpen(true);
+  };
+
+  const handleImportSSHConfig = async () => {
+    setBusyIO(true);
+    try {
+      const res = await BookmarkService.ImportSSHConfig(importGroup.trim() || IMPORT_GROUP_DEFAULT);
+      if (res?.cancelled) {
+        return;
+      }
+      setImportOpen(false);
+      await loadBookmarks();
+      const created = res?.created ?? 0;
+      if (created > 0) {
+        successMessage(`已导入 ${created} 个书签`);
+      } else {
+        successMessage("导入完成（未新建书签）");
+      }
+      showWarnings(res?.warnings);
+    } catch (error) {
+      LogService.Warn(`Import SSH config failed: ${error}`);
+      errorMessage("导入 ssh_config 失败: " + parseCallServiceError(error));
+    } finally {
+      setBusyIO(false);
+    }
+  };
+
+  const handleExportSSHConfig = async () => {
+    setBusyIO(true);
+    try {
+      const res = await BookmarkService.ExportSSHConfig(exportGroup);
+      if (res?.cancelled) {
+        return;
+      }
+      setExportOpen(false);
+      if (res?.written) {
+        successMessage("已导出 OpenSSH 配置");
+      } else if ((res?.warnings || []).length === 0) {
+        errorMessage("没有可导出的内容");
+      }
+      showWarnings(res?.warnings);
+    } catch (error) {
+      LogService.Warn(`Export SSH config failed: ${error}`);
+      errorMessage("导出 ssh_config 失败: " + parseCallServiceError(error));
+    } finally {
+      setBusyIO(false);
+    }
   };
 
   const handleBookmarkCopy = async (bookmarkId: string) => {
@@ -222,6 +302,32 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
         elevation={0}
         square
       >
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ px: 1.5, pt: 1.5, pb: 0.5 }}
+        >
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              setImportGroup(IMPORT_GROUP_DEFAULT);
+              setImportOpen(true);
+            }}
+          >
+            导入配置
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              setExportGroup(EXPORT_ALL);
+              setExportOpen(true);
+            }}
+          >
+            导出配置
+          </Button>
+        </Stack>
         <BookmarkTree
           bookmarks={bookmarks}
           selectedBookmark={selectedBookmark}
@@ -251,6 +357,96 @@ const Bookmark: React.FC<BookmarkProps> = ({ onRequestClose }) => {
           onSaveAndConnect={handleSaveAndConnect}
         />
       </Box>
+
+      <Dialog open={importOpen} onClose={() => !busyIO && setImportOpen(false)}>
+        <DialogTitle>导入 OpenSSH 配置</DialogTitle>
+        <DialogContent>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="目标分组"
+            value={importGroup}
+            onChange={(e) => setImportGroup(e.target.value)}
+            sx={{ mt: 1, minWidth: 320 }}
+          >
+            <MenuItem value={IMPORT_GROUP_DEFAULT}>{IMPORT_GROUP_DEFAULT}</MenuItem>
+            {bookmarks
+              .map((g) => g.name)
+              .filter((n) => n !== IMPORT_GROUP_DEFAULT)
+              .map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+          </TextField>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+            将选择本机 ssh_config 文件，解析 Host 并生成书签。无法识别的指令会提示。
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportOpen(false)} disabled={busyIO}>
+            取消
+          </Button>
+          <Button variant="contained" onClick={handleImportSSHConfig} disabled={busyIO}>
+            选择文件并导入
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={exportOpen} onClose={() => !busyIO && setExportOpen(false)}>
+        <DialogTitle>导出 OpenSSH 配置</DialogTitle>
+        <DialogContent>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="导出范围"
+            value={exportGroup}
+            onChange={(e) => setExportGroup(e.target.value)}
+            sx={{ mt: 1, minWidth: 320 }}
+          >
+            <MenuItem value={EXPORT_ALL}>全部书签</MenuItem>
+            {bookmarks.map((g) => (
+              <MenuItem key={g.name} value={g.name}>
+                {g.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportOpen(false)} disabled={busyIO}>
+            取消
+          </Button>
+          <Button variant="contained" onClick={handleExportSSHConfig} disabled={busyIO}>
+            导出
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={warningsOpen} onClose={() => setWarningsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>导入/导出提示</DialogTitle>
+        <DialogContent>
+          <Box
+            component="ul"
+            sx={{
+              m: 0,
+              pl: 2,
+              maxHeight: 360,
+              overflow: "auto",
+            }}
+          >
+            {warnings.map((w, i) => (
+              <Typography component="li" key={`${i}-${w}`} variant="body2" sx={{ mb: 0.5 }}>
+                {w}
+              </Typography>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setWarningsOpen(false)}>关闭</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
