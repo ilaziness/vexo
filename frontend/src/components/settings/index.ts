@@ -6,4 +6,5 @@ export { default as KnownHostsSettings } from "./KnownHostsSettings";
 export { default as SyncSettings } from "./SyncSettings";
 export { default as AISettings } from "./AISettings";
 export { default as KeySettings } from "./KeySettings";
+export { default as KeybindingsSettings } from "./KeybindingsSettings";
 export { default as About } from "./About";

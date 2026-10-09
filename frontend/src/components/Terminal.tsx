@@ -20,9 +20,15 @@ import { parseCallServiceError, sleep } from "../func/service";
 import { useSSHTabsStore } from "../stores/ssh";
 import { useMessageStore } from "../stores/message";
 import { ConnectionStatus } from "../types/ssh";
+import { useAIAssistantStore } from "../stores/aiAssistant";
+import {
+  EVENT_SHORTCUT,
+  ShortcutAction,
+  isEditableFocus,
+  parseShortcutAction,
+  toShellCodeBlock,
+} from "../func/shortcuts";
 
-const EVENT_SHORTCUT = "eventShortcut";
-const SHORTCUT_TERMINAL_FIND = "terminal.find";
 const EVENT_SESSION_LOG_STOPPED = "eventSSHSessionLogStopped";
 
 type XtermModules = {
@@ -125,6 +131,8 @@ function Terminal(props: {
   isActiveRef.current = props.isActive;
   const linkIDRef = React.useRef(props.linkID);
   linkIDRef.current = props.linkID;
+  const loggingRef = React.useRef(logging);
+  loggingRef.current = logging;
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -197,6 +205,62 @@ function Terminal(props: {
       errorMessage(parseCallServiceError(err));
     }
   };
+
+  const handleTerminalShortcut = useEffectEvent((action: string) => {
+    if (isEditableFocus()) return;
+
+    const id = linkIDRef.current;
+    const instance = terminalInstances.get(id);
+
+    switch (action) {
+      case ShortcutAction.TerminalFind:
+        openSearch();
+        break;
+      case ShortcutAction.TerminalCopy: {
+        const selection = instance?.getSelection() ?? "";
+        if (selection) {
+          void navigator.clipboard.writeText(selection);
+        }
+        break;
+      }
+      case ShortcutAction.TerminalPaste:
+        void (async () => {
+          try {
+            const text = await navigator.clipboard.readText();
+            if (!text) {
+              return;
+            }
+            const term = terminalInstances.get(linkIDRef.current);
+            term?.paste(text);
+            term?.focus();
+          } catch (err) {
+            console.error("Failed to read clipboard contents: ", err);
+          }
+        })();
+        break;
+      case ShortcutAction.TerminalAddToChat: {
+        const selection = instance?.getSelection() ?? "";
+        if (selection) {
+          useAIAssistantStore
+            .getState()
+            .appendToComposer(toShellCodeBlock(selection));
+        }
+        break;
+      }
+      case ShortcutAction.TerminalToggleLog:
+        if (loggingRef.current) {
+          void handleStopLogging();
+        } else {
+          void handleStartLogging();
+        }
+        break;
+      case ShortcutAction.TerminalClear:
+        instance?.clear();
+        break;
+      default:
+        break;
+    }
+  });
 
   useEffect(() => {
     setLoggingState(false);
@@ -398,22 +462,29 @@ function Terminal(props: {
       EVENT_SHORTCUT,
       (event: { data?: unknown }) => {
         if (!isActiveRef.current) return;
-        try {
-          const raw = event.data;
-          const payload =
-            typeof raw === "string"
-              ? (JSON.parse(raw) as { action?: string })
-              : (raw as { action?: string } | undefined);
-          if (payload?.action === SHORTCUT_TERMINAL_FIND) {
-            openSearch();
-          }
-        } catch (e) {
-          console.error("Invalid shortcut event payload", e);
-        }
+        const action = parseShortcutAction(event.data);
+        if (!action || !action.startsWith("terminal.")) return;
+        handleTerminalShortcut(action);
       },
     );
     return () => {
       unsubscribe();
+    };
+  }, []);
+
+  // Wails AcceleratorKeyPressed 在 PutHandled(true) 后仍会 PutHandled(false)，
+  // Ctrl+Shift+V 会同时走我们的粘贴与浏览器默认粘贴，导致重复并残留选区高亮。
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!isActiveRef.current || isEditableFocus()) return;
+      if (!(e.ctrlKey || e.metaKey) || !e.shiftKey) return;
+      if (e.key.toLowerCase() !== "v") return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
     };
   }, []);
 

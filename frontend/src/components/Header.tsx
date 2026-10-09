@@ -48,6 +48,7 @@ import { ReadConfig } from "../../bindings/github.com/ilaziness/vexo/services/co
 import { useSSHTabsStore } from "../stores/ssh";
 import { ConnectionStatus } from "../types/ssh";
 import { useAIAssistantStore } from "../stores/aiAssistant";
+import { useUIStore } from "../stores/ui";
 import { genTabIndex, parseCallServiceError } from "../func/service";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useMessageStore } from "../stores/message";
@@ -68,6 +69,8 @@ export default function Header() {
   const { sshTabs, pushTab, setCurrentTab } = useSSHTabsStore();
   const { errorMessage, successMessage } = useMessageStore();
   const { toggleSidebarOpen } = useAIAssistantStore();
+  const bookmarkManageOpen = useUIStore((s) => s.bookmarkManageOpen);
+  const setBookmarkManageOpen = useUIStore((s) => s.setBookmarkManageOpen);
 
   const [bookmarks, setBookmarks] = useState<BookmarkGroup[]>([]);
   const [bookmarkAnchorEl, setBookmarkAnchorEl] = useState<null | HTMLElement>(
@@ -76,7 +79,6 @@ export default function Header() {
   const [expandedGroups, setExpandedGroups] = useState<{
     [key: string]: boolean;
   }>({});
-  const [bookmarkManageOpen, setBookmarkManageOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [newVersion, setNewVersion] = useState<NewVersion | null>(null);
@@ -174,6 +176,7 @@ export default function Header() {
       handleBookmark,
       handleBackupClick,
       handleAIAssistant,
+      setBookmarkManageOpen,
     ],
   );
 

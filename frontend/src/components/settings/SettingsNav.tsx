@@ -17,6 +17,7 @@ export type SettingsTab =
   | "ai"
   | "keys"
   | "knownHosts"
+  | "keybindings"
   | "about";
 
 interface NavItem {
@@ -32,6 +33,7 @@ const navItems: NavItem[] = [
   { key: "ai", label: "AI" },
   { key: "keys", label: "身份密钥" },
   { key: "knownHosts", label: "已知主机" },
+  { key: "keybindings", label: "快捷键" },
   { key: "about", label: "关于" },
 ];
 

@@ -73,6 +73,14 @@ func (w *Windows) CloseSetting() {
 	}
 }
 
+func (w *Windows) ToggleSetting() {
+	if w.Setting != nil && w.Setting.IsVisible() {
+		w.CloseSetting()
+		return
+	}
+	w.ShowSetting()
+}
+
 func (w *Windows) ShowCommand() {
 	if w.Command == nil {
 		w.Command = w.newCommandWindow()
@@ -91,6 +99,14 @@ func (w *Windows) CloseCommand() {
 	}
 }
 
+func (w *Windows) ToggleCommand() {
+	if w.Command != nil && w.Command.IsVisible() {
+		w.CloseCommand()
+		return
+	}
+	w.ShowCommand()
+}
+
 func (w *Windows) ShowTool() {
 	if w.Tool == nil {
 		w.Tool = w.newToolWindow()
@@ -107,4 +123,12 @@ func (w *Windows) CloseTool() {
 		w.Tool.Close()
 		w.Tool = nil
 	}
+}
+
+func (w *Windows) ToggleTool() {
+	if w.Tool != nil && w.Tool.IsVisible() {
+		w.CloseTool()
+		return
+	}
+	w.ShowTool()
 }

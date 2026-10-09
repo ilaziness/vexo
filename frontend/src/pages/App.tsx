@@ -5,11 +5,13 @@ import Message from "../components/Message.tsx";
 import PasswordInputDialog from "../components/PasswordInputDialog.tsx";
 import HostKeyPrompt from "../components/HostKeyPrompt";
 import KeyboardInteractivePrompt from "../components/KeyboardInteractivePrompt";
+import ShortcutListener from "../components/ShortcutListener";
 import { AppService } from "../../bindings/github.com/ilaziness/vexo/services";
 
 function App() {
   return (
     <>
+      <ShortcutListener />
       <Box
         sx={{
           display: "flex",

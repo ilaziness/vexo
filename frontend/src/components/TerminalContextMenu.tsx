@@ -14,10 +14,8 @@ import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import StopCircleIcon from "@mui/icons-material/StopCircle";
 import { terminalInstances } from "../stores/terminalInstances";
 import { useAIAssistantStore } from "../stores/aiAssistant";
-
-const findShortcut = /Mac|iPhone|iPad/.test(navigator.platform)
-  ? "⌘F"
-  : "Ctrl+F";
+import { useKeybindingsStore } from "../stores/keybindings";
+import { ShortcutAction, toShellCodeBlock } from "../func/shortcuts";
 
 interface TerminalContextMenuProps {
   contextMenu: {
@@ -32,8 +30,18 @@ interface TerminalContextMenuProps {
   onStopLogging: () => void;
 }
 
-function toShellCodeBlock(text: string): string {
-  return "```shell\n" + text + "\n```";
+function ShortcutHint({ action }: { action: string }) {
+  const keys = useKeybindingsStore(
+    (s) => s.bindings.find((b) => b.action === action)?.keys ?? "",
+  );
+  if (!keys) {
+    return null;
+  }
+  return (
+    <Typography variant="body2" color="text.secondary" sx={{ ml: 3, pl: 1 }}>
+      {keys}
+    </Typography>
+  );
 }
 
 export default function TerminalContextMenu({
@@ -51,19 +59,21 @@ export default function TerminalContextMenu({
 
   const handleCopy = () => {
     if (selection) {
-      navigator.clipboard.writeText(selection);
+      void navigator.clipboard.writeText(selection);
     }
     onClose();
   };
 
   const handlePaste = async () => {
-    const term = terminalInstances.get(linkID);
     try {
       const text = await navigator.clipboard.readText();
-      if (text) {
-        term?.paste(text);
-        term?.focus();
+      if (!text) {
+        onClose();
+        return;
       }
+      const term = terminalInstances.get(linkID);
+      term?.paste(text);
+      term?.focus();
     } catch (err) {
       console.error("Failed to read clipboard contents: ", err);
     }
@@ -115,31 +125,28 @@ export default function TerminalContextMenu({
           <ContentCopyIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>复制</ListItemText>
+        <ShortcutHint action={ShortcutAction.TerminalCopy} />
       </MenuItem>
       <MenuItem onClick={handlePaste}>
         <ListItemIcon>
           <ContentPasteIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>粘贴</ListItemText>
+        <ShortcutHint action={ShortcutAction.TerminalPaste} />
       </MenuItem>
       <MenuItem onClick={handleFind}>
         <ListItemIcon>
           <SearchIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>查找</ListItemText>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ ml: 3, pl: 1 }}
-        >
-          {findShortcut}
-        </Typography>
+        <ShortcutHint action={ShortcutAction.TerminalFind} />
       </MenuItem>
       <MenuItem onClick={handleAddToChat} disabled={!hasSelection}>
         <ListItemIcon>
           <ChatIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>添加到聊天</ListItemText>
+        <ShortcutHint action={ShortcutAction.TerminalAddToChat} />
       </MenuItem>
       <MenuItem onClick={handleToggleLogging} disabled={!logging && !canLog}>
         <ListItemIcon>
@@ -150,12 +157,14 @@ export default function TerminalContextMenu({
           )}
         </ListItemIcon>
         <ListItemText>{logging ? "停止记录" : "开始记录"}</ListItemText>
+        <ShortcutHint action={ShortcutAction.TerminalToggleLog} />
       </MenuItem>
       <MenuItem onClick={handleClear}>
         <ListItemIcon>
           <ClearAllIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>清屏</ListItemText>
+        <ShortcutHint action={ShortcutAction.TerminalClear} />
       </MenuItem>
     </Menu>
   );

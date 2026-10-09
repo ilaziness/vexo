@@ -92,7 +92,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	a.RegisterService(application.NewService(aiService))
 
 	appService.startBackgroundUpdateCheck()
-	RegisterKeyBindings(a)
+	RegisterKeyBindings(a, windows)
 
 	if err := termWS.Start(); err != nil {
 		return err

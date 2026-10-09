@@ -158,6 +158,10 @@ func (cs *AppService) GetAppInfo() AppInfo {
 	}
 }
 
+func (cs *AppService) ListKeyBindings() []KeyBindingInfo {
+	return ListKeyBindings()
+}
+
 func (cs *AppService) CheckUpdate() (hasNew bool, newVersion NewVersion, err error) {
 	cs.updateMu.Lock()
 	defer cs.updateMu.Unlock()

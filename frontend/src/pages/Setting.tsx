@@ -10,6 +10,7 @@ import {
   SyncSettings,
   AISettings,
   KeySettings,
+  KeybindingsSettings,
   About,
 } from "../components/settings";
 import OpBar from "../components/OpBar";
@@ -148,6 +149,8 @@ const Setting: React.FC = () => {
               {activeTab === "keys" && <KeySettings />}
 
               {activeTab === "knownHosts" && <KnownHostsSettings />}
+
+              {activeTab === "keybindings" && <KeybindingsSettings />}
 
               {activeTab === "about" && (
                 <Paper sx={{ p: 3 }} elevation={1}>
