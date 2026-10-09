@@ -22,12 +22,14 @@ const EventHostKeyPrompt = "eventHostKeyPrompt"
 const EventKeyboardInteractive = "eventKeyboardInteractive"
 const EventKeyboardInteractiveClose = "eventKeyboardInteractiveClose"
 const EventSSHSessionClosed = "eventSSHSessionClosed"
+const EventSSHSessionLogStopped = "eventSSHSessionLogStopped"
 
 func init() {
 	application.RegisterEvent[string](EventHostKeyPrompt)
 	application.RegisterEvent[string](EventKeyboardInteractive)
 	application.RegisterEvent[string](EventKeyboardInteractiveClose)
 	application.RegisterEvent[string](EventSSHSessionClosed)
+	application.RegisterEvent[string](EventSSHSessionLogStopped)
 }
 
 type hostKeyPrompter struct {
@@ -102,7 +104,23 @@ type SSHService struct {
 }
 
 func NewSSHService(app *application.App, mgr *ssh.Manager, sftpMgr *sftp.Manager, tunnels *tunnel.Manager) *SSHService {
-	return &SSHService{app: app, mgr: mgr, sftp: sftpMgr, tunnels: tunnels}
+	s := &SSHService{app: app, mgr: mgr, sftp: sftpMgr, tunnels: tunnels}
+	mgr.SetOnSessionLogStopped(s.onSessionLogStopped)
+	return s
+}
+
+func (s *SSHService) onSessionLogStopped(id, reason string) {
+	if s.app == nil || id == "" {
+		return
+	}
+	data, err := json.Marshal(map[string]string{
+		"id":     id,
+		"reason": reason,
+	})
+	if err != nil {
+		return
+	}
+	s.app.Event.Emit(EventSSHSessionLogStopped, string(data))
 }
 
 func (s *SSHService) setSSHConfigGetter(fn func() config.SSHConfig) {
@@ -268,4 +286,42 @@ func (s *SSHService) CancelKeyboardInteractive(id string) error {
 
 func (s *SSHService) GetOrFetchRemoteSystemInfo(linkID, host string) *ssh.RemoteSystemInfo {
 	return s.mgr.GetOrFetchRemoteSystemInfo(linkID, host)
+}
+
+// StartSessionLog opens a save dialog and begins recording session output.
+// Cancelled dialog returns started=false with no error.
+func (s *SSHService) StartSessionLog(sessionID string) (path string, started bool, err error) {
+	if sessionID == "" {
+		return "", false, fmt.Errorf("session id is required")
+	}
+	if !s.mgr.HasSession(sessionID) {
+		return "", false, fmt.Errorf(ssh.ErrConnectionNotFound, sessionID)
+	}
+	if s.mgr.IsSessionLogging(sessionID) {
+		return "", false, fmt.Errorf("session log already recording")
+	}
+	prefix := sessionID
+	if len(prefix) > 8 {
+		prefix = prefix[:8]
+	}
+	filename := fmt.Sprintf("vexo-session-%s-%s.log", prefix, time.Now().Format("20060102-150405"))
+	path, err = s.app.Dialog.SaveFile().
+		SetMessage("保存会话日志").
+		SetFilename(filename).
+		CanCreateDirectories(true).
+		PromptForSingleSelection()
+	if dialogCancelled(err) || path == "" {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	if err = s.mgr.StartSessionLog(sessionID, path); err != nil {
+		return "", false, err
+	}
+	return path, true, nil
+}
+
+func (s *SSHService) StopSessionLog(sessionID string) error {
+	return s.mgr.StopSessionLog(sessionID)
 }

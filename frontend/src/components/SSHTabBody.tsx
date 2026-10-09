@@ -48,6 +48,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
   const [activeTab, setActiveTab] = React.useState(0); // 0 for terminal, 1 for sftp
+  const [sessionLogging, setSessionLogging] = React.useState(false);
   const [sftpLoaded, setSftpLoaded] = React.useState(false);
   const [isReloading, setIsReloading] = React.useState<boolean>(false);
   const [lastSSHInfo, setLastSSHInfo] = React.useState<SSHLinkInfo | null>(
@@ -71,6 +72,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
   const clearLinkID = () => {
     setLinkID("");
     linkIDRef.current = "";
+    setSessionLogging(false);
   };
 
   // connect ssh server
@@ -92,6 +94,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
         LogService.Debug(`SSH connection established with ID: ${nextLinkID}`);
         setLinkID(nextLinkID);
         linkIDRef.current = nextLinkID;
+        setSessionLogging(false);
         setName(tabIndex, `${li.user}@${li.host}:${li.port}`);
         setSSHInfo(tabIndex, { ...li, linkID: nextLinkID });
         // Session is Exec-ready immediately; do not wait for terminal WebSocket.
@@ -199,6 +202,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
           <Terminal
             linkID={linkID}
             isActive={isActive && activeTab === 0}
+            onLoggingChange={setSessionLogging}
           />
         ),
       },
@@ -438,7 +442,11 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
       </Box>
 
       {/*status bar*/}
-      <StatusBar sessionID={linkID} height={statusBarHeight} />
+      <StatusBar
+        sessionID={linkID}
+        height={statusBarHeight}
+        logging={sessionLogging}
+      />
     </Box>
   );
 };

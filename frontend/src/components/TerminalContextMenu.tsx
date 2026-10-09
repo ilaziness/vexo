@@ -10,6 +10,8 @@ import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import ClearAllIcon from "@mui/icons-material/ClearAll";
 import ChatIcon from "@mui/icons-material/Chat";
 import SearchIcon from "@mui/icons-material/Search";
+import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
+import StopCircleIcon from "@mui/icons-material/StopCircle";
 import { terminalInstances } from "../stores/terminalInstances";
 import { useAIAssistantStore } from "../stores/aiAssistant";
 
@@ -25,6 +27,9 @@ interface TerminalContextMenuProps {
   onClose: () => void;
   linkID: string;
   onFind: () => void;
+  logging: boolean;
+  onStartLogging: () => void;
+  onStopLogging: () => void;
 }
 
 function toShellCodeBlock(text: string): string {
@@ -36,9 +41,13 @@ export default function TerminalContextMenu({
   onClose,
   linkID,
   onFind,
+  logging,
+  onStartLogging,
+  onStopLogging,
 }: TerminalContextMenuProps) {
   const selection = terminalInstances.get(linkID)?.getSelection() ?? "";
   const hasSelection = selection.length > 0;
+  const canLog = linkID.length > 0;
 
   const handleCopy = () => {
     if (selection) {
@@ -78,6 +87,15 @@ export default function TerminalContextMenu({
 
   const handleFind = () => {
     onFind();
+    onClose();
+  };
+
+  const handleToggleLogging = () => {
+    if (logging) {
+      onStopLogging();
+    } else {
+      onStartLogging();
+    }
     onClose();
   };
 
@@ -122,6 +140,16 @@ export default function TerminalContextMenu({
           <ChatIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>添加到聊天</ListItemText>
+      </MenuItem>
+      <MenuItem onClick={handleToggleLogging} disabled={!logging && !canLog}>
+        <ListItemIcon>
+          {logging ? (
+            <StopCircleIcon fontSize="small" />
+          ) : (
+            <FiberManualRecordIcon fontSize="small" color="error" />
+          )}
+        </ListItemIcon>
+        <ListItemText>{logging ? "停止记录" : "开始记录"}</ListItemText>
       </MenuItem>
       <MenuItem onClick={handleClear}>
         <ListItemIcon>

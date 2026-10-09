@@ -55,6 +55,7 @@ func (m *Manager) AnnotateSession(sessionID, notice string) error {
 	} else if len(data) == 1 || data[len(data)-2] != '\r' {
 		data = append(data[:len(data)-1], '\r', '\n')
 	}
+	sess.teeOutput(data)
 	select {
 	case sess.OutputChan <- data:
 		return nil

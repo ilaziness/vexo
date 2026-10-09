@@ -16,12 +16,14 @@ import Loading from "./Loading";
 import TerminalContextMenu from "./TerminalContextMenu";
 import TerminalSearchBar from "./TerminalSearchBar";
 import { terminalInstances } from "../stores/terminalInstances";
-import { sleep } from "../func/service";
+import { parseCallServiceError, sleep } from "../func/service";
 import { useSSHTabsStore } from "../stores/ssh";
+import { useMessageStore } from "../stores/message";
 import { ConnectionStatus } from "../types/ssh";
 
 const EVENT_SHORTCUT = "eventShortcut";
 const SHORTCUT_TERMINAL_FIND = "terminal.find";
+const EVENT_SESSION_LOG_STOPPED = "eventSSHSessionLogStopped";
 
 type XtermModules = {
   Terminal: typeof import("@xterm/xterm").Terminal;
@@ -106,11 +108,13 @@ const isWebgl2Supported = (() => {
 function Terminal(props: {
   readonly linkID: string;
   readonly isActive: boolean;
+  readonly onLoggingChange?: (logging: boolean) => void;
 }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchFocusNonce, setSearchFocusNonce] = useState(0);
   const [searchAddon, setSearchAddon] = useState<SearchAddon | null>(null);
+  const [logging, setLogging] = useState(false);
   const termRef = React.useRef<HTMLDivElement>(null);
   const term = React.useRef<TerminalLib>(null);
   const termFit = React.useRef<FitAddon>(null);
@@ -119,6 +123,8 @@ function Terminal(props: {
   const wsRef = React.useRef<WebSocket>(null);
   const isActiveRef = React.useRef(props.isActive);
   isActiveRef.current = props.isActive;
+  const linkIDRef = React.useRef(props.linkID);
+  linkIDRef.current = props.linkID;
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -126,6 +132,14 @@ function Terminal(props: {
   const setConnectionStatus = useSSHTabsStore(
     (state) => state.setConnectionStatus,
   );
+  const { errorMessage, successMessage } = useMessageStore();
+  const onLoggingChangeRef = React.useRef(props.onLoggingChange);
+  onLoggingChangeRef.current = props.onLoggingChange;
+
+  const setLoggingState = (next: boolean) => {
+    setLogging(next);
+    onLoggingChangeRef.current?.(next);
+  };
 
   const openSearch = () => {
     setSearchOpen(true);
@@ -153,6 +167,62 @@ function Terminal(props: {
   const handleClose = () => {
     setContextMenu(null);
   };
+
+  const handleStartLogging = async () => {
+    if (!props.linkID) {
+      return;
+    }
+    try {
+      const [path, started] = await SSHService.StartSessionLog(props.linkID);
+      if (!started) {
+        return;
+      }
+      setLoggingState(true);
+      successMessage(`会话日志已开始记录：${path}`);
+    } catch (err) {
+      errorMessage(parseCallServiceError(err));
+    }
+  };
+
+  const handleStopLogging = async () => {
+    if (!props.linkID) {
+      setLoggingState(false);
+      return;
+    }
+    try {
+      await SSHService.StopSessionLog(props.linkID);
+      setLoggingState(false);
+      successMessage("会话日志已停止记录");
+    } catch (err) {
+      errorMessage(parseCallServiceError(err));
+    }
+  };
+
+  useEffect(() => {
+    setLoggingState(false);
+  }, [props.linkID]);
+
+  useEffect(() => {
+    const unsubLog = Events.On(EVENT_SESSION_LOG_STOPPED, (event: any) => {
+      try {
+        const raw =
+          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        if (raw?.id && raw.id === linkIDRef.current) {
+          setLoggingState(false);
+          if (raw.reason === "write_error") {
+            useMessageStore
+              .getState()
+              .errorMessage("会话日志写入失败，已停止记录");
+          }
+        }
+      } catch (e) {
+        console.error("Invalid session log stopped payload", e);
+      }
+    });
+    return () => {
+      unsubLog();
+    };
+  }, []);
 
   const applyThemeVars = (theme: any) => {
     if (termRef.current) {
@@ -418,6 +488,13 @@ function Terminal(props: {
         onClose={handleClose}
         linkID={props.linkID}
         onFind={openSearch}
+        logging={logging}
+        onStartLogging={() => {
+          void handleStartLogging();
+        }}
+        onStopLogging={() => {
+          void handleStopLogging();
+        }}
       />
       {isInitializing && (
         <Box

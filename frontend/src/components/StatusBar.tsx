@@ -2,15 +2,21 @@ import React from "react";
 import { Box, Stack, Tooltip } from "@mui/material";
 import MobiledataOffIcon from "@mui/icons-material/MobiledataOff";
 import AltRouteIcon from "@mui/icons-material/AltRoute";
+import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import TransferList from "./TransferList";
 import SSHTunnel from "./SSHTunnel";
 
 interface StatusBarProps {
   sessionID: string;
   height: string;
+  logging?: boolean;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
+const StatusBar: React.FC<StatusBarProps> = ({
+  sessionID,
+  height,
+  logging = false,
+}) => {
   const [open, setOpen] = React.useState(false);
   const [sshTunnelOpen, setSshTunnelOpen] = React.useState(false);
 
@@ -44,6 +50,14 @@ const StatusBar: React.FC<StatusBarProps> = ({ sessionID, height }) => {
       }}
     >
       <Stack direction="row" spacing={2}>
+        {logging && (
+          <Tooltip title="会话日志录制中">
+            <FiberManualRecordIcon
+              fontSize="small"
+              sx={{ color: "error.main" }}
+            />
+          </Tooltip>
+        )}
         <Tooltip title="隧道">
           <AltRouteIcon
             fontSize="small"

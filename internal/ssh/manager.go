@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -105,6 +106,8 @@ type Session struct {
 	outputMu       sync.Mutex
 	gotOutput      bool
 	lastOutputAt   time.Time
+	logMu          sync.Mutex
+	logFile        *os.File
 }
 
 type hopClient struct {
@@ -150,6 +153,7 @@ type Manager struct {
 	prompter             HostKeyPrompter
 	keyboardPrompter     KeyboardInteractivePrompter
 	onClose              func(sessionID string, reason CloseReason)
+	onSessionLogStopped  func(sessionID, reason string)
 	clients              *sync.Map
 	sessions             *sync.Map
 	clientLocks          sync.Map
@@ -558,6 +562,7 @@ func (sc *Session) readFromPipe(pipe io.Reader, pipeName string) func() {
 				sc.noteOutput()
 				data := make([]byte, n)
 				copy(data, buf[:n])
+				sc.teeOutput(data)
 				select {
 				case sc.OutputChan <- data:
 				case <-sc.stopOutput:
@@ -585,17 +590,25 @@ func (sc *Session) startInput() error {
 
 func (sc *Session) closePTY() error {
 	sc.closeMu.Lock()
-	defer sc.closeMu.Unlock()
 	sc.manager.logger.Debug("Closing SSH connection", zap.String("ID", sc.ID))
 	if sc.isClosed {
+		sc.closeMu.Unlock()
 		return nil
 	}
 	sc.isClosed = true
+	// Close log under locks; emit after unlock so callbacks cannot deadlock on closeMu.
+	sc.logMu.Lock()
+	logID, logStopped := sc.closeLogFileLocked()
+	sc.logMu.Unlock()
 	sc.stopOutputOnce.Do(func() { close(sc.stopOutput) })
 	if sc.session != nil {
 		_ = sc.session.Signal(cryptossh.SIGTERM)
 		_ = sc.session.Close()
 		sc.session = nil
+	}
+	sc.closeMu.Unlock()
+	if logStopped {
+		sc.emitLogStopped(logID, SessionLogStopReasonClosed)
 	}
 	go func() {
 		sc.outputWg.Wait()
