@@ -19,6 +19,7 @@ function configure() {
         "eventNewVersion": $$createType1,
         "eventProgress": $$createType2,
         "eventSftpFilesDropped": $$createType3,
+        "eventShortcut": $$createType4,
     }));
 }
 
@@ -27,5 +28,6 @@ const $$createType0 = services$0.AIStreamChunkData.createFrom;
 const $$createType1 = services$0.NewVersion.createFrom;
 const $$createType2 = transfer$0.ProgressData.createFrom;
 const $$createType3 = services$0.SftpFilesDroppedData.createFrom;
+const $$createType4 = services$0.ShortcutEvent.createFrom;
 
 configure();

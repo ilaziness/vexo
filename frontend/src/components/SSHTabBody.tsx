@@ -27,6 +27,7 @@ import StatusBar from "./StatusBar";
 
 interface SSHContainerProps {
   tabIndex: string;
+  isActive: boolean;
 }
 
 const tabHeight = "30px";
@@ -34,7 +35,7 @@ const statusBarHeight = `${SSH_STATUS_BAR_HEIGHT}px`;
 const AUTO_RECONNECT_MAX_ATTEMPTS = 5;
 
 // SSH 连接容器组件，管理连接状态和错误处理
-const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
+const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
   const setName = useSSHTabsStore((state) => state.setName);
   const setSSHInfo = useSSHTabsStore((state) => state.setSSHInfo);
   const getByIndex = useSSHTabsStore((state) => state.getByIndex);
@@ -194,14 +195,19 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex }) => {
     () => [
       {
         label: "SSH",
-        component: <Terminal linkID={linkID} />,
+        component: (
+          <Terminal
+            linkID={linkID}
+            isActive={isActive && activeTab === 0}
+          />
+        ),
       },
       {
         label: "SFTP",
         component: <Sftp linkID={linkID} />,
       },
     ],
-    [linkID],
+    [linkID, isActive, activeTab],
   );
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {

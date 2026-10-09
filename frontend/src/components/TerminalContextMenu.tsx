@@ -1,10 +1,21 @@
-import { Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
+import {
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+} from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import ClearAllIcon from "@mui/icons-material/ClearAll";
 import ChatIcon from "@mui/icons-material/Chat";
+import SearchIcon from "@mui/icons-material/Search";
 import { terminalInstances } from "../stores/terminalInstances";
 import { useAIAssistantStore } from "../stores/aiAssistant";
+
+const findShortcut = /Mac|iPhone|iPad/.test(navigator.platform)
+  ? "⌘F"
+  : "Ctrl+F";
 
 interface TerminalContextMenuProps {
   contextMenu: {
@@ -13,6 +24,7 @@ interface TerminalContextMenuProps {
   } | null;
   onClose: () => void;
   linkID: string;
+  onFind: () => void;
 }
 
 function toShellCodeBlock(text: string): string {
@@ -23,6 +35,7 @@ export default function TerminalContextMenu({
   contextMenu,
   onClose,
   linkID,
+  onFind,
 }: TerminalContextMenuProps) {
   const selection = terminalInstances.get(linkID)?.getSelection() ?? "";
   const hasSelection = selection.length > 0;
@@ -63,6 +76,11 @@ export default function TerminalContextMenu({
     onClose();
   };
 
+  const handleFind = () => {
+    onFind();
+    onClose();
+  };
+
   return (
     <Menu
       open={contextMenu !== null}
@@ -85,6 +103,19 @@ export default function TerminalContextMenu({
           <ContentPasteIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>粘贴</ListItemText>
+      </MenuItem>
+      <MenuItem onClick={handleFind}>
+        <ListItemIcon>
+          <SearchIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>查找</ListItemText>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ ml: 3, pl: 1 }}
+        >
+          {findShortcut}
+        </Typography>
       </MenuItem>
       <MenuItem onClick={handleAddToChat} disabled={!hasSelection}>
         <ListItemIcon>

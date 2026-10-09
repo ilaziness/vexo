@@ -253,7 +253,10 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
                 left: currentTab === item.index ? 0 : "-9999rem",
               }}
             >
-              <SSHTabBody tabIndex={item.index} />
+              <SSHTabBody
+                tabIndex={item.index}
+                isActive={currentTab === item.index}
+              />
             </Box>
           ))}
         </Box>

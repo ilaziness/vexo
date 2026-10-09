@@ -27,6 +27,7 @@ declare module "@wailsio/runtime" {
             "eventProgress": services$0.ProgressData;
             "eventSSHSessionClosed": string;
             "eventSftpFilesDropped": services$0.SftpFilesDroppedData;
+            "eventShortcut": services$0.ShortcutEvent;
         }
     }
 }

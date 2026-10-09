@@ -4,7 +4,7 @@ import type { Terminal as TerminalLib } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { WebglAddon } from "@xterm/addon-webgl";
 import type { SearchAddon } from "@xterm/addon-search";
-import { Browser } from "@wailsio/runtime";
+import { Browser, Events } from "@wailsio/runtime";
 import {
   LogService,
   SSHService,
@@ -14,10 +14,14 @@ import {
 import useTerminalStore from "../stores/terminal";
 import Loading from "./Loading";
 import TerminalContextMenu from "./TerminalContextMenu";
+import TerminalSearchBar from "./TerminalSearchBar";
 import { terminalInstances } from "../stores/terminalInstances";
 import { sleep } from "../func/service";
 import { useSSHTabsStore } from "../stores/ssh";
 import { ConnectionStatus } from "../types/ssh";
+
+const EVENT_SHORTCUT = "eventShortcut";
+const SHORTCUT_TERMINAL_FIND = "terminal.find";
 
 type XtermModules = {
   Terminal: typeof import("@xterm/xterm").Terminal;
@@ -99,15 +103,22 @@ const isWebgl2Supported = (() => {
 })();
 
 // Terminal 组件，封装 xterm.js
-function Terminal(props: { readonly linkID: string }) {
+function Terminal(props: {
+  readonly linkID: string;
+  readonly isActive: boolean;
+}) {
   const [isInitializing, setIsInitializing] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchFocusNonce, setSearchFocusNonce] = useState(0);
+  const [searchAddon, setSearchAddon] = useState<SearchAddon | null>(null);
   const termRef = React.useRef<HTMLDivElement>(null);
   const term = React.useRef<TerminalLib>(null);
   const termFit = React.useRef<FitAddon>(null);
-  const termSearch = React.useRef<SearchAddon>(null);
   const webglRef = React.useRef<WebglAddon>(null);
   const resizeTimeout = React.useRef<number | NodeJS.Timeout | null>(null);
   const wsRef = React.useRef<WebSocket>(null);
+  const isActiveRef = React.useRef(props.isActive);
+  isActiveRef.current = props.isActive;
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -115,6 +126,17 @@ function Terminal(props: { readonly linkID: string }) {
   const setConnectionStatus = useSSHTabsStore(
     (state) => state.setConnectionStatus,
   );
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    setSearchFocusNonce((n) => n + 1);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    searchAddon?.clearDecorations();
+    term.current?.focus();
+  };
 
   const handleContextMenu = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -149,8 +171,9 @@ function Terminal(props: { readonly linkID: string }) {
         Browser.OpenURL(uri);
       }),
     );
-    termSearch.current = new mods.SearchAddon();
-    term.current?.loadAddon(termSearch.current);
+    const addon = new mods.SearchAddon();
+    term.current?.loadAddon(addon);
+    setSearchAddon(addon);
     term.current?.loadAddon(new mods.Unicode11Addon());
     term.current && (term.current.unicode.activeVersion = "11");
     term.current?.loadAddon(new mods.ImageAddon());
@@ -174,112 +197,116 @@ function Terminal(props: { readonly linkID: string }) {
     SSHService.Resize(props.linkID, cols, rows);
   };
 
-  const initTerminal = useEffectEvent(async (mountedRef: { current: boolean }) => {
-    if (term.current) {
-      return;
-    }
-    LogService.Debug("Initializing terminal for link ID: " + props.linkID);
-    try {
-      const [config, mods] = await Promise.all([
-        ConfigService.ReadConfig(),
-        loadXtermModules(),
-      ]);
-      if (!mountedRef.current) return;
-      const settings = config?.Terminal || useTerminalStore.getState();
-      LogService.Debug(`Terminal setting ${JSON.stringify(settings)}`);
-      if (term.current) return;
-      if (!termRef.current) {
-        LogService.Error(
-          `Terminal DOM node missing for link ID: ${props.linkID}`,
-        );
-        setIsInitializing(false);
+  const initTerminal = useEffectEvent(
+    async (mountedRef: { current: boolean }) => {
+      if (term.current) {
         return;
       }
-      // 获取当前终端主题
-      const terminalTheme = useTerminalStore.getState().getCurrentTheme();
-      applyThemeVars(terminalTheme);
-      term.current = new mods.Terminal({
-        allowProposedApi: true,
-        cursorBlink: true,
-        cursorStyle: "block",
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize,
-        lineHeight: settings.lineHeight,
-        rightClickSelectsWord: true,
-        theme: terminalTheme,
-      });
-      loadAddon(mods);
-      term.current.open(termRef.current);
-      terminalInstances.set(props.linkID, term.current);
-      await sleep(50);
-      if (!mountedRef.current) return;
-      termFit.current?.fit();
-
-      const cols = term.current?.cols || 80;
-      const rows = term.current?.rows || 24;
-      const wsAddr = await AppService.GetWSAddr();
-      if (!mountedRef.current) return;
-      const wsUrl = `ws://${wsAddr}/ws/terminal?id=${props.linkID}&cols=${cols}&rows=${rows}`;
-      LogService.Debug(
-        `Connecting to WebSocket at ${wsUrl} for terminal ${props.linkID}`,
-      );
-      const ws = new WebSocket(wsUrl);
-      ws.binaryType = "arraybuffer";
-      wsRef.current = ws;
-      const attachAddon = new mods.AttachAddon(ws);
-      term.current?.loadAddon(attachAddon);
-
-      ws.onopen = async () => {
+      LogService.Debug("Initializing terminal for link ID: " + props.linkID);
+      try {
+        const [config, mods] = await Promise.all([
+          ConfigService.ReadConfig(),
+          loadXtermModules(),
+        ]);
         if (!mountedRef.current) return;
-        LogService.Debug("WebSocket connected for terminal " + props.linkID);
-        setIsInitializing(false);
-        setConnectionStatus(props.linkID, ConnectionStatus.Connected);
-
-        term.current?.focus();
-        term.current?.onResize(onResize);
-        sleep(1000).then(() => {
-          if (!mountedRef.current) return;
-          LogService.Debug("Fitting terminal after WebSocket connection");
-          termFit.current?.fit();
+        const settings = config?.Terminal || useTerminalStore.getState();
+        LogService.Debug(`Terminal setting ${JSON.stringify(settings)}`);
+        if (term.current) return;
+        if (!termRef.current) {
+          LogService.Error(
+            `Terminal DOM node missing for link ID: ${props.linkID}`,
+          );
+          setIsInitializing(false);
+          return;
+        }
+        // 获取当前终端主题
+        const terminalTheme = useTerminalStore.getState().getCurrentTheme();
+        applyThemeVars(terminalTheme);
+        term.current = new mods.Terminal({
+          allowProposedApi: true,
+          cursorBlink: true,
+          cursorStyle: "block",
+          fontFamily: settings.fontFamily,
+          fontSize: settings.fontSize,
+          lineHeight: settings.lineHeight,
+          rightClickSelectsWord: true,
+          theme: terminalTheme,
         });
-      };
-
-      ws.onerror = (error) => {
+        loadAddon(mods);
+        term.current.open(termRef.current);
+        terminalInstances.set(props.linkID, term.current);
+        await sleep(50);
         if (!mountedRef.current) return;
-        // WebSocket error event is an Event object, use message property if available
-        const errorMessage =
-          "message" in error
-            ? (error as any).message
-            : "Unknown WebSocket error";
+        termFit.current?.fit();
+
+        const cols = term.current?.cols || 80;
+        const rows = term.current?.rows || 24;
+        const wsAddr = await AppService.GetWSAddr();
+        if (!mountedRef.current) return;
+        const wsUrl = `ws://${wsAddr}/ws/terminal?id=${props.linkID}&cols=${cols}&rows=${rows}`;
+        LogService.Debug(
+          `Connecting to WebSocket at ${wsUrl} for terminal ${props.linkID}`,
+        );
+        const ws = new WebSocket(wsUrl);
+        ws.binaryType = "arraybuffer";
+        wsRef.current = ws;
+        const attachAddon = new mods.AttachAddon(ws);
+        term.current?.loadAddon(attachAddon);
+
+        ws.onopen = async () => {
+          if (!mountedRef.current) return;
+          LogService.Debug("WebSocket connected for terminal " + props.linkID);
+          setIsInitializing(false);
+          setConnectionStatus(props.linkID, ConnectionStatus.Connected);
+
+          term.current?.focus();
+          term.current?.onResize(onResize);
+          sleep(1000).then(() => {
+            if (!mountedRef.current) return;
+            LogService.Debug("Fitting terminal after WebSocket connection");
+            termFit.current?.fit();
+          });
+        };
+
+        ws.onerror = (error) => {
+          if (!mountedRef.current) return;
+          // WebSocket error event is an Event object, use message property if available
+          const errorMessage =
+            "message" in error
+              ? (error as any).message
+              : "Unknown WebSocket error";
+          LogService.Error(
+            `WebSocket error for terminal ${props.linkID}: ${errorMessage}`,
+          );
+          term.current?.write(
+            `\r\n*** WebSocket error: ${errorMessage} ***\r\n`,
+          );
+          setIsInitializing(false);
+        };
+
+        ws.onclose = () => {
+          if (!mountedRef.current) return;
+          LogService.Debug(`WebSocket closed for terminal ${props.linkID}`);
+          setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
+          setIsInitializing(false);
+          term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         LogService.Error(
-          `WebSocket error for terminal ${props.linkID}: ${errorMessage}`,
+          `Failed to initialize terminal ${props.linkID}: ${message}`,
         );
-        term.current?.write(`\r\n*** WebSocket error: ${errorMessage} ***\r\n`);
-        setIsInitializing(false);
-      };
-
-      ws.onclose = () => {
         if (!mountedRef.current) return;
-        LogService.Debug(`WebSocket closed for terminal ${props.linkID}`);
-        setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
+        if (term.current) {
+          term.current.write(
+            `\r\n*** Failed to initialize terminal: ${message} ***\r\n`,
+          );
+        }
         setIsInitializing(false);
-        term.current?.write(`\r\n*** SSH connection closed ***\r\n`);
-      };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      LogService.Error(
-        `Failed to initialize terminal ${props.linkID}: ${message}`,
-      );
-      if (!mountedRef.current) return;
-      if (term.current) {
-        term.current.write(
-          `\r\n*** Failed to initialize terminal: ${message} ***\r\n`,
-        );
+        setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
       }
-      setIsInitializing(false);
-      setConnectionStatus(props.linkID, ConnectionStatus.Disconnected);
-    }
-  });
+    },
+  );
 
   // 监听终端主题变化，动态更新终端主题
   useEffect(() => {
@@ -294,6 +321,30 @@ function Terminal(props: { readonly linkID: string }) {
     });
 
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = Events.On(
+      EVENT_SHORTCUT,
+      (event: { data?: unknown }) => {
+        if (!isActiveRef.current) return;
+        try {
+          const raw = event.data;
+          const payload =
+            typeof raw === "string"
+              ? (JSON.parse(raw) as { action?: string })
+              : (raw as { action?: string } | undefined);
+          if (payload?.action === SHORTCUT_TERMINAL_FIND) {
+            openSearch();
+          }
+        } catch (e) {
+          console.error("Invalid shortcut event payload", e);
+        }
+      },
+    );
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -319,6 +370,8 @@ function Terminal(props: { readonly linkID: string }) {
       mountedRef.current = false;
       LogService.Debug(`Terminal component unmounting ${props.linkID}`);
       terminalInstances.remove(props.linkID);
+      setSearchOpen(false);
+      setSearchAddon(null);
       try {
         wsRef.current?.close();
         webglRef.current?.dispose();
@@ -340,6 +393,7 @@ function Terminal(props: { readonly linkID: string }) {
         width: "100%",
         height: "100%",
         display: "flex",
+        position: "relative",
       }}
     >
       <Box
@@ -353,10 +407,17 @@ function Terminal(props: { readonly linkID: string }) {
           paddingLeft: "3px",
         }}
       />
+      <TerminalSearchBar
+        open={searchOpen}
+        searchAddon={searchAddon}
+        focusNonce={searchFocusNonce}
+        onClose={closeSearch}
+      />
       <TerminalContextMenu
         contextMenu={contextMenu}
         onClose={handleClose}
         linkID={props.linkID}
+        onFind={openSearch}
       />
       {isInitializing && (
         <Box
