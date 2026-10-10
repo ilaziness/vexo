@@ -10,12 +10,14 @@ interface StatusBarProps {
   sessionID: string;
   height: string;
   logging?: boolean;
+  sftpReady?: boolean;
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({
   sessionID,
   height,
   logging = false,
+  sftpReady = false,
 }) => {
   const [open, setOpen] = React.useState(false);
   const [sshTunnelOpen, setSshTunnelOpen] = React.useState(false);
@@ -98,6 +100,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
         open={open}
         statusBarHeight={height}
         onClose={handleClose}
+        sftpReady={sftpReady}
       />
 
     </Box>

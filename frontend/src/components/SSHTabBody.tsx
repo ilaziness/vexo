@@ -22,6 +22,8 @@ import Loading from "./Loading";
 import { formatSSHConnectError, sleep } from "../func/service";
 import { useSSHTabsStore, useReloadSSHTabStore } from "../stores/ssh";
 import { useMessageStore } from "../stores/message";
+import { useTransferStore } from "../stores/transfer";
+import { sftpOwnerKey } from "../func/types";
 import { SSH_STATUS_BAR_HEIGHT } from "../func/aiSidebar";
 import StatusBar from "./StatusBar";
 
@@ -44,12 +46,14 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
     (state) => state.setTabConnectionStatus,
   );
   const { infoMessage, successMessage, errorMessage } = useMessageStore();
+  const clearTransferSession = useTransferStore((s) => s.clearSession);
   const [linkID, setLinkID] = React.useState<string>("");
   const [connectionError, setConnectionError] = React.useState<string>("");
   const [connecting, setConnecting] = React.useState<boolean>(false);
   const [activeTab, setActiveTab] = React.useState(0); // 0 for terminal, 1 for sftp
   const [sessionLogging, setSessionLogging] = React.useState(false);
   const [sftpLoaded, setSftpLoaded] = React.useState(false);
+  const [sftpReady, setSftpReady] = React.useState(false);
   const [isReloading, setIsReloading] = React.useState<boolean>(false);
   const [lastSSHInfo, setLastSSHInfo] = React.useState<SSHLinkInfo | null>(
     null,
@@ -68,11 +72,17 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
     [tabIndex, getByIndex],
   );
   const sftpIndex = 1;
+  const ownerKey = useMemo(() => {
+    const info = lastSSHInfo || tabInfo?.sshInfo;
+    return info ? sftpOwnerKey(info) : "";
+  }, [lastSSHInfo, tabInfo?.sshInfo]);
 
   const clearLinkID = () => {
     setLinkID("");
     linkIDRef.current = "";
     setSessionLogging(false);
+    setSftpLoaded(false);
+    setSftpReady(false);
   };
 
   // connect ssh server
@@ -175,6 +185,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
         setIsReloading(true);
         setActiveTab(0);
         setSftpLoaded(false);
+        setSftpReady(false);
         try {
           const nextID = await connectRef.current(info);
           if (nextID) {
@@ -208,10 +219,17 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
       },
       {
         label: "SFTP",
-        component: <Sftp linkID={linkID} />,
+        component: (
+          <Sftp
+            key={linkID}
+            linkID={linkID}
+            ownerKey={ownerKey}
+            onReady={() => setSftpReady(true)}
+          />
+        ),
       },
     ],
-    [linkID, isActive, activeTab],
+    [linkID, ownerKey, isActive, activeTab],
   );
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -237,6 +255,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
     // 重置状态
     setActiveTab(0);
     setSftpLoaded(false);
+    setSftpReady(false);
     // 如果有保存的连接信息，重新连接
     if (lastSSHInfo) {
       reloadingRef.current = true;
@@ -293,12 +312,13 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
         LogService.Debug(
           `SSHContainer unmounting, closing connection ${linkID}`,
         );
+        clearTransferSession(linkID);
         SSHService.CloseByID(linkID).catch((err) => {
           console.warn("Error closing connection on unmount:", err);
         });
       }
     };
-  }, [linkID]);
+  }, [linkID, clearTransferSession]);
 
   const onMountConnect = useEffectEvent(() => {
     if (tabInfo?.sshInfo) {
@@ -446,6 +466,7 @@ const SSHTabBody: React.FC<SSHContainerProps> = ({ tabIndex, isActive }) => {
         sessionID={linkID}
         height={statusBarHeight}
         logging={sessionLogging}
+        sftpReady={sftpReady}
       />
     </Box>
   );

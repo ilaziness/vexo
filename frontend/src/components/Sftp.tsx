@@ -2,6 +2,7 @@ import React, { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -21,6 +22,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Toolbar,
   Typography,
 } from "@mui/material";
 import {
@@ -32,6 +34,8 @@ import {
   Folder as FolderIcon,
   FolderOpen as FolderOpenIcon,
   NoteAdd as CreateFileIcon,
+  Security as ChmodIcon,
+  Person as ChownIcon,
   UploadFile as UploadIcon,
 } from "@mui/icons-material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -40,38 +44,55 @@ import {
   LogService,
   SftpService,
   SSHService,
+  ToolService,
 } from "../../bindings/github.com/ilaziness/vexo/services";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { formatFileSize, parseCallServiceError } from "../func/service";
 import { sortFileList } from "../func/ftp";
 import { useMessageStore } from "../stores/message";
+import { useTransferStore } from "../stores/transfer";
 import SftpNavbar from "./SftpNavbar";
-import { FileInfo } from "../func/types";
+import {
+  FileInfo,
+  modeBitsToOctal,
+  parseOctalMode,
+} from "../func/types";
 
 interface SftpProps {
   linkID: string;
+  ownerKey: string;
+  onReady?: () => void;
 }
 
-const Sftp: React.FC<SftpProps> = ({ linkID }) => {
+function remoteJoin(dir: string, name: string): string {
+  return dir === "/" ? `/${name}` : `${dir}/${name}`;
+}
+
+const Sftp: React.FC<SftpProps> = ({ linkID, ownerKey, onReady }) => {
   const [sftpLoaded, setSftpLoaded] = useState(false);
-  const [currentPath, setCurrentPath] = useState<string>("/tmp"); // 临时默认值,将在useEffect中更新为实际home目录
+  const [currentPath, setCurrentPath] = useState<string>("/tmp");
   const [fileList, setFileList] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showHiddenFiles, setShowHiddenFiles] = useState<boolean>(false);
+  const initStartedRef = useRef(false);
   const { errorMessage: showMessageError, infoMessage: showInfoMessage } =
     useMessageStore();
+  const addProgress = useTransferStore((s) => s.addProgress);
+
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
-    file: FileInfo | null;
+    file: FileInfo;
   } | null>(null);
   const [blankContextMenu, setBlankContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
   } | null>(null);
 
+  const [selectedNames, setSelectedNames] = useState<Set<string>>(new Set());
+
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState<FileInfo | null>(null);
+  const [filesToDelete, setFilesToDelete] = useState<FileInfo[]>([]);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingItem, setRenamingItem] = useState<FileInfo | null>(null);
   const [renamingName, setRenamingName] = useState("");
@@ -80,12 +101,21 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   const [createDirDialogOpen, setCreateDirDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
 
+  const [chmodOpen, setChmodOpen] = useState(false);
+  const [chmodTarget, setChmodTarget] = useState<FileInfo | null>(null);
+  const [chmodOctal, setChmodOctal] = useState("");
+  const [chmodSymbolic, setChmodSymbolic] = useState("");
+
+  const [chownOpen, setChownOpen] = useState(false);
+  const [chownTarget, setChownTarget] = useState<FileInfo | null>(null);
+  const [chownUid, setChownUid] = useState("");
+  const [chownGid, setChownGid] = useState("");
+
   const currentPathRef = useRef(currentPath);
   currentPathRef.current = currentPath;
 
   const refreshFileList = async (path?: string, showHidden?: boolean) => {
-    const targetPath =
-      path !== undefined && path !== "" ? path : currentPath;
+    const targetPath = path !== undefined && path !== "" ? path : currentPath;
     const showHiddenAll = showHidden ?? showHiddenFiles;
     setLoading(true);
     try {
@@ -94,11 +124,18 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         targetPath,
         showHiddenAll,
       );
-      setFileList(sortFileList(files));
+      const sorted = sortFileList(files);
+      setFileList(sorted);
+      setSelectedNames((prev) => {
+        if (prev.size === 0) return prev;
+        const names = new Set(sorted.map((f) => f.name));
+        const next = new Set([...prev].filter((n) => names.has(n)));
+        return next.size === prev.size ? prev : next;
+      });
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to list files: ${err.message || err}`);
-      throw err; // 重新抛出错误,让调用者知道失败了
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -107,17 +144,32 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   const refreshFileListRef = useRef(refreshFileList);
   refreshFileListRef.current = refreshFileList;
 
-  // 初始化SFTP连接
-  const initSftp = useEffectEvent(async () => {
-    if (sftpLoaded) return;
+  const loadPending = async () => {
+    if (!ownerKey) return;
     try {
-      await SSHService.StartSftp(linkID);
+      const pending = await SftpService.ListPendingTransfers(ownerKey);
+      for (const item of pending) {
+        addProgress({ ...item, sessionID: linkID } as ProgressData);
+      }
+    } catch (err) {
+      LogService.Error(`ListPendingTransfers: ${err}`);
+    }
+  };
+
+  const initSftp = useEffectEvent(async () => {
+    if (initStartedRef.current || sftpLoaded) return;
+    initStartedRef.current = true;
+    try {
+      await SSHService.StartSftp(linkID, ownerKey);
       LogService.Debug("SFTP connection established");
       const homePath = await SftpService.GetWd(linkID);
       setCurrentPath(homePath);
       await refreshFileList(homePath);
+      await loadPending();
       setSftpLoaded(true);
+      onReady?.();
     } catch (err: any) {
+      initStartedRef.current = false;
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to initialize SFTP: ${err.message || err}`);
     }
@@ -150,43 +202,51 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       ) {
         return;
       }
-      if (refreshTimer) {
-        clearTimeout(refreshTimer);
-      }
+      if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => {
-        refreshFileListRef.current().catch(() => {});
-      }, 300);
+        void refreshFileListRef.current();
+      }, 400);
     });
     return () => {
       unsubProgress();
-      if (refreshTimer) {
-        clearTimeout(refreshTimer);
-      }
+      if (refreshTimer) clearTimeout(refreshTimer);
     };
   }, [linkID]);
 
+  const clearSelection = () => {
+    setSelectedNames(new Set());
+  };
+
   const handleItemClick = async (file: FileInfo) => {
-    if (file.isDir) {
-      const newPath =
-        currentPath === "/" ? `/${file.name}` : `${currentPath}/${file.name}`;
-      try {
-        setFullScreenLoading(true);
-        await refreshFileList(newPath);
-        setCurrentPath(newPath);
-      } finally {
-        setFullScreenLoading(false);
-      }
+    if (!file.isDir) return;
+    const newPath = remoteJoin(currentPath, file.name);
+    try {
+      setFullScreenLoading(true);
+      await refreshFileList(newPath);
+      setCurrentPath(newPath);
+      clearSelection();
+    } finally {
+      setFullScreenLoading(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedNames.size === fileList.length && fileList.length > 0) {
+      clearSelection();
+    } else {
+      setSelectedNames(new Set(fileList.map((f) => f.name)));
     }
   };
 
   const handleContextMenu = (event: React.MouseEvent, file: FileInfo) => {
     event.preventDefault();
+    event.stopPropagation();
     setContextMenu({
       mouseX: event.clientX,
       mouseY: event.clientY,
       file,
     });
-    setBlankContextMenu(null); // Close blank context menu if open
+    setBlankContextMenu(null);
   };
 
   const handleBlankContextMenu = (event: React.MouseEvent) => {
@@ -195,39 +255,44 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       mouseX: event.clientX,
       mouseY: event.clientY,
     });
-    setContextMenu(null); // Close file context menu if open
-  };
-
-  const handleCloseMenu = () => {
     setContextMenu(null);
   };
 
-  const handleCloseBlankMenu = () => {
-    setBlankContextMenu(null);
+  const handleCloseMenu = () => setContextMenu(null);
+  const handleCloseBlankMenu = () => setBlankContextMenu(null);
+
+  const selectedFiles = (): FileInfo[] =>
+    fileList.filter((f) => selectedNames.has(f.name));
+
+  // 菜单操作目标：未勾选的右键/三点文件单独操作；已勾选则按多选批量
+  const menuActionTargets = (): FileInfo[] => {
+    if (
+      contextMenu?.file &&
+      (selectedNames.size === 0 || !selectedNames.has(contextMenu.file.name))
+    ) {
+      return [contextMenu.file];
+    }
+    return selectedFiles();
   };
 
-  const handleDownload = async () => {
-    if (!contextMenu?.file) return;
-
-    const remotePath =
-      currentPath === "/"
-        ? `/${contextMenu.file.name}`
-        : `${currentPath}/${contextMenu.file.name}`;
-    const fileName = contextMenu.file.name;
-    const isDir = contextMenu.file.isDir;
-
+  const handleDownload = async (targets: FileInfo[]) => {
     handleCloseMenu();
+    if (targets.length === 0) return;
 
     try {
-      if (isDir) {
-        // 下载目录
-        await SftpService.DownloadDirectoryDialog(linkID, remotePath);
+      if (targets.length === 1) {
+        const file = targets[0];
+        const remotePath = remoteJoin(currentPath, file.name);
+        if (file.isDir) {
+          await SftpService.DownloadDirectoryDialog(linkID, remotePath);
+        } else {
+          await SftpService.DownloadFileDialog(linkID, remotePath);
+        }
       } else {
-        // 下载文件
-        await SftpService.DownloadFileDialog(linkID, remotePath);
+        const paths = targets.map((f) => remoteJoin(currentPath, f.name));
+        await SftpService.DownloadPathsDialog(linkID, paths);
+        showInfoMessage("已添加到传输列表");
       }
-
-      LogService.Debug(`Downloaded: ${fileName}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to download: ${err.message || err}`);
@@ -236,7 +301,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
 
   const handleUpload = async (type: "file" | "directory") => {
     handleCloseBlankMenu();
-
     const remotePath = currentPath;
     const uploadPromise =
       type === "file"
@@ -249,25 +313,26 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     });
   };
 
-  const handleDelete = async () => {
-    if (!fileToDelete) return;
+  const openDeleteConfirm = (files: FileInfo[]) => {
+    if (files.length === 0) return;
+    setFilesToDelete(files);
+    setDeleteConfirmOpen(true);
+  };
 
+  const handleDelete = async () => {
+    if (filesToDelete.length === 0) return;
+    const paths = filesToDelete.map((f) => remoteJoin(currentPath, f.name));
+    setDeleteConfirmOpen(false);
     try {
-      setDeleteConfirmOpen(false);
-      setFullScreenLoading(true);
-      const path =
-        currentPath === "/"
-          ? `/${fileToDelete.name}`
-          : `${currentPath}/${fileToDelete.name}`;
-      await SftpService.DeleteFile(linkID, path);
+      await SftpService.DeleteFiles(linkID, paths);
+      clearSelection();
       await refreshFileList();
-      LogService.Debug(`Deleted: ${fileToDelete.name}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to delete: ${err.message || err}`);
+      await refreshFileList();
     } finally {
-      setFullScreenLoading(false);
-      setFileToDelete(null);
+      setFilesToDelete([]);
     }
   };
 
@@ -281,26 +346,15 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
 
   const handleRename = async () => {
     if (!renamingItem || !renamingName.trim()) return;
-
     try {
       setFullScreenLoading(true);
       setRenameDialogOpen(false);
-      const oldPath =
-        currentPath === "/"
-          ? `/${renamingItem.name}`
-          : `${currentPath}/${renamingItem.name}`;
-      const newPath =
-        currentPath === "/"
-          ? `/${renamingName.trim()}`
-          : `${currentPath}/${renamingName.trim()}`;
-      if (oldPath === newPath) {
-        return;
+      const oldPath = remoteJoin(currentPath, renamingItem.name);
+      const newPath = remoteJoin(currentPath, renamingName.trim());
+      if (oldPath !== newPath) {
+        await SftpService.RenameFile(linkID, oldPath, newPath);
+        await refreshFileList();
       }
-      await SftpService.RenameFile(linkID, oldPath, newPath);
-      await refreshFileList();
-      LogService.Debug(
-        `Renamed: ${renamingItem.name} to ${renamingName.trim()}`,
-      );
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
       LogService.Error(`Failed to rename: ${err.message || err}`);
@@ -311,6 +365,69 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     }
   };
 
+  const openChmod = async () => {
+    const file = contextMenu?.file;
+    handleCloseMenu();
+    if (!file) return;
+    setChmodTarget(file);
+    const octal = modeBitsToOctal(file.modeBits || 0);
+    setChmodOctal(octal);
+    try {
+      const res = await ToolService.ConvertChmod(octal, "toSymbolic");
+      setChmodSymbolic(res.success ? res.symbolic || "" : "");
+    } catch {
+      setChmodSymbolic("");
+    }
+    setChmodOpen(true);
+  };
+
+  const confirmChmod = async () => {
+    if (!chmodTarget) return;
+    const bits = parseOctalMode(chmodOctal);
+    if (bits === null) {
+      showMessageError("请输入有效的八进制权限，例如 755 或 4755");
+      return;
+    }
+    try {
+      const path = remoteJoin(currentPath, chmodTarget.name);
+      await SftpService.Chmod(linkID, path, bits);
+      setChmodOpen(false);
+      setChmodTarget(null);
+      await refreshFileList();
+    } catch (err: any) {
+      showMessageError(parseCallServiceError(err));
+    }
+  };
+
+  const openChown = () => {
+    const file = contextMenu?.file;
+    handleCloseMenu();
+    if (!file) return;
+    setChownTarget(file);
+    setChownUid(String(file.uid ?? 0));
+    setChownGid(String(file.gid ?? 0));
+    setChownOpen(true);
+  };
+
+  const confirmChown = async () => {
+    if (!chownTarget) return;
+    const uid = Number.parseInt(chownUid, 10);
+    const gid = Number.parseInt(chownGid, 10);
+    if (Number.isNaN(uid) || Number.isNaN(gid) || uid < 0 || gid < 0) {
+      showMessageError("UID / GID 须为非负整数");
+      return;
+    }
+    try {
+      const path = remoteJoin(currentPath, chownTarget.name);
+      await SftpService.Chown(linkID, path, uid, gid);
+      setChownOpen(false);
+      setChownTarget(null);
+      await refreshFileList();
+    } catch (err: any) {
+      showMessageError(parseCallServiceError(err));
+    }
+  };
+
   const handleCreateFile = () => {
     setCreateFileDialogOpen(true);
     setNewFileName("");
@@ -318,23 +435,17 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   };
 
   const handleCreateFileConfirm = async () => {
-    if (!newFileName.trim()) {
-      return;
-    }
-
+    if (!newFileName.trim()) return;
     try {
       setFullScreenLoading(true);
       setCreateFileDialogOpen(false);
-      const filePath =
-        currentPath === "/"
-          ? `/${newFileName.trim()}`
-          : `${currentPath}/${newFileName.trim()}`;
-      await SftpService.CreateFile(linkID, filePath);
+      await SftpService.CreateFile(
+        linkID,
+        remoteJoin(currentPath, newFileName.trim()),
+      );
       await refreshFileList();
-      LogService.Debug(`Created file: ${newFileName.trim()}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
-      LogService.Error(`Failed to create file: ${err.message || err}`);
     } finally {
       setFullScreenLoading(false);
       setNewFileName("");
@@ -348,23 +459,17 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
   };
 
   const handleCreateDirectoryConfirm = async () => {
-    if (!newFileName.trim()) {
-      return;
-    }
-
+    if (!newFileName.trim()) return;
     try {
       setFullScreenLoading(true);
       setCreateDirDialogOpen(false);
-      const dirPath =
-        currentPath === "/"
-          ? `/${newFileName.trim()}`
-          : `${currentPath}/${newFileName.trim()}`;
-      await SftpService.CreateDirectory(linkID, dirPath);
+      await SftpService.CreateDirectory(
+        linkID,
+        remoteJoin(currentPath, newFileName.trim()),
+      );
       await refreshFileList();
-      LogService.Debug(`Created directory: ${newFileName.trim()}`);
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));
-      LogService.Error(`Failed to create directory: ${err.message || err}`);
     } finally {
       setFullScreenLoading(false);
       setNewFileName("");
@@ -379,10 +484,31 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
       setFullScreenLoading(true);
       await refreshFileList(newPath);
       setCurrentPath(newPath);
+      clearSelection();
     } finally {
       setFullScreenLoading(false);
     }
   };
+
+  const onChmodOctalChange = async (value: string) => {
+    setChmodOctal(value);
+    const bits = parseOctalMode(value);
+    if (bits === null) {
+      setChmodSymbolic("");
+      return;
+    }
+    try {
+      const res = await ToolService.ConvertChmod(value.trim(), "toSymbolic");
+      setChmodSymbolic(res.success ? res.symbolic || "" : "");
+    } catch {
+      setChmodSymbolic("");
+    }
+  };
+
+  const selectionCount = selectedNames.size;
+  const allSelected =
+    fileList.length > 0 && selectedNames.size === fileList.length;
+  const menuTargetCount = contextMenu ? menuActionTargets().length : 0;
 
   return (
     <Box
@@ -395,34 +521,71 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
     >
       {sftpLoaded && (
         <SftpNavbar
-        currentPath={currentPath}
-        onPathChange={async (path: string) => {
-          try {
-            setFullScreenLoading(true);
-            await refreshFileList(path);
-            // 只有加载成功才更新路径
-            setCurrentPath(path);
-          } finally {
-            setFullScreenLoading(false);
-          }
-        }}
-        onRefresh={async () => {
-          try {
-            setFullScreenLoading(true);
-            await refreshFileList();
-          } finally {
-            setFullScreenLoading(false);
-          }
-        }}
-        onNavigateToParent={navigateToParent}
-        disableParentButton={currentPath === "/"}
-        showHiddenFiles={showHiddenFiles}
-        onToggleShowHidden={() => {
-          const newShowHiddenFiles = !showHiddenFiles;
-          setShowHiddenFiles(newShowHiddenFiles);
-          refreshFileList(undefined, newShowHiddenFiles).then(() => {});
-        }}
-      />
+          currentPath={currentPath}
+          onPathChange={async (path: string) => {
+            try {
+              setFullScreenLoading(true);
+              await refreshFileList(path);
+              setCurrentPath(path);
+              clearSelection();
+            } finally {
+              setFullScreenLoading(false);
+            }
+          }}
+          onRefresh={async () => {
+            try {
+              setFullScreenLoading(true);
+              await refreshFileList();
+            } finally {
+              setFullScreenLoading(false);
+            }
+          }}
+          onNavigateToParent={navigateToParent}
+          disableParentButton={currentPath === "/"}
+          showHiddenFiles={showHiddenFiles}
+          onToggleShowHidden={() => {
+            const newShowHiddenFiles = !showHiddenFiles;
+            setShowHiddenFiles(newShowHiddenFiles);
+            refreshFileList(undefined, newShowHiddenFiles).then(() => {});
+          }}
+        />
+      )}
+
+      {selectionCount > 0 && (
+        <Toolbar
+          variant="dense"
+          sx={{
+            minHeight: 40,
+            gap: 1,
+            borderBottom: 1,
+            borderColor: "divider",
+            bgcolor: "action.selected",
+          }}
+        >
+          <Typography variant="body2" sx={{ flex: 1 }}>
+            已选 {selectionCount} 项
+          </Typography>
+          <Button
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={() => {
+              void handleDownload(selectedFiles());
+            }}
+          >
+            下载
+          </Button>
+          <Button
+            size="small"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => openDeleteConfirm(selectedFiles())}
+          >
+            删除
+          </Button>
+          <Button size="small" onClick={clearSelection}>
+            取消选择
+          </Button>
+        </Toolbar>
       )}
 
       <Box
@@ -449,6 +612,14 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      indeterminate={selectionCount > 0 && !allSelected}
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                    />
+                  </TableCell>
                   <TableCell>类型</TableCell>
                   <TableCell>名称</TableCell>
                   <TableCell align="center">大小</TableCell>
@@ -457,57 +628,79 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {fileList.map((file, index) => (
-                  <TableRow
-                    hover
-                    key={file.name + index}
-                    sx={{
-                      cursor: file.isDir ? "pointer" : "default",
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, file)}
-                    onDoubleClick={() => handleItemClick(file)}
-                  >
-                    <TableCell component="th" scope="row">
-                      {file.isDir ? (
-                        <FolderIcon sx={{ color: "#FFB74D" }} />
-                      ) : (
-                        <FileIcon sx={{ color: "#81C784" }} />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <Typography noWrap sx={{ flex: 1 }}>
-                          {file.name}
-                        </Typography>
-                        <Typography
-                          noWrap
-                          variant="subtitle2"
-                          color="textSecondary"
+                {fileList.map((file) => {
+                  const selected = selectedNames.has(file.name);
+                  return (
+                    <TableRow
+                      hover
+                      key={file.name}
+                      selected={selected}
+                      sx={{
+                        cursor: file.isDir ? "pointer" : "default",
+                      }}
+                      onContextMenu={(e) => handleContextMenu(e, file)}
+                      onDoubleClick={() => handleItemClick(file)}
+                    >
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          size="small"
+                          checked={selected}
+                          onChange={() => {
+                            setSelectedNames((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(file.name)) next.delete(file.name);
+                              else next.add(file.name);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell component="th" scope="row">
+                        {file.isDir ? (
+                          <FolderIcon sx={{ color: "#FFB74D" }} />
+                        ) : (
+                          <FileIcon sx={{ color: "#81C784" }} />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <Typography noWrap sx={{ flex: 1 }}>
+                            {file.name}
+                          </Typography>
+                          <Typography
+                            noWrap
+                            variant="subtitle2"
+                            color="textSecondary"
+                          >
+                            {file.mode}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
+                        {file.isDir ? "-" : formatFileSize(file.size)}
+                      </TableCell>
+                      <TableCell align="center">
+                        {new Date(file.modTime).toLocaleString()}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleContextMenu(e, file);
+                          }}
                         >
-                          {file.mode}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      {file.isDir ? "-" : formatFileSize(file.size)}
-                    </TableCell>
-                    <TableCell align="center">
-                      {new Date(file.modTime).toLocaleString()}
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton onClick={(e) => handleContextMenu(e, file)}>
-                        <MoreVertIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <MoreVertIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
         )}
       </Box>
 
-      {/* 文件/文件夹右键菜单 */}
       <Menu
         open={contextMenu !== null}
         onClose={handleCloseMenu}
@@ -518,35 +711,53 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
             : { top: contextMenu.mouseY, left: contextMenu.mouseX }
         }
       >
-        <MenuItem onClick={handleDownload}>
+        <MenuItem onClick={() => void handleDownload(menuActionTargets())}>
           <ListItemIcon>
             <DownloadIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>下载</ListItemText>
+          <ListItemText>
+            {menuTargetCount > 1 ? `下载 (${menuTargetCount})` : "下载"}
+          </ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
-            if (contextMenu?.file) {
-              setFileToDelete(contextMenu.file);
-              setDeleteConfirmOpen(true);
-            }
+            openDeleteConfirm(menuActionTargets());
             handleCloseMenu();
           }}
         >
           <ListItemIcon>
             <DeleteIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>删除</ListItemText>
+          <ListItemText>
+            {menuTargetCount > 1 ? `删除 (${menuTargetCount})` : "删除"}
+          </ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleRenameClick}>
-          <ListItemIcon>
-            <RenameIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>重命名</ListItemText>
-        </MenuItem>
+        {menuTargetCount <= 1 && (
+          <MenuItem onClick={handleRenameClick}>
+            <ListItemIcon>
+              <RenameIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>重命名</ListItemText>
+          </MenuItem>
+        )}
+        {menuTargetCount <= 1 && (
+          <MenuItem onClick={() => void openChmod()}>
+            <ListItemIcon>
+              <ChmodIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>修改权限</ListItemText>
+          </MenuItem>
+        )}
+        {menuTargetCount <= 1 && (
+          <MenuItem onClick={openChown}>
+            <ListItemIcon>
+              <ChownIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>修改属主</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
-      {/* 空白区域右键菜单 */}
       <Menu
         open={blankContextMenu !== null}
         onClose={handleCloseBlankMenu}
@@ -583,7 +794,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         </MenuItem>
       </Menu>
 
-      {/* 删除确认对话框 */}
       <Dialog
         open={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
@@ -591,18 +801,103 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
         <DialogTitle>确认删除</DialogTitle>
         <DialogContent>
           <Typography>
-            确定要删除 "{fileToDelete?.name}" 吗?此操作不可撤销。
+            {filesToDelete.length === 1
+              ? `确定要删除 "${filesToDelete[0]?.name}" 吗?此操作不可撤销。`
+              : `确定要删除选中的 ${filesToDelete.length} 项吗?此操作不可撤销。`}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteConfirmOpen(false)}>取消</Button>
-          <Button onClick={handleDelete} color="error">
+          <Button onClick={() => void handleDelete()} color="error">
             删除
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* 新建文件对话框 */}
+      <Dialog
+        open={chmodOpen}
+        onClose={() => {
+          setChmodOpen(false);
+          setChmodTarget(null);
+        }}
+      >
+        <DialogTitle>修改权限</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {chmodTarget?.name}
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="八进制权限"
+            fullWidth
+            value={chmodOctal}
+            onChange={(e) => void onChmodOctalChange(e.target.value)}
+            helperText={
+              chmodSymbolic ? `符号: ${chmodSymbolic}` : "例如 755 或 4755"
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setChmodOpen(false);
+              setChmodTarget(null);
+            }}
+          >
+            取消
+          </Button>
+          <Button onClick={() => void confirmChmod()} variant="contained">
+            确定
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={chownOpen}
+        onClose={() => {
+          setChownOpen(false);
+          setChownTarget(null);
+        }}
+      >
+        <DialogTitle>修改属主</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {chownTarget?.name}（需要足够权限）
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="UID"
+            type="number"
+            fullWidth
+            value={chownUid}
+            onChange={(e) => setChownUid(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            label="GID"
+            type="number"
+            fullWidth
+            value={chownGid}
+            onChange={(e) => setChownGid(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setChownOpen(false);
+              setChownTarget(null);
+            }}
+          >
+            取消
+          </Button>
+          <Button onClick={() => void confirmChown()} variant="contained">
+            确定
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog
         open={createFileDialogOpen}
         onClose={() => {
@@ -616,15 +911,11 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
             autoFocus
             margin="dense"
             label="文件名"
-            type="text"
             fullWidth
-            variant="outlined"
             value={newFileName}
             onChange={(e) => setNewFileName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleCreateFileConfirm();
-              }
+              if (e.key === "Enter") void handleCreateFileConfirm();
             }}
           />
         </DialogContent>
@@ -637,13 +928,12 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
           >
             取消
           </Button>
-          <Button onClick={handleCreateFileConfirm} variant="contained">
+          <Button onClick={() => void handleCreateFileConfirm()} variant="contained">
             创建
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* 新建文件夹对话框 */}
       <Dialog
         open={createDirDialogOpen}
         onClose={() => {
@@ -657,15 +947,11 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
             autoFocus
             margin="dense"
             label="文件夹名"
-            type="text"
             fullWidth
-            variant="outlined"
             value={newFileName}
             onChange={(e) => setNewFileName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleCreateDirectoryConfirm();
-              }
+              if (e.key === "Enter") void handleCreateDirectoryConfirm();
             }}
           />
         </DialogContent>
@@ -678,13 +964,15 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
           >
             取消
           </Button>
-          <Button onClick={handleCreateDirectoryConfirm} variant="contained">
+          <Button
+            onClick={() => void handleCreateDirectoryConfirm()}
+            variant="contained"
+          >
             创建
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* 重命名对话框 */}
       <Dialog
         open={renameDialogOpen}
         onClose={() => {
@@ -699,15 +987,11 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
             autoFocus
             margin="dense"
             label="新名称"
-            type="text"
             fullWidth
-            variant="outlined"
             value={renamingName}
             onChange={(e) => setRenamingName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleRename();
-              }
+              if (e.key === "Enter") void handleRename();
             }}
           />
         </DialogContent>
@@ -721,13 +1005,12 @@ const Sftp: React.FC<SftpProps> = ({ linkID }) => {
           >
             取消
           </Button>
-          <Button onClick={handleRename} variant="contained">
+          <Button onClick={() => void handleRename()} variant="contained">
             重命名
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* 全屏加载效果 */}
       {fullScreenLoading && (
         <Box
           sx={{

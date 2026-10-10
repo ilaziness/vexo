@@ -55,7 +55,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	transfers := transfer.NewRegistry(func(p transfer.ProgressData) {
 		a.Event.Emit(EventProgress, p)
 	})
-	sftpMgr := sftp.NewManager(log, sshMgr, transfers)
+	sftpMgr := sftp.NewManager(log, sshMgr, transfers, db.SftpTransferRepo)
 	tunnelMgr := tunnel.NewManager(log, sshMgr)
 
 	sshService := NewSSHService(a, sshMgr, sftpMgr, tunnelMgr)

@@ -19,13 +19,21 @@ const (
 type ProgressData struct {
 	ID           string  `json:"id"`
 	SessionID    string  `json:"sessionID"`
+	OwnerKey     string  `json:"ownerKey"`
 	TransferType string  `json:"transferType"`
 	LocalFile    string  `json:"localFile"`
 	RemoteFile   string  `json:"remoteFile"`
 	TotalSize    int64   `json:"totalSize"`
+	Transferred  int64   `json:"transferred"`
 	Rate         float64 `json:"rate"`
 	Done         bool    `json:"done"`
 	Error        string  `json:"error"`
+}
+
+// NewOpts configures optional tracker fields.
+type NewOpts struct {
+	ID       string
+	OwnerKey string
 }
 
 type Registry struct {
@@ -41,12 +49,31 @@ func NewRegistry(onUpdate func(ProgressData)) *Registry {
 	}
 }
 
-func (r *Registry) New(sessionID, transferType, localFile, remoteFile string, total int64) *Tracker {
+func (r *Registry) New(sessionID, transferType, localFile, remoteFile string, total int64) (*Tracker, error) {
+	return r.NewWith(sessionID, transferType, localFile, remoteFile, total, NewOpts{})
+}
+
+func (r *Registry) HasActive(id string) bool {
+	if id == "" {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.active[id]
+	return ok
+}
+
+func (r *Registry) NewWith(sessionID, transferType, localFile, remoteFile string, total int64, opts NewOpts) (*Tracker, error) {
+	id := opts.ID
+	if id == "" {
+		id = utils.GenerateRandomID()
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	t := &Tracker{
 		reg:          r,
 		sessionID:    sessionID,
-		id:           utils.GenerateRandomID(),
+		ownerKey:     opts.OwnerKey,
+		id:           id,
 		transferType: transferType,
 		localFile:    localFile,
 		remoteFile:   remoteFile,
@@ -56,10 +83,15 @@ func (r *Registry) New(sessionID, transferType, localFile, remoteFile string, to
 		cancelFunc:   cancel,
 	}
 	r.mu.Lock()
+	if _, exists := r.active[id]; exists {
+		r.mu.Unlock()
+		cancel()
+		return nil, errors.New("transfer already active")
+	}
 	r.active[t.id] = t
 	r.mu.Unlock()
 	t.startProgress()
-	return t
+	return t, nil
 }
 
 func (r *Registry) Cancel(id string) error {
@@ -69,8 +101,45 @@ func (r *Registry) Cancel(id string) error {
 	if !ok {
 		return errors.New("transfer not found")
 	}
+	t.markCancelled()
 	t.cancelFunc()
 	return nil
+}
+
+// InterruptSession cancels all active transfers for sessionID and marks them interrupted.
+func (r *Registry) InterruptSession(sessionID string) []string {
+	r.mu.Lock()
+	var ids []string
+	var trackers []*Tracker
+	for id, t := range r.active {
+		if t.sessionID == sessionID {
+			ids = append(ids, id)
+			trackers = append(trackers, t)
+		}
+	}
+	r.mu.Unlock()
+	for _, t := range trackers {
+		t.markInterrupted()
+		t.cancelFunc()
+	}
+	return ids
+}
+
+// InterruptAll cancels every active transfer (app shutdown).
+func (r *Registry) InterruptAll() []string {
+	r.mu.Lock()
+	ids := make([]string, 0, len(r.active))
+	trackers := make([]*Tracker, 0, len(r.active))
+	for id, t := range r.active {
+		ids = append(ids, id)
+		trackers = append(trackers, t)
+	}
+	r.mu.Unlock()
+	for _, t := range trackers {
+		t.markInterrupted()
+		t.cancelFunc()
+	}
+	return ids
 }
 
 func (r *Registry) emit(p ProgressData) {
@@ -88,6 +157,7 @@ func (r *Registry) remove(id string) {
 type Tracker struct {
 	reg          *Registry
 	sessionID    string
+	ownerKey     string
 	id           string
 	transferType string
 	localFile    string
@@ -100,9 +170,47 @@ type Tracker struct {
 	stopOnce     sync.Once
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
+	cancelled    bool
+	interrupted  bool
 }
 
-func (t *Tracker) ID() string { return t.id }
+func (t *Tracker) ID() string           { return t.id }
+func (t *Tracker) OwnerKey() string     { return t.ownerKey }
+func (t *Tracker) TransferType() string { return t.transferType }
+func (t *Tracker) LocalFile() string    { return t.localFile }
+func (t *Tracker) RemoteFile() string   { return t.remoteFile }
+func (t *Tracker) TotalSize() int64     { return t.total }
+
+func (t *Tracker) WasCancelled() bool {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	return t.cancelled
+}
+
+func (t *Tracker) WasInterrupted() bool {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	return t.interrupted
+}
+
+func (t *Tracker) markCancelled() {
+	t.mutex.Lock()
+	t.cancelled = true
+	t.mutex.Unlock()
+}
+
+func (t *Tracker) markInterrupted() {
+	t.mutex.Lock()
+	t.interrupted = true
+	t.mutex.Unlock()
+}
+
+func (t *Tracker) AddTransferred(n int64) {
+	if n <= 0 {
+		return
+	}
+	t.update(n)
+}
 
 func (t *Tracker) update(n int64) {
 	t.mutex.Lock()
@@ -124,13 +232,18 @@ func (t *Tracker) getRate() float64 {
 }
 
 func (t *Tracker) data(rate float64, done bool, err error) ProgressData {
+	t.mutex.Lock()
+	transferred := t.transferred
+	t.mutex.Unlock()
 	p := ProgressData{
 		ID:           t.id,
 		SessionID:    t.sessionID,
+		OwnerKey:     t.ownerKey,
 		TransferType: t.transferType,
 		LocalFile:    t.localFile,
 		RemoteFile:   t.remoteFile,
 		TotalSize:    t.total,
+		Transferred:  transferred,
 		Rate:         rate,
 		Done:         done,
 	}
@@ -141,7 +254,7 @@ func (t *Tracker) data(rate float64, done bool, err error) ProgressData {
 }
 
 func (t *Tracker) startProgress() {
-	t.reg.emit(t.data(0, false, nil))
+	t.reg.emit(t.data(t.getRate(), false, nil))
 	t.ticker = time.NewTicker(500 * time.Millisecond)
 	go func() {
 		defer t.ticker.Stop()

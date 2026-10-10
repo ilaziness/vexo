@@ -5,12 +5,15 @@ export interface TransferStore {
   transfers: Map<string, ProgressData[]>; // sessionID -> ProgressData[]
   addProgress: (progress: ProgressData) => void;
   removeProgress: (sessionID: string, id: string) => void;
-  getTransfersBySession: (sessionID: string) => ProgressData[];
   clearSession: (sessionID: string) => void;
   clearCompletedTransfers: (sessionID: string) => void;
 }
 
-export const useTransferStore = create<TransferStore>((set, get) => ({
+function hasError(p: ProgressData): boolean {
+  return Boolean(p.error && p.error.trim() !== "");
+}
+
+export const useTransferStore = create<TransferStore>((set) => ({
   transfers: new Map(),
   addProgress: (progress: ProgressData) => {
     set((state) => {
@@ -20,15 +23,12 @@ export const useTransferStore = create<TransferStore>((set, get) => ({
         newTransfers.set(sessionID, []);
       }
       const sessionTransfers = newTransfers.get(sessionID)!;
-      // 检查是否已有相同ID的progress，如果有则更新，否则添加
       const existingIndex = sessionTransfers.findIndex((p) => p.id === progress.id);
       if (existingIndex >= 0) {
-        // 创建新的数组以确保React检测到变化
         const updatedTransfers = [...sessionTransfers];
         updatedTransfers[existingIndex] = progress;
         newTransfers.set(sessionID, updatedTransfers);
       } else {
-        // 创建新的数组以确保React检测到变化
         newTransfers.set(sessionID, [...sessionTransfers, progress]);
       }
       return { transfers: newTransfers };
@@ -43,9 +43,6 @@ export const useTransferStore = create<TransferStore>((set, get) => ({
       return { transfers: newTransfers };
     });
   },
-  getTransfersBySession: (sessionID: string) => {
-    return get().transfers.get(sessionID) || [];
-  },
   clearSession: (sessionID: string) => {
     set((state) => {
       const newTransfers = new Map(state.transfers);
@@ -57,11 +54,12 @@ export const useTransferStore = create<TransferStore>((set, get) => ({
     set((state) => {
       const newTransfers = new Map(state.transfers);
       const sessionTransfers = newTransfers.get(sessionID) || [];
-      const activeTransfers = sessionTransfers.filter((p) => !p.done);
-      if (activeTransfers.length === 0) {
+      // Keep active and failed; only drop successful completions.
+      const kept = sessionTransfers.filter((p) => !p.done || hasError(p));
+      if (kept.length === 0) {
         newTransfers.delete(sessionID);
       } else {
-        newTransfers.set(sessionID, activeTransfers);
+        newTransfers.set(sessionID, kept);
       }
       return { transfers: newTransfers };
     });

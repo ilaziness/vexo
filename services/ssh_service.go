@@ -214,8 +214,8 @@ func (s *SSHService) TestConnectInfo(req ConnectRequest) error {
 	return s.testHops(hops, proxy)
 }
 
-func (s *SSHService) StartSftp(id string) error {
-	return s.sftp.Connect(id)
+func (s *SSHService) StartSftp(id, ownerKey string) error {
+	return s.sftp.Connect(id, ownerKey)
 }
 
 func (s *SSHService) Resize(id string, cols, rows int) error {

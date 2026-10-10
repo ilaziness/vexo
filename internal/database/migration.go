@@ -27,6 +27,7 @@ var migrations = []Migration{
 	{Version: 8, Name: "add bookmark forward_agent", Up: migrateAddBookmarkForwardAgent},
 	{Version: 9, Name: "add bookmark dial proxy", Up: migrateAddBookmarkDialProxy},
 	{Version: 10, Name: "add bookmark session options", Up: migrateAddBookmarkSessionOptions},
+	{Version: 11, Name: "add sftp transfers queue", Up: migrateAddSftpTransfers},
 }
 
 // migrateInitSchema 初始化数据库表结构（幂等）
@@ -318,6 +319,28 @@ func migrateAddBookmarkSessionOptions(db *sql.DB, logger *zap.Logger) error {
 			return fmt.Errorf("check column bookmarks.%s failed: %w", c.name, err)
 		}
 	}
+	return nil
+}
+
+func migrateAddSftpTransfers(db *sql.DB, logger *zap.Logger) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS sftp_transfers (
+			id TEXT PRIMARY KEY NOT NULL,
+			owner_key TEXT NOT NULL,
+			transfer_type TEXT NOT NULL,
+			local_file TEXT NOT NULL,
+			remote_file TEXT NOT NULL,
+			total_size INTEGER NOT NULL DEFAULT 0,
+			status TEXT NOT NULL,
+			error TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_sftp_transfers_owner_key ON sftp_transfers(owner_key);
+	`)
+	if err != nil {
+		return fmt.Errorf("create sftp_transfers failed: %w", err)
+	}
+	logger.Debug("migration: sftp_transfers table ready")
 	return nil
 }
 

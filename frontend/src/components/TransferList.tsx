@@ -17,17 +17,21 @@ import {
   ArrowBack,
   ClearAll,
   Cancel,
+  Replay,
+  DeleteSweep,
 } from "@mui/icons-material";
 import { useTransferStore } from "../stores/transfer";
-import { formatFileSize } from "../func/service";
+import { formatFileSize, parseCallServiceError } from "../func/service";
 import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models";
 import { SftpService } from "../../bindings/github.com/ilaziness/vexo/services";
+import { useMessageStore } from "../stores/message";
 
 interface TransferListProps {
   sessionID: string;
   open: boolean;
   statusBarHeight: string;
   onClose: () => void;
+  sftpReady?: boolean;
 }
 
 const TransferList: React.FC<TransferListProps> = ({
@@ -35,20 +39,59 @@ const TransferList: React.FC<TransferListProps> = ({
   open,
   statusBarHeight,
   onClose,
+  sftpReady = false,
 }) => {
   const {
     transfers: transfersMap,
     removeProgress,
     clearCompletedTransfers,
   } = useTransferStore();
+  const { errorMessage, infoMessage } = useMessageStore();
   const transfersList = useMemo(() => {
     return transfersMap.get(sessionID) || [];
   }, [transfersMap, sessionID]);
-  const handleRemove = (id: string) => {
+
+  const handleRemove = async (id: string, dismissQueue: boolean) => {
+    if (dismissQueue) {
+      try {
+        await SftpService.DismissTransfer(id);
+      } catch (err) {
+        errorMessage(parseCallServiceError(err));
+        return;
+      }
+    }
     removeProgress(sessionID, id);
   };
+
   const handleClear = () => {
     clearCompletedTransfers(sessionID);
+  };
+
+  const handleClearFailed = async () => {
+    const failed = transfersList.filter(
+      (t) => t.done && t.error && t.error.trim() !== "",
+    );
+    let firstErr: unknown;
+    for (const t of failed) {
+      try {
+        await SftpService.DismissTransfer(t.id);
+        removeProgress(sessionID, t.id);
+      } catch (err) {
+        if (!firstErr) firstErr = err;
+      }
+    }
+    if (firstErr) {
+      errorMessage(parseCallServiceError(firstErr));
+    }
+  };
+
+  const handleRetry = async (transfer: ProgressData) => {
+    try {
+      await SftpService.RetryTransfer(sessionID, transfer.id);
+      infoMessage("已重新加入传输队列");
+    } catch (err) {
+      errorMessage(parseCallServiceError(err));
+    }
   };
 
   return (
@@ -91,7 +134,12 @@ const TransferList: React.FC<TransferListProps> = ({
               传输列表
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
-              <Tooltip title="清空已完成任务">
+              <Tooltip title="清除失败任务">
+                <IconButton onClick={() => void handleClearFailed()} size="small">
+                  <DeleteSweep fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="清空已成功任务">
                 <IconButton onClick={handleClear} size="small">
                   <ClearAll fontSize="small" />
                 </IconButton>
@@ -106,7 +154,9 @@ const TransferList: React.FC<TransferListProps> = ({
           {transfersList.length === 0 ? (
             <Box sx={{ p: 2, textAlign: "center" }}>
               <Typography variant="body2" color="text.secondary">
-                暂无传输任务
+                {sftpReady
+                  ? "暂无传输任务"
+                  : "请先打开 SFTP 标签并连接成功后，可查看未完成的传输记录"}
               </Typography>
             </Box>
           ) : (
@@ -121,7 +171,9 @@ const TransferList: React.FC<TransferListProps> = ({
             >
               <List sx={{ flex: 1, overflow: "auto" }}>
                 {transfersList.map((transfer: ProgressData) => {
-                  const progress = transfer.done ? 100 : transfer.rate;
+                  const progress = transfer.done && !transfer.error
+                    ? 100
+                    : transfer.rate;
                   const isUpload =
                     transfer.transferType.toLowerCase().includes("upload");
                   const isCompleted = transfer.done;
@@ -160,7 +212,6 @@ const TransferList: React.FC<TransferListProps> = ({
                             flexWrap: "wrap",
                           }}
                         >
-                          {/* 上传/下载图标 */}
                           {isUpload ? (
                             <CloudUpload
                               color={hasError ? "error" : "primary"}
@@ -173,7 +224,6 @@ const TransferList: React.FC<TransferListProps> = ({
                             />
                           )}
 
-                          {/* 本地文件全路径 */}
                           <Typography
                             variant="body2"
                             sx={{
@@ -188,7 +238,6 @@ const TransferList: React.FC<TransferListProps> = ({
                             {transfer.localFile}
                           </Typography>
 
-                          {/* 箭头 */}
                           {isUpload ? (
                             <ArrowForward
                               sx={{
@@ -209,7 +258,6 @@ const TransferList: React.FC<TransferListProps> = ({
                             />
                           )}
 
-                          {/* 远程全路径 */}
                           <Typography
                             variant="body2"
                             sx={{
@@ -224,7 +272,6 @@ const TransferList: React.FC<TransferListProps> = ({
                             {transfer.remoteFile}
                           </Typography>
 
-                          {/* 进度条 */}
                           <Box sx={{ flex: 2, minWidth: 100, maxWidth: 200 }}>
                             <LinearProgress
                               variant="determinate"
@@ -243,7 +290,6 @@ const TransferList: React.FC<TransferListProps> = ({
                             />
                           </Box>
 
-                          {/* 文件大小 */}
                           <Typography
                             variant="caption"
                             sx={{ flexShrink: 0, minWidth: "fit-content" }}
@@ -251,41 +297,56 @@ const TransferList: React.FC<TransferListProps> = ({
                             {formatFileSize(transfer.totalSize)}
                           </Typography>
 
-                          {/* 上传百分比 */}
                           <Typography
                             variant="caption"
                             sx={{ flexShrink: 0, minWidth: "fit-content" }}
                           >
-                            {progress.toFixed(2)}%
+                            {Number(progress).toFixed(2)}%
                           </Typography>
 
-                          {/* 取消或清除图标 */}
                           {!transfer.done ? (
                             <Tooltip title="取消传输">
                               <IconButton
                                 size="small"
-                                onClick={() =>
-                                  SftpService.CancelTransfer(transfer.id)
-                                }
+                                onClick={() => {
+                                  SftpService.CancelTransfer(transfer.id).catch(
+                                    (err) =>
+                                      errorMessage(parseCallServiceError(err)),
+                                  );
+                                }}
                                 sx={{ flexShrink: 0 }}
                               >
                                 <Cancel fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           ) : (
-                            <Tooltip title="删除">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRemove(transfer.id)}
-                                sx={{ flexShrink: 0 }}
-                              >
-                                <Close fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            <>
+                              {hasError && (
+                                <Tooltip title="重试">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => void handleRetry(transfer)}
+                                    sx={{ flexShrink: 0 }}
+                                  >
+                                    <Replay fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              <Tooltip title="删除">
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    void handleRemove(transfer.id, Boolean(hasError))
+                                  }
+                                  sx={{ flexShrink: 0 }}
+                                >
+                                  <Close fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
                           )}
                         </Box>
 
-                        {/* 错误信息 */}
                         {hasError && (
                           <Typography
                             variant="caption"
