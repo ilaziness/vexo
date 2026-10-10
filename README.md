@@ -19,25 +19,35 @@
 
 ## ✨ 特性
 
-- SSH 登录：密码、私钥、SSH Agent（Windows Pageant / macOS·Linux `SSH_AUTH_SOCK`）、OpenSSH 证书、keyboard-interactive（OTP/二次验证提问）
+**连接与认证**
+
+- SSH 登录：密码、私钥、SSH Agent（Windows Pageant / macOS·Linux `SSH_AUTH_SOCK`）、OpenSSH 证书、keyboard-interactive（OTP/二次验证）
 - 应用内生成 SSH 密钥对，公钥可复制，私钥按主密码加密保存或导出
 - 敏感信息主密码保护（Argon2id + AES-GCM，进程内 Vault）
-- 支持 SSH ProxyJump，通过中间节点连接目标服务器
-- Agent 转发（`ForwardAgent`）：书签可开启，登录后在远端继续用本机 Agent 密钥，无需把私钥拷到跳板机
-- 经代理访问 SSH：全局或书签配置 HTTP / SOCKS5，拨号前走代理连到目标（与隧道对外提供 SOCKS 不同）；书签可 inherit / none / custom
-- 导入、导出 `~/.ssh/config`：从 OpenSSH 配置生成书签，也可把书签写回 `ssh_config`（无法解析的指令会跳过并提示）
+- ProxyJump 跳板连接；Agent 转发（`ForwardAgent`），远端可继续使用本机 Agent 密钥
+- 经 HTTP / SOCKS5 代理拨号（全局或书签 inherit / none / custom）
 - 连接保活与自动重连；主机密钥首次确认、变更对比与 known_hosts 管理
-- 书签可配置登录后启动命令、环境变量与 `TERM`
-- SSH 端口转发/隧道，支持本地转发、远程转发、SOCKS5 动态代理
-- 多标签切换、拖动、复制、刷新
-- SFTP 文件浏览器，支持上传、下载、删除、重命名文件
-- 文件传输任务管理
+- 导入、导出 `~/.ssh/config`；书签可配置启动命令、环境变量与 `TERM`
+- SSH 端口转发：本地转发、远程转发、SOCKS5 动态代理
+
+**终端**
+
+- 多标签切换、拖动、复制、刷新；终端内搜索（快捷键 / 右键）
+- 会话日志：右键开始/停止记录，将终端输出保存到本地文件（不记录 stdin）
+- Zmodem（rz/sz）：终端内自动识别传输协议，弹窗选择目录或文件完成收发，进度显示在终端
+
+**SFTP 与书签**
+
+- SFTP 文件浏览器：上传、下载、删除、重命名；传输任务管理
 - 书签管理与分组，快速连接常用服务器
-- 主题切换支持，多种主题方案：亮色模式、暗色模式、护眼模式
-- 命令库功能，建立自己的命令库，一键发送到多个会话
-- 自建数据远程备份功能，在多台设备间恢复配置，本地加密，支持历史版本恢复
-- 自动更新检查，及时获取最新版本
-- AI 侧边栏功能，自主分析问题，执行命令
+
+**效率与运维**
+
+- 命令库：自定义命令片段，一键发送到多个会话
+- 主题切换：亮色、暗色、护眼等方案
+- 加密远程备份与多设备恢复，支持历史版本
+- 自动更新检查
+- AI 侧边栏：分析问题并协助执行命令
 
 ---
 
