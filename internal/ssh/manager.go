@@ -16,6 +16,7 @@ import (
 
 	"github.com/ilaziness/vexo/internal/system"
 	"github.com/ilaziness/vexo/internal/utils"
+	"github.com/ilaziness/vexo/internal/zmodem"
 )
 
 const ErrConnectionNotFound = "SSH connection with ID %s not found"
@@ -108,6 +109,7 @@ type Session struct {
 	lastOutputAt   time.Time
 	logMu          sync.Mutex
 	logFile        *os.File
+	zmFilter       *zmodem.Filter
 }
 
 type hopClient struct {
@@ -164,6 +166,7 @@ type Manager struct {
 	keepAlives           sync.Map
 	optsMu               sync.RWMutex
 	opts                 Options
+	zmodemPicker         zmodem.FilePicker
 }
 
 func NewManager(logger *zap.Logger, knownHostsPath string, prompter HostKeyPrompter, keyboard KeyboardInteractivePrompter) *Manager {
@@ -184,6 +187,11 @@ func NewManager(logger *zap.Logger, knownHostsPath string, prompter HostKeyPromp
 			DialTimeout:         30 * time.Second,
 		},
 	}
+}
+
+// SetZmodem enables rz/sz detection for new sessions. Nil disables.
+func (m *Manager) SetZmodem(picker zmodem.FilePicker) {
+	m.zmodemPicker = picker
 }
 
 func (m *Manager) SetOptions(opts Options) {
@@ -413,7 +421,7 @@ func (m *Manager) SetHostKeyDecision(host string, accept bool) error {
 }
 
 func newSession(m *Manager, clientKey string, client *cryptossh.Client, target Endpoint) *Session {
-	return &Session{
+	sc := &Session{
 		manager:        m,
 		ClientKey:      clientKey,
 		client:         client,
@@ -425,6 +433,28 @@ func newSession(m *Manager, clientKey string, client *cryptossh.Client, target E
 		startupCmd:     target.StartupCmd,
 		env:            target.Env,
 		term:           target.Term,
+	}
+	if m.zmodemPicker != nil {
+		sc.zmFilter = zmodem.NewFilter(sc.ID, zmodem.Deps{
+			Picker:   m.zmodemPicker,
+			Logger:   m.logger,
+			Annotate: sc.annotateOutput,
+		})
+	}
+	return sc
+}
+
+// annotateOutput injects local terminal text (Zmodem progress). Non-blocking.
+func (sc *Session) annotateOutput(data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	sc.teeOutput(data)
+	select {
+	case sc.OutputChan <- data:
+	case <-sc.stopOutput:
+	default:
+		sc.manager.logger.Debug("annotateOutput dropped: output buffer full", zap.String("id", sc.ID))
 	}
 }
 
@@ -562,6 +592,12 @@ func (sc *Session) readFromPipe(pipe io.Reader, pipeName string) func() {
 				sc.noteOutput()
 				data := make([]byte, n)
 				copy(data, buf[:n])
+				if sc.zmFilter != nil {
+					data = sc.zmFilter.FeedOut(data)
+					if len(data) == 0 {
+						continue
+					}
+				}
 				sc.teeOutput(data)
 				select {
 				case sc.OutputChan <- data:
@@ -584,7 +620,12 @@ func (sc *Session) startInput() error {
 	if err != nil {
 		return err
 	}
-	sc.Stdin = stdin
+	if sc.zmFilter != nil {
+		sc.zmFilter.BindStdin(stdin)
+		sc.Stdin = sc.zmFilter.WrapStdin()
+	} else {
+		sc.Stdin = stdin
+	}
 	return nil
 }
 
@@ -596,6 +637,9 @@ func (sc *Session) closePTY() error {
 		return nil
 	}
 	sc.isClosed = true
+	if sc.zmFilter != nil {
+		sc.zmFilter.Reset()
+	}
 	// Close log under locks; emit after unlock so callbacks cannot deadlock on closeMu.
 	sc.logMu.Lock()
 	logID, logStopped := sc.closeLogFileLocked()

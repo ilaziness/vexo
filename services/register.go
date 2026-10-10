@@ -41,6 +41,7 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 	hostPrompter := &hostKeyPrompter{app: a}
 	keyboardPrompter := &keyboardInteractivePrompter{app: a}
 	sshMgr := ssh.NewManager(log, filepath.Join(cfgStore.UserDataDir(), "known_hosts"), hostPrompter, keyboardPrompter)
+	sshMgr.SetZmodem(newZmodemPicker(a))
 	sshMgr.SetOptions(ssh.Options{
 		ServerAliveInterval: time.Duration(cfgStore.Config.SSH.ServerAliveInterval) * time.Second,
 		DialTimeout:         time.Duration(cfgStore.Config.SSH.DialTimeoutSec) * time.Second,
