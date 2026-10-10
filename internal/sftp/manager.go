@@ -68,6 +68,7 @@ type Manager struct {
 	ssh       *ssh.Manager
 	transfers *transfer.Registry
 	queue     transfer.QueueStore
+	onQueued  func(sessionID string, count int)
 	clients   sync.Map
 	owners    sync.Map // sessionID -> ownerKey
 }
@@ -77,6 +78,18 @@ func NewManager(logger *zap.Logger, sshMgr *ssh.Manager, transfers *transfer.Reg
 		logger = zap.NewNop()
 	}
 	return &Manager{logger: logger, ssh: sshMgr, transfers: transfers, queue: queue}
+}
+
+// SetOnQueued registers a callback after transfers are successfully enqueued.
+func (sft *Manager) SetOnQueued(fn func(sessionID string, count int)) {
+	sft.onQueued = fn
+}
+
+func (sft *Manager) notifyQueued(sessionID string, count int) {
+	if count <= 0 || sft.onQueued == nil {
+		return
+	}
+	sft.onQueued(sessionID, count)
 }
 
 func joinRemotePath(elem ...string) string {
@@ -280,21 +293,15 @@ func (sft *Manager) uploadFile(sessionID string, localPathFile, remoteDir string
 }
 
 func (sft *Manager) UploadFile(sessionID, localPath, remotePath string) error {
-	return sft.uploadFileWithTracker(sessionID, localPath, remotePath, transfer.NewOpts{})
-}
-
-func (sft *Manager) uploadFileWithTracker(sessionID, localPath, remotePath string, opts transfer.NewOpts) error {
 	info, err := os.Stat(localPath)
 	if err != nil {
 		return err
 	}
-	tracker, err := sft.newTracker(sessionID, transfer.TypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), info.Size(), opts)
-	if err != nil {
+	if err := sft.startUploadFileAsync(sessionID, localPath, remotePath, info.Size(), transfer.NewOpts{}); err != nil {
 		return err
 	}
-	err = sft.uploadFile(sessionID, localPath, remotePath, tracker)
-	sft.stopTracker(tracker, err)
-	return err
+	sft.notifyQueued(sessionID, 1)
+	return nil
 }
 
 func (sft *Manager) startUploadFileAsync(sessionID, localPath, remotePath string, size int64, opts transfer.NewOpts) error {
@@ -381,10 +388,6 @@ func (sft *Manager) downloadFile(sessionID string, localPathFile, remotePathFile
 }
 
 func (sft *Manager) DownloadFile(sessionID, localPathFile, remotePathFile string) error {
-	return sft.downloadFileWithTracker(sessionID, localPathFile, remotePathFile, transfer.NewOpts{})
-}
-
-func (sft *Manager) downloadFileWithTracker(sessionID, localPathFile, remotePathFile string, opts transfer.NewOpts) error {
 	ftpClient, err := sft.getSftpClient(sessionID)
 	if err != nil {
 		return err
@@ -393,13 +396,11 @@ func (sft *Manager) downloadFileWithTracker(sessionID, localPathFile, remotePath
 	if err != nil {
 		return err
 	}
-	tracker, err := sft.newTracker(sessionID, transfer.TypeDownload, localPathFile, remotePathFile, info.Size(), opts)
-	if err != nil {
+	if err := sft.startDownloadFileAsync(sessionID, localPathFile, remotePathFile, info.Size(), transfer.NewOpts{}); err != nil {
 		return err
 	}
-	err = sft.downloadFile(sessionID, localPathFile, remotePathFile, tracker)
-	sft.stopTracker(tracker, err)
-	return err
+	sft.notifyQueued(sessionID, 1)
+	return nil
 }
 
 func (sft *Manager) startDownloadFileAsync(sessionID, localPathFile, remotePathFile string, size int64, opts transfer.NewOpts) error {
@@ -415,21 +416,15 @@ func (sft *Manager) startDownloadFileAsync(sessionID, localPathFile, remotePathF
 }
 
 func (sft *Manager) UploadDirectory(sessionID, localPath, remotePath string) error {
-	return sft.uploadDirectoryWithTracker(sessionID, localPath, remotePath, transfer.NewOpts{})
-}
-
-func (sft *Manager) uploadDirectoryWithTracker(sessionID, localPath, remotePath string, opts transfer.NewOpts) error {
 	total, err := sft.calcLocalDirSize(localPath)
 	if err != nil {
 		return err
 	}
-	tracker, err := sft.newTracker(sessionID, transfer.TypeUpload, localPath, joinRemotePath(remotePath, filepath.Base(localPath)), total, opts)
-	if err != nil {
+	if err := sft.startUploadDirectoryAsync(sessionID, localPath, remotePath, total, transfer.NewOpts{}); err != nil {
 		return err
 	}
-	err = sft.uploadDirectory(sessionID, localPath, remotePath, tracker)
-	sft.stopTracker(tracker, err)
-	return err
+	sft.notifyQueued(sessionID, 1)
+	return nil
 }
 
 func (sft *Manager) startUploadDirectoryAsync(sessionID, localPath, remotePath string, total int64, opts transfer.NewOpts) error {
@@ -473,6 +468,7 @@ func (sft *Manager) UploadPaths(sessionID, remotePath string, localPaths []strin
 		}
 		jobs = append(jobs, job)
 	}
+	queued := 0
 	for _, job := range jobs {
 		var startErr error
 		if job.isDir {
@@ -482,8 +478,11 @@ func (sft *Manager) UploadPaths(sessionID, remotePath string, localPaths []strin
 		}
 		if startErr != nil {
 			sft.logger.Warn("enqueue upload failed", zap.String("path", job.path), zap.Error(startErr))
+			continue
 		}
+		queued++
 	}
+	sft.notifyQueued(sessionID, queued)
 	return nil
 }
 
@@ -549,21 +548,15 @@ func (sft *Manager) processDirectoryEntries(sessionID, localPath, remoteDir stri
 }
 
 func (sft *Manager) DownloadDirectory(sessionID, localPath, remotePath string) error {
-	return sft.downloadDirectoryWithTracker(sessionID, localPath, remotePath, transfer.NewOpts{})
-}
-
-func (sft *Manager) downloadDirectoryWithTracker(sessionID, localPath, remotePath string, opts transfer.NewOpts) error {
 	total, err := sft.calcRemoteDirSize(sessionID, remotePath)
 	if err != nil {
 		return err
 	}
-	tracker, err := sft.newTracker(sessionID, transfer.TypeDownload, localPath, remotePath, total, opts)
-	if err != nil {
+	if err := sft.startDownloadDirectoryAsync(sessionID, localPath, remotePath, total, transfer.NewOpts{}); err != nil {
 		return err
 	}
-	err = sft.downloadDirectory(sessionID, localPath, remotePath, tracker)
-	sft.stopTracker(tracker, err)
-	return err
+	sft.notifyQueued(sessionID, 1)
+	return nil
 }
 
 func (sft *Manager) startDownloadDirectoryAsync(sessionID, localPath, remotePath string, total int64, opts transfer.NewOpts) error {
@@ -669,6 +662,7 @@ func (sft *Manager) DownloadPaths(sessionID, localDir string, remotePaths []stri
 		}
 		jobs = append(jobs, job)
 	}
+	queued := 0
 	for _, job := range jobs {
 		var startErr error
 		if job.isDir {
@@ -679,8 +673,11 @@ func (sft *Manager) DownloadPaths(sessionID, localDir string, remotePaths []stri
 		}
 		if startErr != nil {
 			sft.logger.Warn("enqueue download failed", zap.String("path", job.remote), zap.Error(startErr))
+			continue
 		}
+		queued++
 	}
+	sft.notifyQueued(sessionID, queued)
 	return nil
 }
 
@@ -887,6 +884,7 @@ func (sft *Manager) RetryTransfer(sessionID, transferID string) error {
 	}
 
 	opts := transfer.NewOpts{ID: rec.ID, OwnerKey: rec.OwnerKey}
+	var startErr error
 	switch strings.ToLower(rec.TransferType) {
 	case transfer.TypeUpload:
 		info, err := os.Stat(rec.LocalFile)
@@ -902,9 +900,10 @@ func (sft *Manager) RetryTransfer(sessionID, transferID string) error {
 			if err != nil {
 				return err
 			}
-			return sft.startUploadDirectoryAsync(sessionID, rec.LocalFile, remoteParent, total, opts)
+			startErr = sft.startUploadDirectoryAsync(sessionID, rec.LocalFile, remoteParent, total, opts)
+		} else {
+			startErr = sft.startUploadFileAsync(sessionID, rec.LocalFile, remoteParent, info.Size(), opts)
 		}
-		return sft.startUploadFileAsync(sessionID, rec.LocalFile, remoteParent, info.Size(), opts)
 	case transfer.TypeDownload:
 		ftpClient, err := sft.getSftpClient(sessionID)
 		if err != nil {
@@ -919,12 +918,18 @@ func (sft *Manager) RetryTransfer(sessionID, transferID string) error {
 			if err != nil {
 				return err
 			}
-			return sft.startDownloadDirectoryAsync(sessionID, rec.LocalFile, rec.RemoteFile, total, opts)
+			startErr = sft.startDownloadDirectoryAsync(sessionID, rec.LocalFile, rec.RemoteFile, total, opts)
+		} else {
+			startErr = sft.startDownloadFileAsync(sessionID, rec.LocalFile, rec.RemoteFile, info.Size(), opts)
 		}
-		return sft.startDownloadFileAsync(sessionID, rec.LocalFile, rec.RemoteFile, info.Size(), opts)
 	default:
 		return fmt.Errorf("unknown transfer type: %s", rec.TransferType)
 	}
+	if startErr != nil {
+		return startErr
+	}
+	sft.notifyQueued(sessionID, 1)
+	return nil
 }
 
 func (sft *Manager) calcLocalDirSize(path string) (int64, error) {

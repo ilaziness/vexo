@@ -10,12 +10,16 @@ import OpBar from "./OpBar.tsx";
 import { DraggableTab } from "./DraggableTab.tsx";
 import { useSSHContextMenu } from "../hooks/useSSHContextMenu";
 import { genTabIndex } from "../func/service";
-import { ProgressData } from "../../bindings/github.com/ilaziness/vexo/services/models";
+import {
+  ProgressData,
+  TransferQueuedData,
+} from "../../bindings/github.com/ilaziness/vexo/services/models";
 import {
   LogService,
   BookmarkService,
 } from "../../bindings/github.com/ilaziness/vexo/services/index.ts";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
+import { useMessageStore } from "../stores/message";
 
 const AISideBar = React.lazy(() => import("./ai/AISideBar"));
 
@@ -36,6 +40,7 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
   const reorderTabs = useSSHTabsStore((state) => state.reorderTabs);
   const doTabReload = useReloadSSHTabStore((state) => state.doTabReload);
   const addProgress = useTransferStore((state) => state.addProgress);
+  const infoMessage = useMessageStore((state) => state.infoMessage);
   const { anchorEl, tabIndex, isOpen, openMenu, closeMenu } =
     useSSHContextMenu();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +59,21 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
       LogService.Debug(`SSHTabs eventProgress: ${JSON.stringify(event)}`);
       const eventData = event.data as ProgressData;
       addProgress(eventData);
+    });
+
+    const unsubscribeQueued = Events.On("eventTransferQueued", (event: any) => {
+      const data = event.data as TransferQueuedData;
+      if (!data?.sessionID || data.count < 1) return;
+      // Emit 会广播到所有窗口；仅本窗口持有该会话时提示
+      const ownsSession = useSSHTabsStore
+        .getState()
+        .sshTabs.some((t) => t.sshInfo?.linkID === data.sessionID);
+      if (!ownsSession) return;
+      infoMessage(
+        data.count > 1
+          ? `已添加 ${data.count} 项到传输列表`
+          : "已添加到传输列表",
+      );
     });
 
     const unsubscribeConnectBookmark = Events.On(
@@ -93,9 +113,10 @@ export default function SSHTabs({ onClose }: SSHTabsProps) {
 
     return () => {
       unsubscribeProgress();
+      unsubscribeQueued();
       unsubscribeConnectBookmark();
     };
-  }, [addProgress, pushTab, setCurrentTab]);
+  }, [addProgress, infoMessage, pushTab, setCurrentTab]);
 
   const handleCloseTab = useCallback(() => {
     if (tabIndex === null) return;

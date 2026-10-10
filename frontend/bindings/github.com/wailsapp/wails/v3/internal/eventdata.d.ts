@@ -29,6 +29,7 @@ declare module "@wailsio/runtime" {
             "eventSSHSessionLogStopped": string;
             "eventSftpFilesDropped": services$0.SftpFilesDroppedData;
             "eventShortcut": services$0.ShortcutEvent;
+            "eventTransferQueued": services$0.TransferQueuedData;
         }
     }
 }

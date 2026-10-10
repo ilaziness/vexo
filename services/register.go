@@ -56,6 +56,12 @@ func RegisterServices(a *application.App, mainWindow *application.WebviewWindow,
 		a.Event.Emit(EventProgress, p)
 	})
 	sftpMgr := sftp.NewManager(log, sshMgr, transfers, db.SftpTransferRepo)
+	sftpMgr.SetOnQueued(func(sessionID string, count int) {
+		a.Event.Emit(EventTransferQueued, TransferQueuedData{
+			SessionID: sessionID,
+			Count:     count,
+		})
+	})
 	tunnelMgr := tunnel.NewManager(log, sshMgr)
 
 	sshService := NewSSHService(a, sshMgr, sftpMgr, tunnelMgr)

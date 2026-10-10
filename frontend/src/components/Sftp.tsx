@@ -75,8 +75,7 @@ const Sftp: React.FC<SftpProps> = ({ linkID, ownerKey, onReady }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [showHiddenFiles, setShowHiddenFiles] = useState<boolean>(false);
   const initStartedRef = useRef(false);
-  const { errorMessage: showMessageError, infoMessage: showInfoMessage } =
-    useMessageStore();
+  const { errorMessage: showMessageError } = useMessageStore();
   const addProgress = useTransferStore((s) => s.addProgress);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -184,12 +183,12 @@ const Sftp: React.FC<SftpProps> = ({ linkID, ownerKey, onReady }) => {
       const { sessionID, localPaths } = event.data;
       if (sessionID !== linkID || !localPaths?.length) return;
 
-      SftpService.UploadPaths(linkID, currentPathRef.current, localPaths)
-        .then(() => showInfoMessage("已添加到传输列表"))
-        .catch((err) => showMessageError(parseCallServiceError(err)));
+      SftpService.UploadPaths(linkID, currentPathRef.current, localPaths).catch(
+        (err) => showMessageError(parseCallServiceError(err)),
+      );
     });
     return unsubDrop;
-  }, [linkID, showInfoMessage, showMessageError]);
+  }, [linkID, showMessageError]);
 
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -291,7 +290,6 @@ const Sftp: React.FC<SftpProps> = ({ linkID, ownerKey, onReady }) => {
       } else {
         const paths = targets.map((f) => remoteJoin(currentPath, f.name));
         await SftpService.DownloadPathsDialog(linkID, paths);
-        showInfoMessage("已添加到传输列表");
       }
     } catch (err: any) {
       showMessageError(parseCallServiceError(err));

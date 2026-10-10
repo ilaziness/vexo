@@ -11,16 +11,24 @@ import (
 
 const (
 	EventProgress        = "eventProgress"
+	EventTransferQueued  = "eventTransferQueued"
 	TransferTypeUpload   = transfer.TypeUpload
 	TransferTypeDownload = transfer.TypeDownload
 )
 
 func init() {
 	application.RegisterEvent[ProgressData](EventProgress)
+	application.RegisterEvent[TransferQueuedData](EventTransferQueued)
 }
 
 type ProgressData = transfer.ProgressData
 type FileInfo = sftp.FileInfo
+
+// TransferQueuedData notifies the UI that transfers were enqueued asynchronously.
+type TransferQueuedData struct {
+	SessionID string `json:"sessionID"`
+	Count     int    `json:"count"`
+}
 
 type SftpService struct {
 	app *application.App

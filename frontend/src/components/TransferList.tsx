@@ -46,7 +46,7 @@ const TransferList: React.FC<TransferListProps> = ({
     removeProgress,
     clearCompletedTransfers,
   } = useTransferStore();
-  const { errorMessage, infoMessage } = useMessageStore();
+  const { errorMessage } = useMessageStore();
   const transfersList = useMemo(() => {
     return transfersMap.get(sessionID) || [];
   }, [transfersMap, sessionID]);
@@ -88,7 +88,6 @@ const TransferList: React.FC<TransferListProps> = ({
   const handleRetry = async (transfer: ProgressData) => {
     try {
       await SftpService.RetryTransfer(sessionID, transfer.id);
-      infoMessage("已重新加入传输队列");
     } catch (err) {
       errorMessage(parseCallServiceError(err));
     }
